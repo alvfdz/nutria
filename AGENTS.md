@@ -10,4 +10,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Behavior
 
-Keep the output clear and straight to the point. Avoid unnecessary wording or overexplanation.
+- Keep the output clear and straight to the point. Avoid unnecessary wording or overexplanation.
+- Proactively identify tasks that could be done in parallel. Spawn subagents when possible.
