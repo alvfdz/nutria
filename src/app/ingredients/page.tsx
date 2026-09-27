@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { IngredientList } from "@/components/ingredients/ingredient-list";
+import { IngredientLibrary } from "@/components/ingredients/ingredient-library";
 import { NewIngredientForm } from "@/components/ingredients/new-ingredient-form";
 import { listIngredients } from "@/lib/ingredients/repository";
 
@@ -24,7 +24,7 @@ export default async function IngredientsPage() {
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <NewIngredientForm />
-        <IngredientList ingredients={ingredients} />
+        <IngredientLibrary ingredients={ingredients} />
       </div>
     </main>
   );

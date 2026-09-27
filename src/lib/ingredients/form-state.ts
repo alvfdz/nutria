@@ -16,3 +16,13 @@ export const initialIngredientFormState: IngredientFormState = {
   status: "idle",
   resetKey: 0,
 };
+
+export type IngredientDeleteState = {
+  status: "idle" | "error" | "success";
+  formError?: string;
+  deletedName?: string;
+};
+
+export const initialIngredientDeleteState: IngredientDeleteState = {
+  status: "idle",
+};
