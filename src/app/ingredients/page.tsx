@@ -1,0 +1,31 @@
+import type { Metadata } from "next";
+
+import { IngredientList } from "@/components/ingredients/ingredient-list";
+import { NewIngredientForm } from "@/components/ingredients/new-ingredient-form";
+import { listIngredients } from "@/lib/ingredients/repository";
+
+export const metadata: Metadata = {
+  title: "Ingredients",
+};
+
+export default async function IngredientsPage() {
+  const ingredients = await listIngredients();
+
+  return (
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
+      <header className="grid gap-1">
+        <h1 className="font-heading text-2xl font-medium tracking-tight">
+          Ingredients
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          The raw building blocks of every meal template you plan.
+        </p>
+      </header>
+
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+        <NewIngredientForm />
+        <IngredientList ingredients={ingredients} />
+      </div>
+    </main>
+  );
+}
