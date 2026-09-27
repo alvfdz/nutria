@@ -57,7 +57,8 @@ Anyone actively managing their diet—whether for health reasons, weight loss, m
 * **Proxy Caching:** Redis for caching external food search queries to minimize API latency and rate limits.
 
 ### 4. Deployment & Infrastructure (Self-Hostable)
-* **Containerization:** Orchestrated via `docker-compose`.
+* **Containerization:** Rootless **Podman**. Services are defined in a `compose.yaml` (Docker Compose–compatible) run with `podman compose`, with a `podman-compose` fallback for machines without the Podman Compose provider.
+* **Runtime:** OCI-compatible images, no Docker daemon or root privileges required.
 * **Services:** Single Next.js app (frontend + backend), PostgreSQL database, Redis cache.
 
 ---
