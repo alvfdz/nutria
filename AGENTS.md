@@ -8,6 +8,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
+# Code standards
+
+- Document the code with TSDoc comments. Every exported function, type, and constant gets a TSDoc block explaining its purpose, parameters, return value, and thrown errors.
+- Add unit tests for any new code. New behavior is expected to ship with tests that cover both the happy path and the edge cases.
+- Format the code with Prettier — run `npm run format` (or `npm run format:check` to verify) after making changes.
+- Run the tests with `npm test` after every change, and make sure they pass before considering the work done.
+
 # Behavior
 
 - Keep the output clear and straight to the point. Avoid unnecessary wording or overexplanation.
