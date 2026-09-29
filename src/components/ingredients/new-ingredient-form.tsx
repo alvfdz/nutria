@@ -18,6 +18,10 @@ import {
   type IngredientFieldErrors,
 } from "@/lib/ingredients/form-state";
 
+/**
+ * Card form for adding an ingredient. Clears itself after a successful save by
+ * remounting the fields against a new reset key.
+ */
 export function NewIngredientForm() {
   const [state, formAction, pending] = useActionState(
     createIngredientAction,

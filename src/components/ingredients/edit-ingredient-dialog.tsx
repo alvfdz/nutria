@@ -22,6 +22,10 @@ import {
 } from "@/lib/ingredients/form-state";
 import type { Ingredient } from "@/lib/ingredients/types";
 
+/**
+ * Modal for editing an existing ingredient. Opens on mount, submits through the
+ * update action, and closes itself once the save succeeds.
+ */
 export function EditIngredientDialog({
   ingredient,
   onClose,

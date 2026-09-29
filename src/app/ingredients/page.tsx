@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: "Ingredients",
 };
 
+/**
+ * Ingredient library route. Loads the stored ingredients on the server and
+ * renders the create form beside the library.
+ */
 export default async function IngredientsPage() {
   const ingredients = await listIngredients();
 

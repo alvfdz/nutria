@@ -14,6 +14,7 @@ type MacroFieldName =
   | "carbsPer100g"
   | "fatPer100g";
 
+/** The four macro inputs, with the unit and validation ceiling each one uses. */
 const macroFields: {
   name: MacroFieldName;
   label: string;
@@ -26,6 +27,10 @@ const macroFields: {
   { name: "fatPer100g", label: "Fat", unit: "g", max: 100 },
 ];
 
+/**
+ * Renders the first validation message for a field, wired to the input through
+ * `aria-describedby`. Renders nothing when the field is valid.
+ */
 function FieldError({
   id,
   errors,
@@ -43,6 +48,11 @@ function FieldError({
   );
 }
 
+/**
+ * Name plus per-100 g macro inputs, shared by the create form and the edit
+ * dialog. Uncontrolled so the browser owns the values and a submit does not
+ * need a controlled round trip.
+ */
 export function IngredientFields({
   ingredient,
   fieldErrors,

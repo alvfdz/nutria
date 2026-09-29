@@ -18,6 +18,10 @@ import {
 import { initialIngredientDeleteState } from "@/lib/ingredients/form-state";
 import type { Ingredient } from "@/lib/ingredients/types";
 
+/**
+ * Confirmation modal for removing an ingredient. Only the submit button
+ * performs the destructive action, so cancelling is the safe default.
+ */
 export function DeleteIngredientDialog({
   ingredient,
   onClose,

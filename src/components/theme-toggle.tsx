@@ -12,6 +12,7 @@ import {
   type Theme,
 } from "@/lib/theme";
 
+/** Switches between the light and dark themes and persists the choice. */
 export function ThemeToggle() {
   // React's Strict Mode remount resets <html> to the attributes it manages from
   // JSX in development, dropping the class the inline script set. Re-apply the

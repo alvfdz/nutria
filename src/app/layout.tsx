@@ -27,6 +27,10 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 };
 
+/**
+ * Root layout: wires the font variables, injects the pre-paint theme script,
+ * and frames every page with the site header.
+ */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html

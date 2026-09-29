@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 
+/** Sticky app bar with the home link and the theme toggle. */
 export function SiteHeader() {
   return (
     <header className="bg-background sticky top-0 z-10 border-b">

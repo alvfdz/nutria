@@ -26,6 +26,7 @@ const steps = [
   },
 ];
 
+/** Landing page: introduces the three-step workflow and links into the app. */
 export default function Home() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-16 sm:px-6">

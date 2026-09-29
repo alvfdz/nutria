@@ -14,6 +14,12 @@ import {
 } from "@/lib/ingredients/repository";
 import { ingredientSchema } from "@/lib/ingredients/schema";
 
+/**
+ * Reads the ingredient form out of a submission and validates it.
+ *
+ * @param formData Submission of the create or edit form.
+ * @returns The parsed values, or a failure carrying per-field messages.
+ */
 function parseIngredientFormData(formData: FormData) {
   return ingredientSchema.safeParse({
     name: formData.get("name"),
@@ -24,11 +30,27 @@ function parseIngredientFormData(formData: FormData) {
   });
 }
 
+/**
+ * Reads the hidden `id` field that identifies the ingredient to mutate.
+ *
+ * @param formData Submission of the edit or delete form.
+ * @returns The id, or `null` when it is missing or empty.
+ */
 function readIngredientId(formData: FormData): string | null {
   const id = formData.get("id");
   return typeof id === "string" && id !== "" ? id : null;
 }
 
+/**
+ * Server action behind the "New ingredient" form. Validates the submission,
+ * stores the ingredient, and refreshes the current route so the library shows
+ * it.
+ *
+ * @param previousState State returned by the previous submit.
+ * @param formData Submission of the form.
+ * @returns An error state with field or form messages, or a success state
+ * carrying the saved name and a bumped reset key.
+ */
 export async function createIngredientAction(
   previousState: IngredientFormState,
   formData: FormData,
@@ -64,6 +86,15 @@ export async function createIngredientAction(
   }
 }
 
+/**
+ * Server action behind the edit dialog. Validates the submission, updates the
+ * ingredient identified by the hidden `id` field, and refreshes the route.
+ *
+ * @param previousState State returned by the previous submit.
+ * @param formData Submission of the form.
+ * @returns An error state with field or form messages, or a success state
+ * carrying the saved name and a bumped reset key.
+ */
 export async function updateIngredientAction(
   previousState: IngredientFormState,
   formData: FormData,
@@ -108,6 +139,15 @@ export async function updateIngredientAction(
   }
 }
 
+/**
+ * Server action behind the delete confirmation. The ingredient name travels
+ * back in a hidden field so the client can announce it to screen readers
+ * without re-reading the store.
+ *
+ * @param previousState State returned by the previous submit.
+ * @param formData Submission of the form.
+ * @returns An error state, or a success state carrying the deleted name.
+ */
 export async function deleteIngredientAction(
   previousState: IngredientDeleteState,
   formData: FormData,

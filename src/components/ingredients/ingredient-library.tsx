@@ -26,6 +26,11 @@ import {
 import { formatMacro } from "@/lib/ingredients/format";
 import type { Ingredient } from "@/lib/ingredients/types";
 
+/**
+ * Tabular view of every stored ingredient, with per-row edit and delete
+ * actions. Owns which dialog is open and reports outcomes to a live region
+ * for screen readers.
+ */
 export function IngredientLibrary({
   ingredients,
 }: {
