@@ -9,10 +9,7 @@ import { formatMacro } from "@/lib/ingredients/format";
 import type { Ingredient } from "@/lib/ingredients/types";
 
 type MacroFieldName =
-  | "caloriesPer100g"
-  | "proteinPer100g"
-  | "carbsPer100g"
-  | "fatPer100g";
+  "caloriesPer100g" | "proteinPer100g" | "carbsPer100g" | "fatPer100g";
 
 /** The four macro inputs, with the unit and validation ceiling each one uses. */
 const macroFields: {

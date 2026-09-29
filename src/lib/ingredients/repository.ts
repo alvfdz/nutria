@@ -16,7 +16,9 @@ import type { Ingredient, NewIngredient } from "./types";
  * @param input Validated values for every user-editable field.
  * @returns The stored ingredient.
  */
-export async function createIngredient(input: NewIngredient): Promise<Ingredient> {
+export async function createIngredient(
+  input: NewIngredient,
+): Promise<Ingredient> {
   // TODO(db): replace the in-memory insert with the Prisma write once
   // PostgreSQL is wired up (docs/vision.md, Data Persistence Layer):
   //   return prisma.ingredient.create({ data: input });

@@ -42,12 +42,9 @@ export function IngredientLibrary({
 
   const closeEditing = useCallback(() => setEditing(null), []);
   const closeDeleting = useCallback(() => setDeleting(null), []);
-  const announceSaved = useCallback(
-    (name: string) => {
-      setAnnouncement(`${name} updated in your ingredient library.`);
-    },
-    [],
-  );
+  const announceSaved = useCallback((name: string) => {
+    setAnnouncement(`${name} updated in your ingredient library.`);
+  }, []);
   const announceDeleted = useCallback((name: string) => {
     setAnnouncement(`${name} removed from your ingredient library.`);
   }, []);

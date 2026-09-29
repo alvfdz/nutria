@@ -28,7 +28,10 @@ const errorsFor = (
 
 describe("ingredientSchema: name", () => {
   test("accepts a name and trims the surrounding whitespace", () => {
-    const result = ingredientSchema.safeParse({ ...validForm, name: "  Cod  " });
+    const result = ingredientSchema.safeParse({
+      ...validForm,
+      name: "  Cod  ",
+    });
     expect(result.success).toBe(true);
     expect(result.data?.name).toBe("Cod");
   });

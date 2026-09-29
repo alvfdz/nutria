@@ -19,8 +19,7 @@ const steps = [
   },
   {
     title: "Daily planner",
-    description:
-      "Assign meals to days and meal slots against a macro budget.",
+    description: "Assign meals to days and meal slots against a macro budget.",
     href: "/ingredients",
     cta: "Coming next",
   },
@@ -40,10 +39,7 @@ export default function Home() {
           budget for a meal before you sit down to it.
         </p>
         <div>
-          <Link
-            href="/ingredients"
-            className={buttonVariants({ size: "lg" })}
-          >
+          <Link href="/ingredients" className={buttonVariants({ size: "lg" })}>
             Start with your ingredients
           </Link>
         </div>
@@ -55,12 +51,8 @@ export default function Home() {
             <span className="text-muted-foreground text-xs tabular-nums">
               {String(index + 1).padStart(2, "0")}
             </span>
-            <h2 className="font-heading text-base font-medium">
-              {step.title}
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              {step.description}
-            </p>
+            <h2 className="font-heading text-base font-medium">{step.title}</h2>
+            <p className="text-muted-foreground text-sm">{step.description}</p>
             <Link
               href={step.href}
               className="text-sm underline-offset-4 hover:underline"

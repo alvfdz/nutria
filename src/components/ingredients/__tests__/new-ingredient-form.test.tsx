@@ -144,9 +144,7 @@ describe("NewIngredientForm", () => {
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
-    await waitFor(() =>
-      expect(screen.getByLabelText("Name")).toHaveValue(""),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue(""));
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(null);
   });
 });
