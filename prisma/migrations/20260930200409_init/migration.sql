@@ -1,0 +1,12 @@
+-- CreateTable
+CREATE TABLE "ingredients" (
+    "id" UUID NOT NULL,
+    "name" VARCHAR(80) NOT NULL,
+    "caloriesPer100g" DOUBLE PRECISION NOT NULL,
+    "proteinPer100g" DOUBLE PRECISION NOT NULL,
+    "carbsPer100g" DOUBLE PRECISION NOT NULL,
+    "fatPer100g" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ingredients_pkey" PRIMARY KEY ("id")
+);

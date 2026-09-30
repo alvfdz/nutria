@@ -1,0 +1,38 @@
+// Single-tenant by design for now (docs/vision.md, Out-of-Scope for MVP), so
+// `Ingredient` carries no `userId` yet.
+
+// The `prisma-client` generator emits TypeScript into the repo so the app can
+// typecheck against it without a build step. Prisma 7 has no
+// `prisma-client-js` generator and no Rust query engine; the client is
+// plain TypeScript driven by a driver adapter (see `src/lib/db/prisma.ts`).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 forbids `url` in the datasource block: the connection string is
+// supplied to the CLI through `prisma.config.ts` and to the client through a
+// driver adapter. Only the provider name belongs here.
+datasource db {
+  provider = "postgresql"
+}
+
+/// A raw food the user stores macros for, reported per 100 g of product.
+model Ingredient {
+  /// Server-generated UUID, so ids are never guessable or enumerable.
+  id String @id @default(uuid()) @db.Uuid
+  /// Display name of the raw food, e.g. "Chicken breast, raw".
+  name String @db.VarChar(80)
+  /// Energy density in kilocalories per 100 g.
+  caloriesPer100g Float
+  /// Protein density in grams per 100 g.
+  proteinPer100g Float
+  /// Carbohydrate density in grams per 100 g.
+  carbsPer100g Float
+  /// Fat density in grams per 100 g.
+  fatPer100g Float
+  /// Set by the database on insert; the library is ordered by it.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@map("ingredients")
+}

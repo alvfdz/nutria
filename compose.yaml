@@ -1,0 +1,34 @@
+# Local PostgreSQL for development. Engine-agnostic: it runs unchanged under
+# `podman compose` and `docker compose` (see the README for the one-time
+# plugin setup each engine needs).
+#
+# Every setting falls back to a development-only default through `${VAR:-default}`,
+# so `compose up -d` works with no configuration at all.
+services:
+  postgres:
+    image: docker.io/library/postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nutria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nutria}
+      POSTGRES_DB: ${POSTGRES_DB:-nutria}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    # The named volume is what makes the data survive restarts. It mounts at
+    # /var/lib/postgresql rather than .../data because PostgreSQL 18 stores its
+    # clusters in major-version subdirectories, and the image refuses to start
+    # against a mount sitting at the old location.
+    volumes: ["nutria-postgres:/var/lib/postgresql"]
+    # Lets `up -d --wait` and `depends_on: service_healthy` hold off on a
+    # database that is not accepting connections yet.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-nutria} -d ${POSTGRES_DB:-nutria}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  nutria-postgres:

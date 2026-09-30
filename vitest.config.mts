@@ -25,7 +25,13 @@ export default defineConfig({
       include: ["src/**"],
       // The vendored shadcn primitives are excluded so the number reflects
       // the code we actually own.
-      exclude: ["**/__tests__/**", "**/*.test.*", "src/components/ui/**"],
+      exclude: [
+        "**/__tests__/**",
+        "**/*.test.*",
+        "src/components/ui/**",
+        // Written by the Prisma generator, not by us.
+        "src/generated/**",
+      ],
     },
   },
 });
