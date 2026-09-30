@@ -2,26 +2,31 @@ import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
 
-const steps = [
+// `href` is omitted for the steps that have no route yet, which is what makes
+// their call to action render as plain text instead of a link.
+type Step = {
+  title: string;
+  description: string;
+  cta: { label: string; href?: "/ingredients" | "/meals" };
+};
+
+const steps: Step[] = [
   {
     title: "Ingredients",
     description:
       "Save the raw foods you cook with, with their macros per 100 g.",
-    href: "/ingredients",
-    cta: "Open the library",
+    cta: { label: "Open the library", href: "/ingredients" },
   },
   {
     title: "Meal templates",
     description:
       "Group ingredients into reusable meals you can plan ahead with.",
-    href: "/ingredients",
-    cta: "Coming next",
+    cta: { label: "Preview", href: "/meals" },
   },
   {
     title: "Daily planner",
     description: "Assign meals to days and meal slots against a macro budget.",
-    href: "/ingredients",
-    cta: "Coming next",
+    cta: { label: "Coming next" },
   },
 ];
 
@@ -53,12 +58,16 @@ export default function Home() {
             </span>
             <h2 className="font-heading text-base font-medium">{step.title}</h2>
             <p className="text-muted-foreground text-sm">{step.description}</p>
-            <Link
-              href={step.href}
-              className="text-sm underline-offset-4 hover:underline"
-            >
-              {step.cta}
-            </Link>
+            {step.cta.href ? (
+              <Link
+                href={step.cta.href}
+                className="text-sm underline-offset-4 hover:underline"
+              >
+                {step.cta.label}
+              </Link>
+            ) : (
+              <p className="text-muted-foreground text-sm">{step.cta.label}</p>
+            )}
           </li>
         ))}
       </ol>
