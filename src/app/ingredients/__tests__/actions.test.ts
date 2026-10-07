@@ -7,6 +7,7 @@ import {
   deleteIngredientAction,
   updateIngredientAction,
 } from "@/app/ingredients/actions";
+import { IngredientInUseError } from "@/lib/ingredients/errors";
 import {
   initialIngredientDeleteState,
   initialIngredientFormState,
@@ -220,5 +221,21 @@ describe("deleteIngredientAction", () => {
       status: "error",
       formError: "The ingredient could not be deleted. Please try again.",
     });
+  });
+
+  test("explains how many meals still use the ingredient", async () => {
+    vi.mocked(deleteIngredient).mockRejectedValue(new IngredientInUseError(3));
+
+    const state = await deleteIngredientAction(
+      initialIngredientDeleteState,
+      makeIngredientFormData({ id: "cod" }),
+    );
+
+    expect(state).toMatchObject({
+      status: "error",
+      formError:
+        "This ingredient is used in 3 meals. Remove it from them first.",
+    });
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

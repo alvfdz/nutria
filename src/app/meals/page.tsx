@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { MealLibrary } from "@/components/meals/meal-library";
+import { NewMealForm } from "@/components/meals/new-meal-form";
+import { listIngredients } from "@/lib/ingredients/repository";
+import { listMeals } from "@/lib/meals/repository";
 
 export const metadata: Metadata = {
   title: "Meals",
 };
 
 /**
- * Meals route. Placeholder for the meal library: it explains what a meal will
- * be and points back at the ingredients a meal is built from.
+ * Meal library route. Loads the ingredients and meals on the server and
+ * renders the create form beside the library. The form doubles as the
+ * onboarding step when there are no ingredients to build from yet.
  */
-export default function MealsPage() {
+export default async function MealsPage() {
+  const [ingredients, meals] = await Promise.all([
+    listIngredients(),
+    listMeals(),
+  ]);
+
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
       <header className="grid gap-1">
@@ -30,31 +31,9 @@ export default function MealsPage() {
         </p>
       </header>
 
-      <div className="mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>A meal is a set of ingredients</CardTitle>
-            <CardDescription>
-              Give a group of ingredients a name and a quantity each, and its
-              macros total themselves.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm">
-              Save the meals you cook often, then plan them into a day against
-              your macro budget.
-            </p>
-            <Link
-              href="/ingredients"
-              className={buttonVariants({
-                variant: "outline",
-                className: "mt-4",
-              })}
-            >
-              Add ingredients first
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+        <NewMealForm ingredients={ingredients} />
+        <MealLibrary meals={meals} ingredients={ingredients} />
       </div>
     </main>
   );

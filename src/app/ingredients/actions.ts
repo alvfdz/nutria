@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 
+import { IngredientInUseError } from "@/lib/ingredients/errors";
 import type {
   IngredientDeleteState,
   IngredientFormState,
@@ -172,6 +173,19 @@ export async function deleteIngredientAction(
       deletedName: typeof name === "string" ? name : "",
     };
   } catch (error) {
+    // Meals still reference the ingredient: an expected refusal, so it gets
+    // the explaining message and no "could not delete" log line.
+    if (error instanceof IngredientInUseError) {
+      const mealCount = error.mealCount;
+      const meals = `meal${mealCount === 1 ? "" : "s"}`;
+
+      return {
+        ...previousState,
+        status: "error",
+        formError: `This ingredient is used in ${mealCount} ${meals}. Remove it from them first.`,
+      };
+    }
+
     console.error("Could not delete the ingredient", error);
 
     return {

@@ -7,6 +7,7 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db/prisma";
+import { IngredientInUseError } from "./errors";
 import type { Ingredient, NewIngredient } from "./types";
 
 /**
@@ -102,9 +103,21 @@ export async function updateIngredient(
  * Permanently removes an ingredient.
  *
  * @param id Identifier of the ingredient to remove.
+ * @throws {IngredientInUseError} If meals still reference the ingredient.
  * @throws {Error} If no ingredient has that id.
  */
 export async function deleteIngredient(id: string): Promise<void> {
+  // Count before deleting so the user gets "used in N meals" rather than the
+  // bare foreign-key failure the `Restrict` constraint would otherwise raise.
+  // The constraint stays as the backstop for a delete racing a meal insert.
+  const mealCount = await getPrisma().mealItem.count({
+    where: { ingredientId: id },
+  });
+
+  if (mealCount > 0) {
+    throw new IngredientInUseError(mealCount);
+  }
+
   try {
     await getPrisma().ingredient.delete({ where: { id } });
   } catch (error) {

@@ -34,5 +34,45 @@ model Ingredient {
   /// Set by the database on insert; the library is ordered by it.
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
+  /// Meal items that reference this ingredient; deletion is blocked while any
+  /// of them exist (`onDelete: Restrict` on the `MealItem` side).
+  mealItems MealItem[]
+
   @@map("ingredients")
+}
+
+/// A named combination of ingredients the user saves to plan with, i.e. the
+/// "Meal Template" of the product vision.
+model Meal {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id String @id @default(uuid()) @db.Uuid
+  /// Display name of the template, e.g. "Oatmeal & Protein Bowl".
+  name String @db.VarChar(80)
+  /// Set by the database on insert; the library is ordered by it.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  /// The ingredients that make up the meal, in the order they were added.
+  items MealItem[]
+
+  @@map("meals")
+}
+
+/// One ingredient of a {@link Meal}, with the quantity the template uses.
+model MealItem {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id String @id @default(uuid()) @db.Uuid
+  /// Quantity of the ingredient in this meal, in grams.
+  grams Float
+  /// Position of the row within its meal, preserving the builder's order.
+  sortOrder Int
+  /// Meal the row belongs to; removed together with it.
+  mealId String @db.Uuid
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  /// Ingredient the row points at; `Restrict` blocks deleting an ingredient
+  /// that meals still reference.
+  ingredientId String @db.Uuid
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([mealId])
+  @@index([ingredientId])
+  @@map("meal_items")
 }

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db/prisma";
+import { IngredientInUseError } from "@/lib/ingredients/errors";
 import {
   createIngredient,
   deleteIngredient,
@@ -25,6 +26,11 @@ const ingredient = {
   delete: vi.fn(),
 };
 
+// The deletion guard counts a meal's rows before touching the ingredient.
+const mealItem = {
+  count: vi.fn(),
+};
+
 const input = { ...ingredientDefaults };
 
 /**
@@ -41,10 +47,13 @@ function notFound(message: string): Prisma.PrismaClientKnownRequestError {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getPrisma).mockReturnValue({ ingredient } as unknown as ReturnType<
-    typeof getPrisma
-  >);
+  vi.mocked(getPrisma).mockReturnValue({
+    ingredient,
+    mealItem,
+  } as unknown as ReturnType<typeof getPrisma>);
   vi.mocked(connection).mockResolvedValue(undefined);
+  // Nothing references the ingredient unless a test says otherwise.
+  mealItem.count.mockResolvedValue(0);
 });
 
 describe("createIngredient", () => {
@@ -192,6 +201,36 @@ describe("deleteIngredient", () => {
     await deleteIngredient("cod");
 
     expect(ingredient.delete).toHaveBeenCalledWith({ where: { id: "cod" } });
+  });
+
+  test("deletes normally when no meal references the ingredient", async () => {
+    mealItem.count.mockResolvedValue(0);
+    ingredient.delete.mockResolvedValue({ id: "cod", ...input });
+
+    await deleteIngredient("cod");
+
+    expect(mealItem.count).toHaveBeenCalledWith({
+      where: { ingredientId: "cod" },
+    });
+    expect(ingredient.delete).toHaveBeenCalledWith({ where: { id: "cod" } });
+  });
+
+  test("counts only the meal rows that reference the given ingredient", async () => {
+    await deleteIngredient("cod");
+
+    expect(mealItem.count).toHaveBeenCalledWith({
+      where: { ingredientId: "cod" },
+    });
+  });
+
+  test("refuses to delete an ingredient meals still reference", async () => {
+    mealItem.count.mockResolvedValue(3);
+
+    const deletion = deleteIngredient("cod");
+
+    await expect(deletion).rejects.toBeInstanceOf(IngredientInUseError);
+    await expect(deletion).rejects.toMatchObject({ mealCount: 3 });
+    expect(ingredient.delete).not.toHaveBeenCalled();
   });
 
   test("translates the missing-row error into an unknown ingredient", async () => {
