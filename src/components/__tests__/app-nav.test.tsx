@@ -21,6 +21,10 @@ describe("AppNav", () => {
 
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(nav).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Goals" })).toHaveAttribute(
+      "href",
+      "/goals",
+    );
     expect(screen.getByRole("link", { name: "Ingredients" })).toHaveAttribute(
       "href",
       "/ingredients",
@@ -59,11 +63,31 @@ describe("AppNav", () => {
     );
   });
 
+  test("marks the goals section as current on the goals route", () => {
+    pathname.mockReturnValue("/goals");
+
+    render(<AppNav />);
+
+    expect(screen.getByRole("link", { name: "Goals" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getByRole("link", { name: "Ingredients" }),
+    ).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Meals" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
   test("leaves every link inactive on a route outside the sections", () => {
     pathname.mockReturnValue("/");
 
     render(<AppNav />);
 
+    expect(screen.getByRole("link", { name: "Goals" })).not.toHaveAttribute(
+      "aria-current",
+    );
     expect(
       screen.getByRole("link", { name: "Ingredients" }),
     ).not.toHaveAttribute("aria-current");

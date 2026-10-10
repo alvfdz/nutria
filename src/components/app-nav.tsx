@@ -7,6 +7,7 @@ import { cn } from "cn";
 
 /** The top-level sections of the app, in the order they appear in the nav. */
 const sections = [
+  { href: "/goals", label: "Goals" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/meals", label: "Meals" },
 ] as const;
