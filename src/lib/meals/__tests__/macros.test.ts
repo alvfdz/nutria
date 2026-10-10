@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { Ingredient } from "@/lib/ingredients/types";
-import { computeMealTotals } from "@/lib/meals/macros";
+import { computeMealTotals, sumMealItems } from "@/lib/meals/macros";
 import type { MealItem } from "@/lib/meals/types";
 import { makeIngredient, makeMeal } from "@test/factories";
 
@@ -90,6 +90,59 @@ describe("computeMealTotals", () => {
     );
 
     expect(totals).toEqual({
+      calories: 257.5,
+      protein: 13.75,
+      carbs: 40.5,
+      fat: 5,
+    });
+  });
+});
+
+describe("sumMealItems", () => {
+  test("returns all zeroes for an empty list", () => {
+    expect(sumMealItems([])).toEqual({
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    });
+  });
+
+  test("scales a single item's densities by its grams", () => {
+    const chicken = makeIngredient();
+
+    expect(sumMealItems([{ grams: 50, ingredient: chicken }])).toEqual({
+      calories: 82.5,
+      protein: 15.75,
+      carbs: 0,
+      fat: 1.8,
+    });
+  });
+
+  test("sums across items that reference different ingredients", () => {
+    const oats = makeIngredient({
+      id: "oats",
+      name: "Oats",
+      caloriesPer100g: 389,
+      proteinPer100g: 17,
+      carbsPer100g: 66,
+      fatPer100g: 7,
+    });
+    const milk = makeIngredient({
+      id: "milk",
+      name: "Whole milk",
+      caloriesPer100g: 42,
+      proteinPer100g: 3.5,
+      carbsPer100g: 5,
+      fatPer100g: 1,
+    });
+
+    expect(
+      sumMealItems([
+        { grams: 50, ingredient: oats },
+        { grams: 150, ingredient: milk },
+      ]),
+    ).toEqual({
       calories: 257.5,
       protein: 13.75,
       carbs: 40.5,

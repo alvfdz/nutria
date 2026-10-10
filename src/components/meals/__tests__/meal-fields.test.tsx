@@ -12,6 +12,10 @@ const ingredients = [
   makeIngredient({ id: "ing-whey", name: "Whey Protein" }),
 ];
 
+/** The live preview's four values, in builder order, as rendered text. */
+const definitions = () =>
+  screen.getAllByRole("definition").map((node) => node.textContent);
+
 describe("MealFields", () => {
   test("starts with one empty row", () => {
     render(<MealFields ingredients={ingredients} fieldErrors={{}} />);
@@ -167,6 +171,45 @@ describe("MealFields", () => {
     expect(data.getAll("ingredientId")).toHaveLength(2);
     expect(data.getAll("grams")).toEqual(["80", "250"]);
     expect(data.get("name")).toBe("");
+  });
+
+  test("previews zeroes before anything is entered", () => {
+    render(<MealFields ingredients={ingredients} fieldErrors={{}} />);
+
+    expect(definitions()).toEqual(["0 kcal", "0 g", "0 g", "0 g"]);
+  });
+
+  test("previews the totals of the rows entered so far", async () => {
+    const user = userEvent.setup();
+    render(<MealFields ingredients={ingredients} fieldErrors={{}} />);
+
+    await user.click(screen.getByRole("combobox", { name: "Ingredient 1" }));
+    await user.click(await screen.findByRole("option", { name: "Oats" }));
+    await user.type(screen.getByLabelText("Grams 1"), "200");
+
+    // Oats carries the factory's 165 kcal / 31.5 p / 0 c / 3.6 f per 100 g.
+    expect(definitions()).toEqual(["330 kcal", "63 g", "0 g", "7.2 g"]);
+  });
+
+  test("ignores rows missing an ingredient or a quantity", async () => {
+    const user = userEvent.setup();
+    render(<MealFields ingredients={ingredients} fieldErrors={{}} />);
+
+    await user.type(screen.getByLabelText("Grams 1"), "200");
+    expect(definitions()).toEqual(["0 kcal", "0 g", "0 g", "0 g"]);
+
+    await user.click(screen.getByRole("combobox", { name: "Ingredient 1" }));
+    await user.click(await screen.findByRole("option", { name: "Oats" }));
+    await user.clear(screen.getByLabelText("Grams 1"));
+
+    expect(definitions()).toEqual(["0 kcal", "0 g", "0 g", "0 g"]);
+  });
+
+  test("shows a gram unit inside each quantity field", () => {
+    render(<MealFields ingredients={ingredients} fieldErrors={{}} />);
+
+    const grams = screen.getByLabelText("Grams 1");
+    expect(within(grams.parentElement!).getByText("g")).toBeInTheDocument();
   });
 
   test("drops the hidden inputs of a removed row", async () => {

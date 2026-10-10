@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 
 import { Plus, X } from "lucide-react";
 
@@ -14,8 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatMacro } from "@/lib/ingredients/format";
 import type { Ingredient } from "@/lib/ingredients/types";
 import type { MealFieldErrors } from "@/lib/meals/form-state";
+import { sumMealItems } from "@/lib/meals/macros";
 import type { Meal } from "@/lib/meals/types";
 
 /** One builder row: a stable key plus the values its inputs are bound to. */
@@ -56,7 +58,8 @@ function FieldError({
  * action submission triggers; a failed submit therefore keeps the values, while
  * a successful one clears them through the parent's `resetKey` remount.
  * Validation messages are keyed by row index (`items.0.grams`) and render under
- * the input they belong to.
+ * the input they belong to. A live preview totals the rows entered so far, and
+ * each quantity field carries a gram suffix.
  */
 export function MealFields({
   meal,
@@ -93,6 +96,35 @@ export function MealFields({
     value: ingredient.id,
     label: ingredient.name,
   }));
+
+  const ingredientsById = useMemo(
+    () => new Map(ingredients.map((ingredient) => [ingredient.id, ingredient])),
+    [ingredients],
+  );
+
+  // Preview the totals from complete rows only: a row needs a chosen ingredient
+  // and a positive quantity before it can contribute.
+  const totals = useMemo(
+    () =>
+      sumMealItems(
+        rows.flatMap((row) => {
+          const ingredient = row.ingredientId
+            ? ingredientsById.get(row.ingredientId)
+            : undefined;
+          const grams = Number(row.grams);
+          if (!ingredient || !Number.isFinite(grams) || grams <= 0) return [];
+          return [{ grams, ingredient }];
+        }),
+      ),
+    [rows, ingredientsById],
+  );
+
+  const previewStats = [
+    { label: "Calories", unit: "kcal", value: totals.calories },
+    { label: "Protein", unit: "g", value: totals.protein },
+    { label: "Carbs", unit: "g", value: totals.carbs },
+    { label: "Fat", unit: "g", value: totals.fat },
+  ];
 
   const addRow = () => {
     const key = `row-${nextRowId.current++}`;
@@ -168,21 +200,30 @@ export function MealFields({
               </div>
 
               <div className="grid w-24 gap-1.5">
-                <Input
-                  id={gramsId}
-                  name="grams"
-                  type="number"
-                  inputMode="decimal"
-                  step="any"
-                  value={row.grams ?? ""}
-                  onChange={(event) =>
-                    updateRow(row.key, { grams: event.target.value })
-                  }
-                  placeholder="0"
-                  aria-label={`Grams ${index + 1}`}
-                  aria-invalid={gramsErrors ? true : undefined}
-                  aria-describedby={gramsErrors ? gramsErrorId : undefined}
-                />
+                <div className="relative">
+                  <Input
+                    id={gramsId}
+                    name="grams"
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    value={row.grams ?? ""}
+                    onChange={(event) =>
+                      updateRow(row.key, { grams: event.target.value })
+                    }
+                    placeholder="0"
+                    className="pr-6"
+                    aria-label={`Grams ${index + 1}`}
+                    aria-invalid={gramsErrors ? true : undefined}
+                    aria-describedby={gramsErrors ? gramsErrorId : undefined}
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
+                  >
+                    g
+                  </span>
+                </div>
                 <FieldError id={gramsErrorId} errors={gramsErrors} />
               </div>
 
@@ -209,6 +250,25 @@ export function MealFields({
           </Button>
         </div>
       </fieldset>
+
+      <div className="grid gap-2">
+        <p className="text-muted-foreground text-xs font-medium">
+          Preview · this meal
+        </p>
+        <dl className="grid grid-cols-4 gap-2 rounded-lg border border-border p-3">
+          {previewStats.map((stat) => (
+            <div key={stat.label} className="grid gap-0.5 text-center">
+              <dt className="text-muted-foreground text-xs">{stat.label}</dt>
+              <dd className="text-sm font-medium tabular-nums">
+                {formatMacro(stat.value)}{" "}
+                <span className="text-muted-foreground font-normal">
+                  {stat.unit}
+                </span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     </div>
   );
 }
