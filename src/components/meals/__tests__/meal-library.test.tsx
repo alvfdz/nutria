@@ -111,9 +111,15 @@ describe("MealLibrary", () => {
     expect(rows).toHaveLength(2);
 
     const cells = within(rows[1]).getAllByRole("cell");
-    expect(cells.slice(0, 6).map((cell) => cell.textContent)).toEqual([
-      "Porridge",
-      "Oats (100 g), Milk (200 g)",
+    expect(cells).toHaveLength(6);
+
+    const [mealCell, ...rest] = cells;
+    expect(within(mealCell).getByText("Porridge")).toBeInTheDocument();
+    expect(
+      within(mealCell).getByText("Oats (100 g), Milk (200 g)"),
+    ).toBeInTheDocument();
+    // The four macro columns follow, with Actions last.
+    expect(rest.slice(0, 4).map((cell) => cell.textContent)).toEqual([
       "500",
       "30",
       "70",

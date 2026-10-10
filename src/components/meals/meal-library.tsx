@@ -75,7 +75,6 @@ export function MealLibrary({
             <TableHeader>
               <TableRow>
                 <TableHead>Meal</TableHead>
-                <TableHead>Ingredients</TableHead>
                 <TableHead className="text-right">kcal</TableHead>
                 <TableHead className="text-right">Protein</TableHead>
                 <TableHead className="text-right">Carbs</TableHead>
@@ -95,9 +94,11 @@ export function MealLibrary({
 
                 return (
                   <TableRow key={meal.id}>
-                    <TableCell className="font-medium">{meal.name}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {items}
+                    <TableCell className="whitespace-normal font-medium">
+                      <div>{meal.name}</div>
+                      <div className="text-muted-foreground text-sm font-normal">
+                        {items}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMacro(totals.calories)}
