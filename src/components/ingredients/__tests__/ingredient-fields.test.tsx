@@ -125,6 +125,23 @@ describe("IngredientFields", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("relies on server-side validation instead of native constraints", () => {
+    render(<IngredientFields fieldErrors={{}} />);
+
+    for (const label of [
+      labels.name,
+      labels.calories,
+      labels.protein,
+      labels.carbs,
+      labels.fat,
+    ]) {
+      const input = screen.getByLabelText(label);
+      expect(input).not.toHaveAttribute("required");
+      expect(input).not.toHaveAttribute("min");
+      expect(input).not.toHaveAttribute("max");
+    }
+  });
+
   test("keeps ids stable across renders when given a prefix", () => {
     const { rerender } = render(
       <IngredientFields fieldErrors={{}} idPrefix="edit" />,

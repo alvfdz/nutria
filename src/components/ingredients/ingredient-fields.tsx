@@ -11,17 +11,20 @@ import type { Ingredient } from "@/lib/ingredients/types";
 type MacroFieldName =
   "caloriesPer100g" | "proteinPer100g" | "carbsPer100g" | "fatPer100g";
 
-/** The four macro inputs, with the unit and validation ceiling each one uses. */
+/**
+ * The four macro inputs, with the unit shown in their label. Bounds are
+ * validated by `ingredientSchema` on submit so the message comes back as a
+ * red-bordered field error instead of a native validation popup.
+ */
 const macroFields: {
   name: MacroFieldName;
   label: string;
   unit: string;
-  max: number;
 }[] = [
-  { name: "caloriesPer100g", label: "Calories", unit: "kcal", max: 900 },
-  { name: "proteinPer100g", label: "Protein", unit: "g", max: 100 },
-  { name: "carbsPer100g", label: "Carbohydrates", unit: "g", max: 100 },
-  { name: "fatPer100g", label: "Fat", unit: "g", max: 100 },
+  { name: "caloriesPer100g", label: "Calories", unit: "kcal" },
+  { name: "proteinPer100g", label: "Protein", unit: "g" },
+  { name: "carbsPer100g", label: "Carbohydrates", unit: "g" },
+  { name: "fatPer100g", label: "Fat", unit: "g" },
 ];
 
 /**
@@ -96,7 +99,6 @@ export function IngredientFields({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Chicken breast, raw"
-          required
           aria-invalid={nameErrors ? true : undefined}
           aria-describedby={nameErrors ? nameErrorId : undefined}
         />
@@ -127,8 +129,6 @@ export function IngredientFields({
                   type="number"
                   inputMode="decimal"
                   step="0.1"
-                  min="0"
-                  max={field.max}
                   value={values[field.name]}
                   onChange={(event) =>
                     setValues((current) => ({
@@ -137,7 +137,6 @@ export function IngredientFields({
                     }))
                   }
                   placeholder="0"
-                  required
                   aria-invalid={errors ? true : undefined}
                   aria-describedby={errors ? errorId : undefined}
                 />

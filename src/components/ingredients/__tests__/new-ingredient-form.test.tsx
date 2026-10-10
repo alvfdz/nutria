@@ -68,14 +68,28 @@ describe("NewIngredientForm", () => {
     });
   });
 
-  test("does not submit while a field is empty", async () => {
+  test("submits empty fields so the action can report them", async () => {
     const user = userEvent.setup();
-    respondWith(initialIngredientFormState);
+    respondWith({
+      status: "error",
+      resetKey: 0,
+      fieldErrors: {
+        name: ["Name is required"],
+        caloriesPer100g: ["Calories is required"],
+      },
+    });
 
     render(<NewIngredientForm />);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
-    expect(action).not.toHaveBeenCalled();
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    const name = await screen.findByLabelText("Name");
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("Name is required");
+    expect(screen.getByLabelText("Calories (kcal)")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
   });
 
   test("shows a form error as an alert", async () => {
