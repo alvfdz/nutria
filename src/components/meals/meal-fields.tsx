@@ -18,13 +18,13 @@ import type { Ingredient } from "@/lib/ingredients/types";
 import type { MealFieldErrors } from "@/lib/meals/form-state";
 import type { Meal } from "@/lib/meals/types";
 
-/** One builder row: a stable key plus the values an edit seeds it with. */
+/** One builder row: a stable key plus the values its inputs are bound to. */
 type Row = {
-  /** React key, stable across add/remove so uncontrolled inputs keep values. */
+  /** React key, stable across add/remove so a row keeps its own values. */
   key: string;
-  /** Ingredient preselected in the row, when editing an existing meal. */
+  /** Ingredient selected in the row, if any. */
   ingredientId?: string;
-  /** Quantity pre-filled in the row, when editing an existing meal. */
+  /** Quantity typed in the row, if any. */
   grams?: string;
 };
 
@@ -51,10 +51,12 @@ function FieldError({
 
 /**
  * Name plus the ingredient rows of the meal builder, shared by the create form
- * and the edit dialog. The selects and quantity inputs are uncontrolled: rows
- * only track their identity, so the browser owns the values and a submit does
- * not need a controlled round trip. Validation messages are keyed by row index
- * (`items.0.grams`) and render under the input they belong to.
+ * and the edit dialog. The inputs are controlled by local state so React
+ * re-applies the entered values after the native form reset that every server
+ * action submission triggers; a failed submit therefore keeps the values, while
+ * a successful one clears them through the parent's `resetKey` remount.
+ * Validation messages are keyed by row index (`items.0.grams`) and render under
+ * the input they belong to.
  */
 export function MealFields({
   meal,
@@ -76,6 +78,7 @@ export function MealFields({
   // New rows reuse the highest key handed out so far; React keeps it across
   // renders, and the component starts from the number of seeded rows.
   const nextRowId = useRef(meal?.items.length ?? 1);
+  const [name, setName] = useState(meal?.name ?? "");
   const [rows, setRows] = useState<Row[]>(() =>
     meal
       ? meal.items.map((item, index) => ({
@@ -98,6 +101,11 @@ export function MealFields({
   const removeRow = (key: string) => {
     setRows((current) => current.filter((row) => row.key !== key));
   };
+  const updateRow = (key: string, patch: Partial<Omit<Row, "key">>) => {
+    setRows((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
+    );
+  };
 
   return (
     <div className="grid gap-4">
@@ -106,7 +114,8 @@ export function MealFields({
         <Input
           id={nameId}
           name="name"
-          defaultValue={meal?.name}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
           placeholder="Oatmeal & Protein Bowl"
           aria-invalid={nameErrors ? true : undefined}
           aria-describedby={nameErrors ? nameErrorId : undefined}
@@ -132,7 +141,10 @@ export function MealFields({
                 <Select
                   name="ingredientId"
                   items={options}
-                  defaultValue={row.ingredientId}
+                  value={row.ingredientId ?? null}
+                  onValueChange={(value) =>
+                    updateRow(row.key, { ingredientId: value ?? undefined })
+                  }
                 >
                   <SelectTrigger
                     className="w-full"
@@ -162,7 +174,10 @@ export function MealFields({
                   type="number"
                   inputMode="decimal"
                   step="any"
-                  defaultValue={row.grams}
+                  value={row.grams ?? ""}
+                  onChange={(event) =>
+                    updateRow(row.key, { grams: event.target.value })
+                  }
                   placeholder="0"
                   aria-label={`Grams ${index + 1}`}
                   aria-invalid={gramsErrors ? true : undefined}

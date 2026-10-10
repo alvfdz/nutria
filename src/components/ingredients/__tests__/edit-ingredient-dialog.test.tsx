@@ -136,4 +136,26 @@ describe("EditIngredientDialog", () => {
     expect(name).toHaveAttribute("aria-invalid", "true");
     expect(name).toHaveAccessibleDescription("Name is required");
   });
+
+  test("keeps the edits when the save is rejected", async () => {
+    const user = userEvent.setup();
+    action.mockImplementation(async () => ({
+      status: "error",
+      resetKey: 0,
+      fieldErrors: { name: ["Name is required"] },
+    }));
+
+    renderDialog();
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "Atlantic cod");
+    await user.clear(screen.getByLabelText("Calories (kcal)"));
+    await user.type(screen.getByLabelText("Calories (kcal)"), "90");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const name = await screen.findByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
+    expect(name).toHaveValue("Atlantic cod");
+    expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(90);
+    expect(screen.getByLabelText("Protein (g)")).toHaveValue(17.8);
+  });
 });

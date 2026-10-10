@@ -128,6 +128,31 @@ describe("NewMealForm", () => {
     expect(name).toHaveAccessibleDescription("Name is required");
   });
 
+  test("keeps the entered values when validation fails", async () => {
+    const user = userEvent.setup();
+    respondWith({
+      status: "error",
+      resetKey: 0,
+      fieldErrors: { name: ["Name is required"] },
+    });
+
+    render(<NewMealForm ingredients={[oats, milk]} />);
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    const name = await screen.findByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
+    expect(name).toHaveValue(mealDefaults.name);
+    expect(
+      screen.getByRole("combobox", { name: "Ingredient 1" }),
+    ).toHaveTextContent("Oats");
+    expect(screen.getByLabelText("Grams 1")).toHaveValue(80);
+    expect(
+      screen.getByRole("combobox", { name: "Ingredient 2" }),
+    ).toHaveTextContent("Milk");
+    expect(screen.getByLabelText("Grams 2")).toHaveValue(250);
+  });
+
   test("announces the saved name in a live region", async () => {
     const user = userEvent.setup();
     respondWith({

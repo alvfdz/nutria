@@ -112,6 +112,27 @@ describe("NewIngredientForm", () => {
     expect(name).toHaveAccessibleDescription("Name is required");
   });
 
+  test("keeps the entered values when validation fails", async () => {
+    const user = userEvent.setup();
+    respondWith({
+      status: "error",
+      resetKey: 0,
+      fieldErrors: { name: ["Name is required"] },
+    });
+
+    render(<NewIngredientForm />);
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "Add ingredient" }));
+
+    const name = await screen.findByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
+    expect(name).toHaveValue("Cod");
+    expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(82);
+    expect(screen.getByLabelText("Protein (g)")).toHaveValue(17.8);
+    expect(screen.getByLabelText("Carbohydrates (g)")).toHaveValue(0);
+    expect(screen.getByLabelText("Fat (g)")).toHaveValue(0.7);
+  });
+
   test("announces the saved name in a live region", async () => {
     const user = userEvent.setup();
     respondWith({

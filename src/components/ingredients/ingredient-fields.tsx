@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,9 +46,23 @@ function FieldError({
 }
 
 /**
+ * Seeds a macro input from an existing ingredient, formatting numbers the same
+ * way they are displayed. A missing ingredient or macro starts empty.
+ */
+function seedMacro(
+  ingredient: Ingredient | undefined,
+  name: MacroFieldName,
+): string {
+  const value = ingredient?.[name];
+  return value === undefined ? "" : formatMacro(value);
+}
+
+/**
  * Name plus per-100 g macro inputs, shared by the create form and the edit
- * dialog. Uncontrolled so the browser owns the values and a submit does not
- * need a controlled round trip.
+ * dialog. The inputs are controlled by local state so React re-applies the
+ * entered values after the native form reset that every server action
+ * submission triggers; a failed submit therefore keeps the values, while a
+ * successful one clears them through the parent's `resetKey` remount.
  */
 export function IngredientFields({
   ingredient,
@@ -64,6 +78,13 @@ export function IngredientFields({
   const nameId = `${baseId}-name`;
   const nameErrorId = `${baseId}-name-error`;
   const nameErrors = fieldErrors.name;
+  const [name, setName] = useState(ingredient?.name ?? "");
+  const [values, setValues] = useState<Record<MacroFieldName, string>>(() => ({
+    caloriesPer100g: seedMacro(ingredient, "caloriesPer100g"),
+    proteinPer100g: seedMacro(ingredient, "proteinPer100g"),
+    carbsPer100g: seedMacro(ingredient, "carbsPer100g"),
+    fatPer100g: seedMacro(ingredient, "fatPer100g"),
+  }));
 
   return (
     <div className="grid gap-4">
@@ -72,7 +93,8 @@ export function IngredientFields({
         <Input
           id={nameId}
           name="name"
-          defaultValue={ingredient?.name}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
           placeholder="Chicken breast, raw"
           required
           aria-invalid={nameErrors ? true : undefined}
@@ -90,9 +112,6 @@ export function IngredientFields({
             const fieldId = `${baseId}-${field.name}`;
             const errorId = `${fieldId}-error`;
             const errors = fieldErrors[field.name];
-            const macro = ingredient?.[field.name];
-            const defaultValue =
-              macro === undefined ? undefined : formatMacro(macro);
 
             return (
               <div key={field.name} className="grid gap-1.5">
@@ -110,7 +129,13 @@ export function IngredientFields({
                   step="0.1"
                   min="0"
                   max={field.max}
-                  defaultValue={defaultValue}
+                  value={values[field.name]}
+                  onChange={(event) =>
+                    setValues((current) => ({
+                      ...current,
+                      [field.name]: event.target.value,
+                    }))
+                  }
                   placeholder="0"
                   required
                   aria-invalid={errors ? true : undefined}

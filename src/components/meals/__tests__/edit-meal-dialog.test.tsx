@@ -164,4 +164,32 @@ describe("EditMealDialog", () => {
     expect(name).toHaveAttribute("aria-invalid", "true");
     expect(name).toHaveAccessibleDescription("Name is required");
   });
+
+  test("keeps the edits when the save is rejected", async () => {
+    const user = userEvent.setup();
+    action.mockImplementation(async () => ({
+      status: "error",
+      resetKey: 0,
+      fieldErrors: { name: ["Name is required"] },
+    }));
+
+    renderDialog();
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "Porridge bowl");
+    await user.clear(screen.getByLabelText("Grams 1"));
+    await user.type(screen.getByLabelText("Grams 1"), "150");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const name = await screen.findByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
+    expect(name).toHaveValue("Porridge bowl");
+    expect(
+      screen.getByRole("combobox", { name: "Ingredient 1" }),
+    ).toHaveTextContent("Oats");
+    expect(screen.getByLabelText("Grams 1")).toHaveValue(150);
+    expect(
+      screen.getByRole("combobox", { name: "Ingredient 2" }),
+    ).toHaveTextContent("Milk");
+    expect(screen.getByLabelText("Grams 2")).toHaveValue(200);
+  });
 });
