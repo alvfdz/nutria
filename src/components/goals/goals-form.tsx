@@ -110,9 +110,10 @@ function Stat({
  * re-applies the entered values after the native form reset that every server
  * action submission triggers; a failed submit therefore keeps the values. The
  * page keys this component on the stored `goals.updatedAt`, so a successful
- * save remounts it seeded from the freshly saved values. A live summary uses
- * `budget.ts` to show the daily grams and each meal's kcal/gram slice while
- * the user edits.
+ * save remounts it seeded from the freshly saved values. On large screens the
+ * editor and a sticky live-summary card sit side by side; the summary uses
+ * `budget.ts` to show the daily grams, each meal's kcal/gram slice, and a bar
+ * for its share of the day while the user edits.
  */
 export function GoalsForm({ goals }: { goals: Goals | null }) {
   const [state, formAction, pending] = useActionState(
@@ -198,174 +199,95 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
 
   return (
     <form action={formAction}>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {goals ? "Daily goals" : "Set your daily goals"}
-          </CardTitle>
-          <CardDescription>
-            Your calorie target, macro split, and the meals that divide the
-            day&apos;s budget.
-          </CardDescription>
-        </CardHeader>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {goals ? "Daily goals" : "Set your daily goals"}
+            </CardTitle>
+            <CardDescription>
+              Your calorie target, macro split, and the meals that divide the
+              day&apos;s budget.
+            </CardDescription>
+          </CardHeader>
 
-        <CardContent className="grid gap-5">
-          <fieldset className="grid gap-3">
-            <legend className="text-muted-foreground text-xs font-medium">
-              Daily budget
-            </legend>
+          <CardContent className="grid gap-5">
+            <fieldset className="grid gap-3">
+              <legend className="text-muted-foreground text-xs font-medium">
+                Daily budget
+              </legend>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${baseId}-calories`}>Calories (kcal)</Label>
-              <Input
-                id={`${baseId}-calories`}
-                name="calories"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step="any"
-                value={calories}
-                onChange={(event) => setCalories(event.target.value)}
-                placeholder="2000"
-                aria-invalid={fieldErrors.calories ? true : undefined}
-                aria-describedby={
-                  fieldErrors.calories ? `${baseId}-calories-error` : undefined
-                }
-              />
-              <FieldError
-                id={`${baseId}-calories-error`}
-                errors={fieldErrors.calories}
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid min-w-0 gap-1.5">
+                  <Label htmlFor={`${baseId}-calories`}>Calories (kcal)</Label>
+                  <Input
+                    id={`${baseId}-calories`}
+                    name="calories"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step="any"
+                    value={calories}
+                    onChange={(event) => setCalories(event.target.value)}
+                    placeholder="2000"
+                    aria-invalid={fieldErrors.calories ? true : undefined}
+                    aria-describedby={
+                      fieldErrors.calories
+                        ? `${baseId}-calories-error`
+                        : undefined
+                    }
+                  />
+                  <FieldError
+                    id={`${baseId}-calories-error`}
+                    errors={fieldErrors.calories}
+                  />
+                </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              {(
-                [
-                  {
-                    label: "Protein %",
-                    name: "proteinPct",
-                    value: proteinPct,
-                    setter: setProteinPct,
-                    errorKey: "proteinPct" as const,
-                  },
-                  {
-                    label: "Carbs %",
-                    name: "carbsPct",
-                    value: carbsPct,
-                    setter: setCarbsPct,
-                    errorKey: "carbsPct" as const,
-                  },
-                  {
-                    label: "Fat %",
-                    name: "fatPct",
-                    value: fatPct,
-                    setter: setFatPct,
-                    errorKey: "fatPct" as const,
-                  },
-                ] as const
-              ).map((macro) => {
-                const id = `${baseId}-${macro.name}`;
-                const errors = fieldErrors[macro.errorKey];
+                {(
+                  [
+                    {
+                      label: "Protein %",
+                      name: "proteinPct",
+                      value: proteinPct,
+                      setter: setProteinPct,
+                      errorKey: "proteinPct" as const,
+                    },
+                    {
+                      label: "Carbs %",
+                      name: "carbsPct",
+                      value: carbsPct,
+                      setter: setCarbsPct,
+                      errorKey: "carbsPct" as const,
+                    },
+                    {
+                      label: "Fat %",
+                      name: "fatPct",
+                      value: fatPct,
+                      setter: setFatPct,
+                      errorKey: "fatPct" as const,
+                    },
+                  ] as const
+                ).map((macro) => {
+                  const id = `${baseId}-${macro.name}`;
+                  const errors = fieldErrors[macro.errorKey];
 
-                return (
-                  <div key={macro.name} className="grid min-w-0 gap-1.5">
-                    <Label htmlFor={id}>{macro.label}</Label>
-                    <div className="relative">
-                      <Input
-                        id={id}
-                        name={macro.name}
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        max={100}
-                        step="any"
-                        value={macro.value}
-                        onChange={(event) => macro.setter(event.target.value)}
-                        className="pr-7"
-                        aria-invalid={errors ? true : undefined}
-                        aria-describedby={errors ? `${id}-error` : undefined}
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
-                      >
-                        %
-                      </span>
-                    </div>
-                    <FieldError id={`${id}-error`} errors={errors} />
-                  </div>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset className="grid gap-3">
-            <legend className="text-muted-foreground text-xs font-medium">
-              Meals per day
-            </legend>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${baseId}-meal-count`}>Meals per day</Label>
-              <Input
-                id={`${baseId}-meal-count`}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={MAX_MEALS}
-                step={1}
-                value={rows.length}
-                onChange={(event) => resizeRows(Number(event.target.value))}
-                className="max-w-24"
-                aria-label="Meals per day"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              {rows.map((row, index) => {
-                const nameErrorId = `${baseId}-slot-${index}-name-error`;
-                const percentId = `${baseId}-slot-${index}-percent`;
-                const percentErrorId = `${percentId}-error`;
-                const nameErrors = fieldErrors[`slots.${index}.name`];
-                const percentErrors = fieldErrors[`slots.${index}.percent`];
-
-                return (
-                  <div key={row.key} className="flex items-start gap-2">
-                    <div className="grid min-w-0 flex-1 gap-1.5">
-                      <Input
-                        id={`${baseId}-slot-${index}-name`}
-                        name="slotName"
-                        value={row.name}
-                        onChange={(event) =>
-                          updateRow(row.key, { name: event.target.value })
-                        }
-                        placeholder={`Meal ${index + 1}`}
-                        aria-label={`Meal ${index + 1} name`}
-                        aria-invalid={nameErrors ? true : undefined}
-                        aria-describedby={nameErrors ? nameErrorId : undefined}
-                      />
-                      <FieldError id={nameErrorId} errors={nameErrors} />
-                    </div>
-
-                    <div className="grid w-24 gap-1.5">
+                  return (
+                    <div key={macro.name} className="grid min-w-0 gap-1.5">
+                      <Label htmlFor={id}>{macro.label}</Label>
                       <div className="relative">
                         <Input
-                          id={percentId}
-                          name="slotPercent"
+                          id={id}
+                          name={macro.name}
                           type="number"
                           inputMode="decimal"
                           min={0}
                           max={100}
                           step="any"
-                          value={row.percent}
-                          onChange={(event) =>
-                            updateRow(row.key, { percent: event.target.value })
-                          }
+                          value={macro.value}
+                          onChange={(event) => macro.setter(event.target.value)}
                           className="pr-7"
-                          aria-label={`Meal ${index + 1} share (%)`}
-                          aria-invalid={percentErrors ? true : undefined}
-                          aria-describedby={
-                            percentErrors ? percentErrorId : undefined
-                          }
+                          aria-invalid={errors ? true : undefined}
+                          aria-describedby={errors ? `${id}-error` : undefined}
                         />
                         <span
                           aria-hidden="true"
@@ -374,70 +296,195 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
                           %
                         </span>
                       </div>
-                      <FieldError id={percentErrorId} errors={percentErrors} />
+                      <FieldError id={`${id}-error`} errors={errors} />
                     </div>
+                  );
+                })}
+              </div>
+            </fieldset>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Remove meal ${index + 1}`}
-                      disabled={rows.length === 1}
-                      onClick={() => resizeRows(rows.length - 1)}
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
+            <fieldset className="grid gap-3">
+              <legend className="sr-only">Meals per day</legend>
 
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => resizeRows(rows.length + 1)}
-              >
-                <Plus /> Add meal
-              </Button>
-            </div>
+              <div className="flex items-center justify-between gap-4">
+                <Label
+                  htmlFor={`${baseId}-meal-count`}
+                  className="text-muted-foreground text-xs font-medium"
+                >
+                  Meals per day
+                </Label>
+                <Input
+                  id={`${baseId}-meal-count`}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_MEALS}
+                  step={1}
+                  value={rows.length}
+                  onChange={(event) => resizeRows(Number(event.target.value))}
+                  className="w-20"
+                />
+              </div>
 
-            {fieldErrors.slots ? (
-              <p className="text-destructive text-xs">{fieldErrors.slots[0]}</p>
+              <div className="grid gap-2">
+                {rows.map((row, index) => {
+                  const nameErrorId = `${baseId}-slot-${index}-name-error`;
+                  const percentId = `${baseId}-slot-${index}-percent`;
+                  const percentErrorId = `${percentId}-error`;
+                  const nameErrors = fieldErrors[`slots.${index}.name`];
+                  const percentErrors = fieldErrors[`slots.${index}.percent`];
+
+                  return (
+                    <div key={row.key} className="flex items-start gap-2">
+                      <div className="grid min-w-0 flex-1 gap-1.5">
+                        <Input
+                          id={`${baseId}-slot-${index}-name`}
+                          name="slotName"
+                          value={row.name}
+                          onChange={(event) =>
+                            updateRow(row.key, { name: event.target.value })
+                          }
+                          placeholder={`Meal ${index + 1}`}
+                          aria-label={`Meal ${index + 1} name`}
+                          aria-invalid={nameErrors ? true : undefined}
+                          aria-describedby={
+                            nameErrors ? nameErrorId : undefined
+                          }
+                        />
+                        <FieldError id={nameErrorId} errors={nameErrors} />
+                      </div>
+
+                      <div className="grid w-24 gap-1.5">
+                        <div className="relative">
+                          <Input
+                            id={percentId}
+                            name="slotPercent"
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            max={100}
+                            step="any"
+                            value={row.percent}
+                            onChange={(event) =>
+                              updateRow(row.key, {
+                                percent: event.target.value,
+                              })
+                            }
+                            className="pr-7"
+                            aria-label={`Meal ${index + 1} share (%)`}
+                            aria-invalid={percentErrors ? true : undefined}
+                            aria-describedby={
+                              percentErrors ? percentErrorId : undefined
+                            }
+                          />
+                          <span
+                            aria-hidden="true"
+                            className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
+                          >
+                            %
+                          </span>
+                        </div>
+                        <FieldError
+                          id={percentErrorId}
+                          errors={percentErrors}
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove meal ${index + 1}`}
+                        disabled={rows.length === 1}
+                        onClick={() => resizeRows(rows.length - 1)}
+                      >
+                        <X />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => resizeRows(rows.length + 1)}
+                >
+                  <Plus /> Add meal
+                </Button>
+              </div>
+
+              {fieldErrors.slots ? (
+                <p className="text-destructive text-xs">
+                  {fieldErrors.slots[0]}
+                </p>
+              ) : null}
+            </fieldset>
+
+            {state.formError ? (
+              <p role="alert" className="text-destructive text-sm">
+                {state.formError}
+              </p>
             ) : null}
-          </fieldset>
+          </CardContent>
 
-          <div className="grid gap-2">
-            <p className="text-muted-foreground text-xs font-medium">
-              Live summary
-            </p>
+          <CardFooter className="justify-end">
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : goals ? "Save goals" : "Set goals"}
+            </Button>
+          </CardFooter>
+        </Card>
 
+        <Card className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
+          <CardHeader>
+            <CardTitle>Live summary</CardTitle>
+            <CardDescription>
+              {daily
+                ? "Daily targets and each meal's slice, recalculated as you edit."
+                : "Enter a calorie target to see the numbers."}
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
             {daily ? (
-              <>
-                <dl className="grid grid-cols-4 gap-2 rounded-lg border border-border p-3">
+              <div className="grid gap-4">
+                <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
                   <Stat label="Calories" value={daily.calories} unit="kcal" />
                   <Stat label="Protein" value={daily.proteinGrams} unit="g" />
                   <Stat label="Carbs" value={daily.carbsGrams} unit="g" />
                   <Stat label="Fat" value={daily.fatGrams} unit="g" />
                 </dl>
-                <ul className="grid gap-1.5">
+
+                <ul className="grid gap-4">
                   {slotBudgets.map((budget, index) => {
                     const row = rows[index];
                     if (!row) return null;
+                    const share = Math.min(
+                      100,
+                      Math.max(0, Number(row.percent) || 0),
+                    );
 
                     return (
-                      <li
-                        key={row.key}
-                        className="flex items-baseline justify-between gap-3 rounded-lg border border-border px-3 py-2"
-                      >
-                        <span className="text-sm font-medium">
-                          {row.name}
-                          <span className="text-muted-foreground font-normal">
-                            {" "}
-                            · {row.percent}%
+                      <li key={row.key} className="grid gap-2">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium">
+                            {row.name || `Meal ${index + 1}`}
                           </span>
-                        </span>
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            {formatMacro(share)}%
+                          </span>
+                        </div>
+                        <div
+                          aria-hidden="true"
+                          className="bg-muted h-1.5 overflow-hidden rounded-full"
+                        >
+                          <div
+                            className="bg-primary h-full rounded-full"
+                            style={{ width: `${share}%` }}
+                          />
+                        </div>
                         <span className="text-muted-foreground text-xs tabular-nums">
                           {formatMacro(budget.calories)} kcal · P{" "}
                           {formatMacro(budget.proteinGrams)} g · C{" "}
@@ -448,27 +495,15 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
                     );
                   })}
                 </ul>
-              </>
+              </div>
             ) : (
               <p className="text-muted-foreground text-sm">
                 Enter your daily calories to see the gram targets.
               </p>
             )}
-          </div>
-
-          {state.formError ? (
-            <p role="alert" className="text-destructive text-sm">
-              {state.formError}
-            </p>
-          ) : null}
-        </CardContent>
-
-        <CardFooter className="justify-end">
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : goals ? "Save goals" : "Set goals"}
-          </Button>
-        </CardFooter>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       <p role="status" className="sr-only">
         {state.status === "success" ? state.savedMessage : ""}
