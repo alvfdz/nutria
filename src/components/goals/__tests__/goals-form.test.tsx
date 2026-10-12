@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
@@ -19,7 +19,7 @@ describe("GoalsForm", () => {
   test("starts with three default meals when no goals are stored", () => {
     render(<GoalsForm goals={null} />);
 
-    expect(screen.getByLabelText("Meals per day")).toHaveValue(3);
+    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(2000);
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
     expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
@@ -43,14 +43,24 @@ describe("GoalsForm", () => {
     ).toBeInTheDocument();
   });
 
-  test("rebalances every share to 100 / count when the meal count changes", () => {
+  test("shows the meal count as read-only text derived from the rows", () => {
     render(<GoalsForm goals={null} />);
 
-    fireEvent.change(screen.getByLabelText("Meals per day"), {
-      target: { value: "5" },
-    });
+    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
+    // No number input offers a second way to change the count.
+    expect(
+      screen.queryByRole("spinbutton", { name: "Meals per day" }),
+    ).not.toBeInTheDocument();
+  });
 
-    expect(screen.getByLabelText("Meals per day")).toHaveValue(5);
+  test("rebalances every share to 100 / count as meals are added", async () => {
+    const user = userEvent.setup();
+    render(<GoalsForm goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("5");
     expect(screen.getByLabelText("Meal 4 name")).toHaveValue("Meal 4");
     expect(screen.getByLabelText("Meal 5 name")).toHaveValue("Meal 5");
     // 100 / 5 = 20% each.

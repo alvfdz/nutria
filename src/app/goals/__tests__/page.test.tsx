@@ -48,10 +48,7 @@ describe("GoalsPage", () => {
     ).toBeInTheDocument();
 
     // The default seed: 3 meals, balanced shares.
-    const mealsPerDay = screen.getByLabelText(
-      "Meals per day",
-    ) as HTMLInputElement;
-    expect(mealsPerDay.value).toBe("3");
+    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
     const calories = screen.getByLabelText(
       "Calories (kcal)",
     ) as HTMLInputElement;

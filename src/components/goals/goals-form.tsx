@@ -306,24 +306,19 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
             <fieldset className="grid gap-3">
               <legend className="sr-only">Meals per day</legend>
 
-              <div className="flex items-center justify-between gap-4">
-                <Label
-                  htmlFor={`${baseId}-meal-count`}
+              <div className="flex items-center gap-2">
+                <span
+                  id={`${baseId}-meal-count`}
                   className="text-muted-foreground text-xs font-medium"
                 >
                   Meals per day
-                </Label>
-                <Input
-                  id={`${baseId}-meal-count`}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_MEALS}
-                  step={1}
-                  value={rows.length}
-                  onChange={(event) => resizeRows(Number(event.target.value))}
-                  className="w-20"
-                />
+                </span>
+                <output
+                  aria-labelledby={`${baseId}-meal-count`}
+                  className="text-sm font-medium tabular-nums"
+                >
+                  {rows.length}
+                </output>
               </div>
 
               <div className="grid gap-2">
