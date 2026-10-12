@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useMemo, useState } from "react";
 
-import { Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 
 import { saveGoalsAction } from "@/app/goals/actions";
 import { Button } from "@/components/ui/button";
@@ -113,7 +113,9 @@ function Stat({
  * save remounts it seeded from the freshly saved values. On large screens the
  * editor and a sticky live-summary card sit side by side; the summary uses
  * `budget.ts` to show the daily grams, each meal's kcal/gram slice, and a bar
- * for its share of the day while the user edits.
+ * for its share of the day while the user edits. Each row also carries
+ * up/down buttons that reorder the meals; because the summary maps over the
+ * same rows, it follows the new dining order.
  */
 export function GoalsForm({ goals }: { goals: Goals | null }) {
   const [state, formAction, pending] = useActionState(
@@ -144,6 +146,7 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
         }))
       : DEFAULT_SLOTS.map((slot, index) => ({ key: `row-${index}`, ...slot })),
   );
+  const [announcement, setAnnouncement] = useState("");
 
   /**
    * Resizes the day to `count` meals, rebalancing every share to
@@ -167,6 +170,27 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
     setRows((current) =>
       current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
     );
+  };
+
+  /**
+   * Moves the row at `index` by `delta` positions (negative up, positive down),
+   * keeping its key, name and share together so the meal — not the position —
+   * carries its values. Out-of-range moves are ignored, so the arrow buttons
+   * disabled at the ends stay no-ops. The jump is announced for screen readers,
+   * which cannot see the reordered rows move.
+   */
+  const moveRow = (index: number, delta: number) => {
+    const target = index + delta;
+    if (target < 0 || target >= rows.length) return;
+
+    const label = rows[index].name || `Meal ${index + 1}`;
+    setRows((current) => {
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+    setAnnouncement(`${label} moved to position ${target + 1}`);
   };
 
   // Live summary inputs: an empty or non-numeric calorie field hides it.
@@ -389,6 +413,26 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        aria-label={`Move meal ${index + 1} up`}
+                        disabled={index === 0}
+                        onClick={() => moveRow(index, -1)}
+                      >
+                        <ArrowUp />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Move meal ${index + 1} down`}
+                        disabled={index === rows.length - 1}
+                        onClick={() => moveRow(index, 1)}
+                      >
+                        <ArrowDown />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         aria-label={`Remove meal ${index + 1}`}
                         disabled={rows.length === 1}
                         onClick={() => resizeRows(rows.length - 1)}
@@ -501,7 +545,7 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
       </div>
 
       <p role="status" className="sr-only">
-        {state.status === "success" ? state.savedMessage : ""}
+        {announcement || (state.status === "success" ? state.savedMessage : "")}
       </p>
     </form>
   );

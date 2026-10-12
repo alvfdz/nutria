@@ -15,6 +15,12 @@ const shares = () =>
     .getAllByLabelText(/share \(%\)/)
     .map((input) => Number((input as HTMLInputElement).value));
 
+/** The meal names the live summary lists, top to bottom. */
+const summaryMeals = () =>
+  screen
+    .getAllByRole("listitem")
+    .map((item) => item.querySelector("span")?.textContent);
+
 describe("GoalsForm", () => {
   test("starts with three default meals when no goals are stored", () => {
     render(<GoalsForm goals={null} />);
@@ -128,5 +134,57 @@ describe("GoalsForm", () => {
     // 2500 × 30% / 4 = 187.5 g.
     expect(screen.getByText("187.5")).toBeInTheDocument();
     expect(screen.getByText("2500")).toBeInTheDocument();
+  });
+
+  test("moves a meal up and carries its name and share with it", async () => {
+    const user = userEvent.setup();
+    render(<GoalsForm goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Move meal 2 up" }));
+
+    // Lunch swaps into first place, taking its 40% share along.
+    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Lunch");
+    expect(screen.getByLabelText("Meal 1 share (%)")).toHaveValue(40);
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Breakfast");
+    expect(screen.getByLabelText("Meal 2 share (%)")).toHaveValue(30);
+  });
+
+  test("moves a meal down and keeps the live summary in step", async () => {
+    const user = userEvent.setup();
+    render(<GoalsForm goals={null} />);
+
+    expect(summaryMeals()).toEqual(["Breakfast", "Lunch", "Dinner"]);
+
+    await user.click(screen.getByRole("button", { name: "Move meal 1 down" }));
+
+    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Lunch");
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Breakfast");
+    expect(summaryMeals()).toEqual(["Lunch", "Breakfast", "Dinner"]);
+  });
+
+  test("disables the move buttons at the ends of the list", () => {
+    render(<GoalsForm goals={null} />);
+
+    expect(
+      screen.getByRole("button", { name: "Move meal 1 up" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Move meal 3 down" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Move meal 1 down" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Move meal 3 up" }),
+    ).toBeEnabled();
+  });
+
+  test("announces the new position after a move", async () => {
+    const user = userEvent.setup();
+    render(<GoalsForm goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Move meal 2 up" }));
+
+    expect(screen.getByText("Lunch moved to position 1")).toBeInTheDocument();
   });
 });
