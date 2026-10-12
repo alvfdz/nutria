@@ -1,4 +1,5 @@
 import type { Ingredient, NewIngredient } from "@/lib/ingredients/types";
+import type { Goals, NewGoals } from "@/lib/goals/types";
 import type { Meal, MealItem, NewMeal } from "@/lib/meals/types";
 
 /** Sensible defaults for an ingredient, overridable field by field. */
@@ -139,6 +140,93 @@ export function makeValidMealFormData(
       mealDefaults.items.map((item) => ({
         ingredientId: item.ingredientId,
         grams: String(item.grams),
+      })),
+  );
+}
+
+/** Sensible defaults for the daily goals, overridable field by field. */
+export const goalsDefaults: NewGoals = {
+  calories: 2000,
+  proteinPct: 30,
+  carbsPct: 40,
+  fatPct: 30,
+  slots: [
+    { name: "Breakfast", percent: 30 },
+    { name: "Lunch", percent: 40 },
+    { name: "Dinner", percent: 30 },
+  ],
+};
+
+/**
+ * Builds stored goals with a deterministic id and timestamps, and slots whose
+ * ids and sort order follow the defaults.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makeGoals(overrides: Partial<Goals> = {}): Goals {
+  return {
+    ...goalsDefaults,
+    id: "goals-1",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    slots: goalsDefaults.slots.map((slot, index) => ({
+      ...slot,
+      id: `meal-slot-${index + 1}`,
+      sortOrder: index,
+    })),
+    ...overrides,
+  };
+}
+
+/**
+ * Builds the form submission a browser would send for the goals form. The
+ * form posts one `slotName` and one `slotPercent` entry per meal, so the rows
+ * are appended in order; a `null` half leaves that entry out entirely, which
+ * is how a row missing half its fields reaches the validator.
+ *
+ * @param values Scalar fields to set; `null` leaves the field out.
+ * @param slots The rows to append, in dining order.
+ */
+export function makeGoalsFormData(
+  values: Record<string, string | null> = {},
+  slots: { name: string | null; percent: string | null }[] = [],
+): FormData {
+  const formData = makeIngredientFormData(values);
+
+  for (const slot of slots) {
+    if (slot.name !== null) {
+      formData.append("slotName", slot.name);
+    }
+    if (slot.percent !== null) {
+      formData.append("slotPercent", slot.percent);
+    }
+  }
+
+  return formData;
+}
+
+/**
+ * Builds a complete, valid goals submission as strings.
+ *
+ * @param overrides Scalar fields to set; `null` leaves the field out.
+ * @param slots Rows to submit; defaults to {@link goalsDefaults}.
+ */
+export function makeValidGoalsFormData(
+  overrides: Record<string, string | null> = {},
+  slots?: { name: string | null; percent: string | null }[],
+): FormData {
+  return makeGoalsFormData(
+    {
+      calories: String(goalsDefaults.calories),
+      proteinPct: String(goalsDefaults.proteinPct),
+      carbsPct: String(goalsDefaults.carbsPct),
+      fatPct: String(goalsDefaults.fatPct),
+      ...overrides,
+    },
+    slots ??
+      goalsDefaults.slots.map((slot) => ({
+        name: slot.name,
+        percent: String(slot.percent),
       })),
   );
 }

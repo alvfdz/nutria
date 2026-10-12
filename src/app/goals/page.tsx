@@ -1,22 +1,22 @@
 import type { Metadata } from "next";
 
+import { GoalsForm } from "@/components/goals/goals-form";
 import { PageContainer } from "@/components/page-container";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { getGoals } from "@/lib/goals/repository";
 
 export const metadata: Metadata = {
   title: "Goals",
 };
 
 /**
- * Goals route. Placeholder until daily macro targets are configurable; the
- * card marks the spot where the target setup will live.
+ * Goals route. Loads the single stored goals row (or nothing on first visit)
+ * and renders the setup form beside the intro. The form is keyed on
+ * `updatedAt` so a successful save re-seeds it from the database; when no
+ * goals exist yet the same form acts as the onboarding step.
  */
-export default function GoalsPage() {
+export default async function GoalsPage() {
+  const goals = await getGoals();
+
   return (
     <main className="flex-1">
       <PageContainer className="py-10">
@@ -29,15 +29,9 @@ export default function GoalsPage() {
           </p>
         </header>
 
-        <Card className="mt-8 max-w-xl">
-          <CardHeader>
-            <CardTitle>Daily targets are coming soon</CardTitle>
-            <CardDescription>
-              Soon you&apos;ll set your total daily goals here, and every meal
-              you plan will be measured against them.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="mt-8 max-w-xl">
+          <GoalsForm key={goals?.updatedAt ?? "first"} goals={goals} />
+        </div>
       </PageContainer>
     </main>
   );

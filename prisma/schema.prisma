@@ -76,3 +76,47 @@ model MealItem {
   @@index([ingredientId])
   @@map("meal_items")
 }
+
+/// The user's daily macro budget. Single-tenant like `Ingredient`: one row per
+/// app, replaced rather than versioned. The day's meals ("Meal Slots") hang off
+/// this row, so the meals-per-day count derives from the number of slots.
+model Goals {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id String @id @default(uuid()) @db.Uuid
+  /// Total daily energy target in kilocalories.
+  calories Float
+  /// Share of daily energy coming from protein, 0–100.
+  proteinPct Float
+  /// Share of daily energy coming from carbohydrates, 0–100.
+  carbsPct Float
+  /// Share of daily energy coming from fat, 0–100.
+  fatPct Float
+  /// Set by the database on insert.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  /// Rewritten by Prisma on every update; the goals form keys on it to re-seed.
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  /// The day's meals, in dining order.
+  slots MealSlot[]
+
+  @@map("goals")
+}
+
+/// One daily meal: its share of the total daily budget plus its position in
+/// the dining order. Owned by its {@link Goals} row and deleted with it.
+model MealSlot {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id String @id @default(uuid()) @db.Uuid
+  /// Display name, e.g. "Breakfast", "Lunch", or "Meal 1".
+  name String @db.VarChar(40)
+  /// Share of the daily budget this meal gets, 0–100.
+  percent Float
+  /// Position in the dining order; also what the slots query orders by.
+  sortOrder Int
+  /// Goals row the slot belongs to; removed together with it.
+  goalsId String @db.Uuid
+  goals Goals @relation(fields: [goalsId], references: [id], onDelete: Cascade)
+
+  @@unique([goalsId, sortOrder])
+  @@map("meal_slots")
+}

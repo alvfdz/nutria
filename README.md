@@ -113,6 +113,30 @@ container:
 npm test
 ```
 
+## Macro math
+
+Gram targets for protein, carbs and fat derive from the daily calorie target
+and the percentage split using the 4/4/9 food-energy rule: protein and carbs
+yield ~4 kcal/g, fat ~9 kcal/g.
+
+```
+grams = calories × (pct / 100) / kcalPerGram
+```
+
+For 2000 kcal at 30% protein / 40% carbs / 30% fat:
+
+- Protein: `2000 × 0.30 / 4` = **150 g**
+- Carbs: `2000 × 0.40 / 4` = **200 g**
+- Fat: `2000 × 0.30 / 9` = **66.7 g**
+
+A meal slot's budget is the daily numbers scaled by the slot's share of the
+day — a 40% lunch gets 800 kcal, 60 g protein, 80 g carbs and 26.7 g fat.
+
+The math lives in `src/lib/goals/budget.ts` (`computeMacroBudget` and
+`computeSlotBudgets`) and is shared by the server action and the form's live
+summary. Rounded values appear only at display time; the stored data and the
+calculations keep full precision.
+
 ## Dependency overrides
 
 `package.json` pins two transitive dependencies ahead of what the Prisma CLI

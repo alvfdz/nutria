@@ -1,0 +1,478 @@
+"use client";
+
+import { useActionState, useId, useMemo, useState } from "react";
+
+import { Plus, X } from "lucide-react";
+
+import { saveGoalsAction } from "@/app/goals/actions";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
+import {
+  initialGoalsFormState,
+  type GoalsFieldErrors,
+} from "@/lib/goals/form-state";
+import type { Goals } from "@/lib/goals/types";
+import { formatMacro } from "@/lib/ingredients/format";
+
+/** Highest number of daily meals the form offers. */
+const MAX_MEALS = 8;
+
+/** Seed values for a first-time visit without stored goals. */
+const DEFAULT_CALORIES = 2000;
+const DEFAULT_MACROS = { proteinPct: "30", carbsPct: "40", fatPct: "30" };
+const DEFAULT_SLOTS = [
+  { name: "Breakfast", percent: "30" },
+  { name: "Lunch", percent: "40" },
+  { name: "Dinner", percent: "30" },
+];
+
+/** One meal row: a stable key plus the values its inputs are bound to. */
+type Row = {
+  /** React key, stable across add/remove so a row keeps its own values. */
+  key: string;
+  /** Name typed in the row, if any. */
+  name: string;
+  /** Share of the daily budget typed in the row, if any. */
+  percent: string;
+};
+
+/**
+ * Splits 100% evenly across `count` meals. Every row gets
+ * `100 / count` rounded to two decimals; the remainder lands on the last row
+ * so the sum is exactly 100 and rebalancing never trips the schema's sum
+ * check (e.g. three meals → 33.33 / 33.33 / 33.34).
+ *
+ * @param count Number of meals to divide the day into.
+ * @returns One percentage string per meal, summing to 100.
+ */
+function evenPercents(count: number): string[] {
+  const share = Math.round((100 / count) * 100) / 100;
+  const last = Math.round((100 - share * (count - 1)) * 100) / 100;
+  const percents = Array.from({ length: count - 1 }, () => String(share));
+
+  return [...percents, String(last)];
+}
+
+/**
+ * Renders the first validation message for a field, wired to the input through
+ * `aria-describedby`. Renders nothing when the field is valid.
+ */
+function FieldError({
+  id,
+  errors,
+}: {
+  id: string;
+  errors: string[] | undefined;
+}) {
+  const message = errors?.[0];
+  if (!message) return null;
+
+  return (
+    <p id={id} className="text-destructive text-xs">
+      {message}
+    </p>
+  );
+}
+
+/** One stat of the live summary: a label and a formatted value with a unit. */
+function Stat({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+}) {
+  return (
+    <div className="grid gap-0.5 text-center">
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="text-sm font-medium tabular-nums">
+        {formatMacro(value)}{" "}
+        <span className="text-muted-foreground font-normal">{unit}</span>
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * The daily goals form. Fields are controlled by local state so React
+ * re-applies the entered values after the native form reset that every server
+ * action submission triggers; a failed submit therefore keeps the values. The
+ * page keys this component on the stored `goals.updatedAt`, so a successful
+ * save remounts it seeded from the freshly saved values. A live summary uses
+ * `budget.ts` to show the daily grams and each meal's kcal/gram slice while
+ * the user edits.
+ */
+export function GoalsForm({ goals }: { goals: Goals | null }) {
+  const [state, formAction, pending] = useActionState(
+    saveGoalsAction,
+    initialGoalsFormState,
+  );
+  const baseId = useId();
+  const fieldErrors: GoalsFieldErrors = state.fieldErrors ?? {};
+
+  const [calories, setCalories] = useState(
+    goals ? String(goals.calories) : String(DEFAULT_CALORIES),
+  );
+  const [proteinPct, setProteinPct] = useState(
+    goals ? String(goals.proteinPct) : DEFAULT_MACROS.proteinPct,
+  );
+  const [carbsPct, setCarbsPct] = useState(
+    goals ? String(goals.carbsPct) : DEFAULT_MACROS.carbsPct,
+  );
+  const [fatPct, setFatPct] = useState(
+    goals ? String(goals.fatPct) : DEFAULT_MACROS.fatPct,
+  );
+  const [rows, setRows] = useState<Row[]>(() =>
+    goals
+      ? goals.slots.map((slot, index) => ({
+          key: `row-${index}`,
+          name: slot.name,
+          percent: String(slot.percent),
+        }))
+      : DEFAULT_SLOTS.map((slot, index) => ({ key: `row-${index}`, ...slot })),
+  );
+
+  /**
+   * Resizes the day to `count` meals, rebalancing every share to
+   * `100 / count` so changing the count can never break the sum-to-100 check.
+   * Existing rows keep their names; appended ones default to "Meal N".
+   */
+  const resizeRows = (count: number) => {
+    const clamped = Math.max(1, Math.min(MAX_MEALS, Math.floor(count)));
+    setRows((current) => {
+      const percents = evenPercents(clamped);
+
+      return Array.from({ length: clamped }, (_, index) => ({
+        key: current[index]?.key ?? `row-${index}`,
+        name: current[index]?.name ?? `Meal ${index + 1}`,
+        percent: percents[index],
+      }));
+    });
+  };
+
+  const updateRow = (key: string, patch: Partial<Omit<Row, "key">>) => {
+    setRows((current) =>
+      current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
+    );
+  };
+
+  // Live summary inputs: an empty or non-numeric calorie field hides it.
+  const source = useMemo(() => {
+    const caloriesValue = Number(calories);
+    if (!Number.isFinite(caloriesValue) || caloriesValue <= 0) return null;
+
+    return {
+      calories: caloriesValue,
+      proteinPct: Number(proteinPct) || 0,
+      carbsPct: Number(carbsPct) || 0,
+      fatPct: Number(fatPct) || 0,
+    };
+  }, [calories, proteinPct, carbsPct, fatPct]);
+
+  const daily = useMemo(
+    () => (source ? computeMacroBudget(source) : null),
+    [source],
+  );
+  const slotBudgets = useMemo(
+    () =>
+      source
+        ? computeSlotBudgets(
+            source,
+            rows.map((row) => ({ percent: Number(row.percent) || 0 })),
+          )
+        : [],
+    [source, rows],
+  );
+
+  return (
+    <form action={formAction}>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {goals ? "Daily goals" : "Set your daily goals"}
+          </CardTitle>
+          <CardDescription>
+            Your calorie target, macro split, and the meals that divide the
+            day&apos;s budget.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="grid gap-5">
+          <fieldset className="grid gap-3">
+            <legend className="text-muted-foreground text-xs font-medium">
+              Daily budget
+            </legend>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${baseId}-calories`}>Calories (kcal)</Label>
+              <Input
+                id={`${baseId}-calories`}
+                name="calories"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step="any"
+                value={calories}
+                onChange={(event) => setCalories(event.target.value)}
+                placeholder="2000"
+                aria-invalid={fieldErrors.calories ? true : undefined}
+                aria-describedby={
+                  fieldErrors.calories ? `${baseId}-calories-error` : undefined
+                }
+              />
+              <FieldError
+                id={`${baseId}-calories-error`}
+                errors={fieldErrors.calories}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {(
+                [
+                  {
+                    label: "Protein %",
+                    name: "proteinPct",
+                    value: proteinPct,
+                    setter: setProteinPct,
+                    errorKey: "proteinPct" as const,
+                  },
+                  {
+                    label: "Carbs %",
+                    name: "carbsPct",
+                    value: carbsPct,
+                    setter: setCarbsPct,
+                    errorKey: "carbsPct" as const,
+                  },
+                  {
+                    label: "Fat %",
+                    name: "fatPct",
+                    value: fatPct,
+                    setter: setFatPct,
+                    errorKey: "fatPct" as const,
+                  },
+                ] as const
+              ).map((macro) => {
+                const id = `${baseId}-${macro.name}`;
+                const errors = fieldErrors[macro.errorKey];
+
+                return (
+                  <div key={macro.name} className="grid min-w-0 gap-1.5">
+                    <Label htmlFor={id}>{macro.label}</Label>
+                    <div className="relative">
+                      <Input
+                        id={id}
+                        name={macro.name}
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        max={100}
+                        step="any"
+                        value={macro.value}
+                        onChange={(event) => macro.setter(event.target.value)}
+                        className="pr-7"
+                        aria-invalid={errors ? true : undefined}
+                        aria-describedby={errors ? `${id}-error` : undefined}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
+                      >
+                        %
+                      </span>
+                    </div>
+                    <FieldError id={`${id}-error`} errors={errors} />
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset className="grid gap-3">
+            <legend className="text-muted-foreground text-xs font-medium">
+              Meals per day
+            </legend>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${baseId}-meal-count`}>Meals per day</Label>
+              <Input
+                id={`${baseId}-meal-count`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_MEALS}
+                step={1}
+                value={rows.length}
+                onChange={(event) => resizeRows(Number(event.target.value))}
+                className="max-w-24"
+                aria-label="Meals per day"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              {rows.map((row, index) => {
+                const nameErrorId = `${baseId}-slot-${index}-name-error`;
+                const percentId = `${baseId}-slot-${index}-percent`;
+                const percentErrorId = `${percentId}-error`;
+                const nameErrors = fieldErrors[`slots.${index}.name`];
+                const percentErrors = fieldErrors[`slots.${index}.percent`];
+
+                return (
+                  <div key={row.key} className="flex items-start gap-2">
+                    <div className="grid min-w-0 flex-1 gap-1.5">
+                      <Input
+                        id={`${baseId}-slot-${index}-name`}
+                        name="slotName"
+                        value={row.name}
+                        onChange={(event) =>
+                          updateRow(row.key, { name: event.target.value })
+                        }
+                        placeholder={`Meal ${index + 1}`}
+                        aria-label={`Meal ${index + 1} name`}
+                        aria-invalid={nameErrors ? true : undefined}
+                        aria-describedby={nameErrors ? nameErrorId : undefined}
+                      />
+                      <FieldError id={nameErrorId} errors={nameErrors} />
+                    </div>
+
+                    <div className="grid w-24 gap-1.5">
+                      <div className="relative">
+                        <Input
+                          id={percentId}
+                          name="slotPercent"
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          max={100}
+                          step="any"
+                          value={row.percent}
+                          onChange={(event) =>
+                            updateRow(row.key, { percent: event.target.value })
+                          }
+                          className="pr-7"
+                          aria-label={`Meal ${index + 1} share (%)`}
+                          aria-invalid={percentErrors ? true : undefined}
+                          aria-describedby={
+                            percentErrors ? percentErrorId : undefined
+                          }
+                        />
+                        <span
+                          aria-hidden="true"
+                          className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
+                        >
+                          %
+                        </span>
+                      </div>
+                      <FieldError id={percentErrorId} errors={percentErrors} />
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Remove meal ${index + 1}`}
+                      disabled={rows.length === 1}
+                      onClick={() => resizeRows(rows.length - 1)}
+                    >
+                      <X />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => resizeRows(rows.length + 1)}
+              >
+                <Plus /> Add meal
+              </Button>
+            </div>
+
+            {fieldErrors.slots ? (
+              <p className="text-destructive text-xs">{fieldErrors.slots[0]}</p>
+            ) : null}
+          </fieldset>
+
+          <div className="grid gap-2">
+            <p className="text-muted-foreground text-xs font-medium">
+              Live summary
+            </p>
+
+            {daily ? (
+              <>
+                <dl className="grid grid-cols-4 gap-2 rounded-lg border border-border p-3">
+                  <Stat label="Calories" value={daily.calories} unit="kcal" />
+                  <Stat label="Protein" value={daily.proteinGrams} unit="g" />
+                  <Stat label="Carbs" value={daily.carbsGrams} unit="g" />
+                  <Stat label="Fat" value={daily.fatGrams} unit="g" />
+                </dl>
+                <ul className="grid gap-1.5">
+                  {slotBudgets.map((budget, index) => {
+                    const row = rows[index];
+                    if (!row) return null;
+
+                    return (
+                      <li
+                        key={row.key}
+                        className="flex items-baseline justify-between gap-3 rounded-lg border border-border px-3 py-2"
+                      >
+                        <span className="text-sm font-medium">
+                          {row.name}
+                          <span className="text-muted-foreground font-normal">
+                            {" "}
+                            · {row.percent}%
+                          </span>
+                        </span>
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {formatMacro(budget.calories)} kcal · P{" "}
+                          {formatMacro(budget.proteinGrams)} g · C{" "}
+                          {formatMacro(budget.carbsGrams)} g · F{" "}
+                          {formatMacro(budget.fatGrams)} g
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Enter your daily calories to see the gram targets.
+              </p>
+            )}
+          </div>
+
+          {state.formError ? (
+            <p role="alert" className="text-destructive text-sm">
+              {state.formError}
+            </p>
+          ) : null}
+        </CardContent>
+
+        <CardFooter className="justify-end">
+          <Button type="submit" disabled={pending}>
+            {pending ? "Saving…" : goals ? "Save goals" : "Set goals"}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <p role="status" className="sr-only">
+        {state.status === "success" ? state.savedMessage : ""}
+      </p>
+    </form>
+  );
+}
