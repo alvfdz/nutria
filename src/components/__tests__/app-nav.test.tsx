@@ -33,6 +33,10 @@ describe("AppNav", () => {
       "href",
       "/meals",
     );
+    expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute(
+      "href",
+      "/calendar",
+    );
   });
 
   test("marks the section the user is on as the current page", () => {
@@ -80,6 +84,20 @@ describe("AppNav", () => {
     );
   });
 
+  test("marks the calendar section as current on the calendar route", () => {
+    pathname.mockReturnValue("/calendar");
+
+    render(<AppNav />);
+
+    expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Meals" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
   test("leaves every link inactive on a route outside the sections", () => {
     pathname.mockReturnValue("/");
 
@@ -92,6 +110,9 @@ describe("AppNav", () => {
       screen.getByRole("link", { name: "Ingredients" }),
     ).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Meals" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(screen.getByRole("link", { name: "Calendar" })).not.toHaveAttribute(
       "aria-current",
     );
   });

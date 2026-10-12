@@ -10,6 +10,7 @@ const sections = [
   { href: "/goals", label: "Goals" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/meals", label: "Meals" },
+  { href: "/calendar", label: "Calendar" },
 ] as const;
 
 /**

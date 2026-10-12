@@ -8,7 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 type Step = {
   title: string;
   description: string;
-  cta: { label: string; href?: "/ingredients" | "/meals" };
+  cta: { label: string; href?: "/ingredients" | "/meals" | "/calendar" };
 };
 
 const steps: Step[] = [
@@ -27,7 +27,7 @@ const steps: Step[] = [
   {
     title: "Daily planner",
     description: "Assign meals to days and meal slots against a macro budget.",
-    cta: { label: "Coming next" },
+    cta: { label: "Open the calendar", href: "/calendar" },
   },
 ];
 
