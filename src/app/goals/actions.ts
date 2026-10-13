@@ -2,6 +2,8 @@
 
 import { refresh } from "next/cache";
 
+import { formatDayLabel } from "@/lib/calendar/week";
+import { SlotInUseError } from "@/lib/goals/errors";
 import { goalsFieldErrors, type GoalsFormState } from "@/lib/goals/form-state";
 import { saveGoals } from "@/lib/goals/repository";
 import { parseGoalsFormData } from "@/lib/goals/schema";
@@ -43,6 +45,18 @@ export async function saveGoalsAction(
       savedMessage: "Goals saved.",
     };
   } catch (error) {
+    // A slot that still has a forward plan cannot be deleted, because that
+    // would cascade the plan away. Name the days so the user can clear them.
+    if (error instanceof SlotInUseError) {
+      const days = error.dayKeys.map(formatDayLabel).join(", ");
+
+      return {
+        ...previousState,
+        status: "error",
+        formError: `"${error.slotName}" still has planned meals on ${days}. Remove those plans before deleting the slot.`,
+      };
+    }
+
     console.error("Could not save the goals", error);
 
     return {

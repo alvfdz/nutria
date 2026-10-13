@@ -4,14 +4,18 @@ import {
   addDays,
   addWeeks,
   clampWeekToCurrent,
+  dayOfMonth,
+  dbDateFromKey,
   formatDayLabel,
   formatWeekRange,
   isDateKey,
+  keyFromDbDate,
   parseWeekParam,
   startOfWeek,
   todayKey,
   toDateKey,
   weekDays,
+  weekdayShort,
 } from "@/lib/calendar/week";
 
 describe("toDateKey", () => {
@@ -126,6 +130,41 @@ describe("formatDayLabel", () => {
 
   test("adds the month on the first of a month", () => {
     expect(formatDayLabel("2026-08-01")).toBe("Sat 1 Aug");
+  });
+});
+
+describe("weekdayShort", () => {
+  test("names the weekday without the day number", () => {
+    expect(weekdayShort("2026-10-12")).toBe("Mon");
+    expect(weekdayShort("2026-10-18")).toBe("Sun");
+  });
+
+  test("does not add the month on the first of a month", () => {
+    expect(weekdayShort("2026-08-01")).toBe("Sat");
+  });
+});
+
+describe("dayOfMonth", () => {
+  test("reads a bare day number from a key", () => {
+    expect(dayOfMonth("2026-10-12")).toBe("12");
+    expect(dayOfMonth("2026-01-01")).toBe("1");
+    expect(dayOfMonth("2028-02-29")).toBe("29");
+  });
+});
+
+describe("dbDateFromKey", () => {
+  test("builds UTC midnight so the stored day never shifts", () => {
+    expect(dbDateFromKey("2026-10-13")).toEqual(
+      new Date(Date.UTC(2026, 9, 13)),
+    );
+  });
+});
+
+describe("keyFromDbDate", () => {
+  test("round-trips a date key through the database representation", () => {
+    for (const key of ["2026-10-13", "2026-01-01", "2028-02-29"]) {
+      expect(keyFromDbDate(dbDateFromKey(key))).toBe(key);
+    }
   });
 });
 

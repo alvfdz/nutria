@@ -1,153 +1,116 @@
-import { cn } from "cn";
+"use client";
 
-import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
-import { formatMacro } from "@/lib/ingredients/format";
+import { useActionState, useCallback, useState } from "react";
 
-/** One Goals slot as a day column renders it: name, share and target. */
-export type DaySlot = {
-  /** Slot name, e.g. "Breakfast". */
-  name: string;
-  /** Share of the day's budget, 0–100. */
-  percent: number;
-  /** The slot's target budget. */
-  target: SlotBudget;
-};
+import { removeMealAction } from "@/app/calendar/actions";
+import { AssignMealDialog } from "@/components/calendar/assign-meal-dialog";
+import { DayColumn } from "@/components/calendar/day-column";
+import type { Meal } from "@/lib/meals/types";
+import {
+  initialRemoveMealState,
+  type RemoveMealState,
+} from "@/lib/plan/form-state";
+import type { DayColumn as DayColumnData, SlotView } from "@/lib/plan/types";
 
-/** One day of the week as the board renders it. */
-export type DayColumn = {
-  /** The day's date key, `YYYY-MM-DD`. */
+/** The slot a dialog is currently filling, with where to return focus. */
+type AssignTarget = {
+  /** The day's key, `YYYY-MM-DD`. */
   date: string;
-  /** Short label, e.g. "Mon 13". */
-  label: string;
-  /** Whether this column is today. */
-  isToday: boolean;
-  /** The day's target budget, or null when no goals are set. */
-  budget: MacroBudget | null;
-  /** One row per Goals slot, in dining order. */
-  slots: DaySlot[];
+  /** The slot view being filled. */
+  slot: SlotView;
+  /** Id of the "Add meal" button that opened the dialog. */
+  addButtonId: string;
 };
 
-/** Classes shared by the header and body cells of a day column. */
-const DAY_CELL = "border-border border-l px-3 py-2 align-top text-left";
-
-/** Extra shading that marks today's column. */
-const TODAY_CELL = "bg-muted/40";
-
 /**
- * The day header's target line: what is planned against the target, for all
- * four numbers. Nothing is planned in this read-only shell, so the planned
- * half is always zero; plan 2 fills it in. Renders a placeholder when the day
- * has no budget to compare against.
- *
- * @param props.budget The day's target budget, or null without goals.
- */
-function DayTarget({ budget }: { budget: MacroBudget | null }) {
-  if (!budget) {
-    return (
-      <span className="text-muted-foreground block text-xs font-normal">
-        No target set
-      </span>
-    );
-  }
-
-  return (
-    <span className="text-muted-foreground block text-xs font-normal tabular-nums">
-      <span className="block">
-        {formatMacro(0)} / {formatMacro(budget.calories)} kcal
-      </span>
-      <span className="block">
-        P {formatMacro(0)}/{formatMacro(budget.proteinGrams)} · C{" "}
-        {formatMacro(0)}/{formatMacro(budget.carbsGrams)} · F {formatMacro(0)}/
-        {formatMacro(budget.fatGrams)}
-      </span>
-    </span>
-  );
-}
-
-/**
- * The week board: the selected Monday → Sunday as a table of the user's Goals
- * slots. Slots are rows and days are columns, so one day reads as a column and
- * the same slot lines up across the week for comparison. Read-only for now —
- * every cell is an empty placeholder. A wide table scrolls inside its wrapper
- * rather than squeezing the columns.
+ * The week board: seven independent day columns, Monday to Sunday. Each column
+ * is its own vertical agenda — no shared rows, no matching card heights — so
+ * the week reads as a week rather than a table. Owns the assign dialog and the
+ * screen-reader live region for add and remove outcomes.
  *
  * @param props.days The seven day columns, Monday first.
+ * @param props.meals The meal library offered by the assign dialog.
  */
-export function WeekBoard({ days }: { days: DayColumn[] }) {
-  const slots = days[0]?.slots ?? [];
+export function WeekBoard({
+  days,
+  meals,
+}: {
+  days: DayColumnData[];
+  meals: Meal[];
+}) {
+  const [assigning, setAssigning] = useState<AssignTarget | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+
+  // The board announces the remove outcome itself rather than through an
+  // effect: the action runs on submit, so the message is set where the result
+  // arrives and a later add is never masked by a stale remove.
+  const [, removeFormAction, removePending] = useActionState(
+    async (
+      previousState: RemoveMealState,
+      formData: FormData,
+    ): Promise<RemoveMealState> => {
+      const state = await removeMealAction(previousState, formData);
+
+      if (state.status === "success" && state.removedName) {
+        setAnnouncement(`${state.removedName} removed from your plan.`);
+      } else if (state.status === "error" && state.formError) {
+        setAnnouncement(state.formError);
+      }
+
+      return state;
+    },
+    initialRemoveMealState,
+  );
+
+  const handleAdd = useCallback(
+    (date: string, slot: SlotView, addButtonId: string) => {
+      setAssigning({ date, slot, addButtonId });
+    },
+    [],
+  );
+
+  const handleAssigned = useCallback((name: string) => {
+    setAnnouncement(`${name} added to your plan.`);
+  }, []);
+
+  const closeAssign = useCallback(() => {
+    const triggerId = assigning?.addButtonId;
+    setAssigning(null);
+    if (triggerId) {
+      document.getElementById(triggerId)?.focus();
+    }
+  }, [assigning]);
 
   return (
-    <div className="ring-foreground/10 overflow-x-auto rounded-xl ring-1">
-      <table className="w-full min-w-[52rem] border-collapse text-sm">
-        <caption className="sr-only">
-          Planned meals for the week, one row per meal slot and one column per
-          day, Monday to Sunday.
-        </caption>
-        <thead>
-          <tr className="border-border border-b">
-            <th
-              scope="col"
-              className="text-muted-foreground px-3 py-2 text-left text-xs font-medium"
-            >
-              Meal
-            </th>
-            {days.map((day) => (
-              <th
-                key={day.date}
-                scope="col"
-                data-today={day.isToday ? "true" : undefined}
-                className={cn(
-                  DAY_CELL,
-                  "font-medium whitespace-nowrap",
-                  day.isToday && TODAY_CELL,
-                )}
-              >
-                <span className="block">{day.label}</span>
-                <DayTarget budget={day.budget} />
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {slots.map((slot, slotIndex) => (
-            <tr
-              key={slot.name}
-              className="border-border border-b last:border-0"
-            >
-              <th
-                scope="row"
-                className="px-3 py-2 text-left align-top font-medium"
-              >
-                <span className="block">{slot.name}</span>
-                <span className="text-muted-foreground block text-xs font-normal tabular-nums">
-                  {formatMacro(slot.target.calories)} kcal · P{" "}
-                  {formatMacro(slot.target.proteinGrams)} g · C{" "}
-                  {formatMacro(slot.target.carbsGrams)} g · F{" "}
-                  {formatMacro(slot.target.fatGrams)} g
-                </span>
-              </th>
-
-              {days.map((day) => (
-                <td
-                  key={day.date}
-                  data-today={day.isToday ? "true" : undefined}
-                  className={cn(
-                    DAY_CELL,
-                    "min-w-40",
-                    day.isToday && TODAY_CELL,
-                  )}
-                >
-                  {day.slots[slotIndex] ? (
-                    <span className="text-muted-foreground text-xs">
-                      Nothing planned
-                    </span>
-                  ) : null}
-                </td>
-              ))}
-            </tr>
+    <div className="grid gap-3">
+      <div className="overflow-x-auto pb-1">
+        <div className="grid w-full grid-cols-[repeat(7,minmax(11rem,1fr))] gap-3">
+          {days.map((day) => (
+            <DayColumn
+              key={day.date}
+              day={day}
+              onAdd={handleAdd}
+              removeAction={removeFormAction}
+              removePending={removePending}
+            />
           ))}
-        </tbody>
-      </table>
+        </div>
+      </div>
+
+      {assigning ? (
+        <AssignMealDialog
+          key={`${assigning.date}-${assigning.slot.id}`}
+          date={assigning.date}
+          slot={assigning.slot}
+          meals={meals}
+          onClose={closeAssign}
+          onAssigned={handleAssigned}
+        />
+      ) : null}
+
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
     </div>
   );
 }

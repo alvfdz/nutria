@@ -40,6 +40,11 @@ const DEFAULT_SLOTS = [
 type Row = {
   /** React key, stable across add/remove so a row keeps its own values. */
   key: string;
+  /**
+   * Identifier of the stored slot this row edits, if it came from the saved
+   * goals. Submitted back so a rename or reorder preserves planned meals.
+   */
+  slotId?: string;
   /** Name typed in the row, if any. */
   name: string;
   /** Share of the daily budget typed in the row, if any. */
@@ -141,6 +146,7 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
     goals
       ? goals.slots.map((slot, index) => ({
           key: `row-${index}`,
+          slotId: slot.id,
           name: slot.name,
           percent: String(slot.percent),
         }))
@@ -160,6 +166,7 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
 
       return Array.from({ length: clamped }, (_, index) => ({
         key: current[index]?.key ?? `row-${index}`,
+        slotId: current[index]?.slotId,
         name: current[index]?.name ?? `Meal ${index + 1}`,
         percent: percents[index],
       }));
@@ -355,6 +362,11 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
 
                   return (
                     <div key={row.key} className="flex items-start gap-2">
+                      <input
+                        type="hidden"
+                        name="slotId"
+                        value={row.slotId ?? ""}
+                      />
                       <div className="grid min-w-0 flex-1 gap-1.5">
                         <Input
                           id={`${baseId}-slot-${index}-name`}

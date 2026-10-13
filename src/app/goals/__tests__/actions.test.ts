@@ -3,6 +3,7 @@ import { refresh } from "next/cache";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { saveGoalsAction } from "@/app/goals/actions";
+import { SlotInUseError } from "@/lib/goals/errors";
 import { initialGoalsFormState } from "@/lib/goals/form-state";
 import { saveGoals } from "@/lib/goals/repository";
 import {
@@ -124,6 +125,24 @@ describe("saveGoalsAction", () => {
     expect(state).toMatchObject({
       status: "error",
       formError: "The goals could not be saved. Please try again.",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  test("explains that a slot with forward plans cannot be deleted", async () => {
+    vi.mocked(saveGoals).mockRejectedValue(
+      new SlotInUseError("Dinner", ["2026-10-20"]),
+    );
+
+    const state = await saveGoalsAction(
+      initialGoalsFormState,
+      makeValidGoalsFormData(),
+    );
+
+    expect(state).toMatchObject({
+      status: "error",
+      formError:
+        '"Dinner" still has planned meals on Tue 20. Remove those plans before deleting the slot.',
     });
     expect(refresh).not.toHaveBeenCalled();
   });

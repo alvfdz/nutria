@@ -23,18 +23,29 @@ export type NewMealSlot = {
   name: string;
   /** Share of the daily budget this meal gets, 0–100. */
   percent: number;
+  /**
+   * Identifier of an existing slot this row updates, when the form re-submits
+   * a stored meal. Absent for a newly added slot. Keeping the identity stable
+   * is what lets a rename or reorder preserve the meals already planned into
+   * it.
+   */
+  slotId?: string;
 };
 
 /** A stored meal slot: the submitted values plus identity and position. */
-export type MealSlot = NewMealSlot & {
-  /** Identifier generated on create. */
+export type MealSlot = {
+  /** Identifier generated on create; stable across renames and reorders. */
   id: string;
+  /** Display name, e.g. "Breakfast", "Lunch", or "Meal 1". */
+  name: string;
+  /** Share of the daily budget this meal gets, 0–100. */
+  percent: number;
   /** Position in the dining order; slots arrive sorted by it. */
   sortOrder: number;
 };
 
 /** A stored goals row: the submitted values plus its identity and timestamps. */
-export type Goals = NewGoals & {
+export type Goals = Omit<NewGoals, "slots"> & {
   /** Identifier generated on create. */
   id: string;
   /** ISO 8601 creation timestamp. */

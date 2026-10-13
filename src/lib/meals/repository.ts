@@ -8,12 +8,13 @@ import {
   type MealItem as MealItemDbRow,
   Prisma,
 } from "@/generated/prisma/client";
+import { dbDateFromKey, keyFromDbDate, todayKey } from "@/lib/calendar/week";
 import { getPrisma } from "@/lib/db/prisma";
-import { UnknownIngredientError } from "./errors";
+import { MealInUseError, UnknownIngredientError } from "./errors";
 import type { Meal, NewMeal } from "./types";
 
 /** A meal row as `listMeals` asks for it: ordered items with their ingredients. */
-type MealWithItems = MealDbRow & {
+export type MealWithItems = MealDbRow & {
   items: (MealItemDbRow & { ingredient: IngredientDbRow })[];
 };
 
@@ -22,7 +23,7 @@ type MealWithItems = MealDbRow & {
  * them, plus the ingredient behind each row so labels and totals need no
  * second query.
  */
-const mealInclude = {
+export const mealInclude = {
   items: {
     include: { ingredient: true },
     orderBy: { sortOrder: "asc" as const },
@@ -66,7 +67,7 @@ function rethrowMealWriteError(error: unknown, id?: string): never {
  * @param row The row as Prisma returns it.
  * @returns The same row in the shape the app uses.
  */
-function toMeal(row: MealWithItems): Meal {
+export function toMeal(row: MealWithItems): Meal {
   return {
     ...row,
     createdAt: row.createdAt.toISOString(),
@@ -163,14 +164,38 @@ export async function updateMeal(id: string, input: NewMeal): Promise<Meal> {
 }
 
 /**
- * Permanently removes a meal; its items go with it through the cascade.
+ * Permanently removes a meal. A meal that is still planned on today or a
+ * future day cannot be deleted, because that would silently drop it from the
+ * forward plan; only plans dated before today are cleared, then the meal
+ * itself goes. Its items go with it through the cascade.
  *
  * @param id Identifier of the meal to remove.
+ * @throws {MealInUseError} If any plan on today or later still uses the meal.
  * @throws {Error} If no meal has that id.
  */
 export async function deleteMeal(id: string): Promise<void> {
+  const prisma = getPrisma();
+  const today = dbDateFromKey(todayKey());
+
+  const forwardPlans = await prisma.planMeal.findMany({
+    where: { mealId: id, date: { gte: today } },
+    select: { date: true },
+    orderBy: { date: "asc" },
+  });
+
+  if (forwardPlans.length > 0) {
+    throw new MealInUseError(
+      forwardPlans.map((plan) => keyFromDbDate(plan.date)),
+    );
+  }
+
   try {
-    await getPrisma().meal.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.planMeal.deleteMany({
+        where: { mealId: id, date: { lt: today } },
+      });
+      await tx.meal.delete({ where: { id } });
+    });
   } catch (error) {
     rethrowMealWriteError(error, id);
   }

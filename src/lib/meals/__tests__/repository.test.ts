@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db/prisma";
-import { UnknownIngredientError } from "@/lib/meals/errors";
+import { MealInUseError, UnknownIngredientError } from "@/lib/meals/errors";
 import {
   createMeal,
   deleteMeal,
@@ -23,7 +23,20 @@ const meal = {
   create: vi.fn(),
   findMany: vi.fn(),
   update: vi.fn(),
-  delete: vi.fn(),
+};
+
+const planMeal = { findMany: vi.fn() };
+
+/** The clients the delete transaction hands to its callback. */
+const tx = {
+  planMeal: { deleteMany: vi.fn() },
+  meal: { delete: vi.fn() },
+};
+
+const prisma = {
+  meal,
+  planMeal,
+  $transaction: vi.fn(),
 };
 
 const input = { ...mealDefaults };
@@ -101,10 +114,14 @@ function foreignKey(message: string): Prisma.PrismaClientKnownRequestError {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getPrisma).mockReturnValue({ meal } as unknown as ReturnType<
-    typeof getPrisma
-  >);
+  vi.mocked(getPrisma).mockReturnValue(
+    prisma as unknown as ReturnType<typeof getPrisma>,
+  );
   vi.mocked(connection).mockResolvedValue(undefined);
+  prisma.$transaction.mockImplementation(
+    async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+  );
+  planMeal.findMany.mockResolvedValue([]);
 });
 
 describe("createMeal", () => {
@@ -265,16 +282,44 @@ describe("updateMeal", () => {
 });
 
 describe("deleteMeal", () => {
-  test("removes the meal addressed by id", async () => {
-    meal.delete.mockResolvedValue({ id: "meal-1" });
+  test("clears only past plans, then removes the meal in one transaction", async () => {
+    tx.meal.delete.mockResolvedValue({ id: "meal-1" });
 
     await deleteMeal("meal-1");
 
-    expect(meal.delete).toHaveBeenCalledWith({ where: { id: "meal-1" } });
+    const today = expect.any(Date);
+    expect(planMeal.findMany).toHaveBeenCalledWith({
+      where: { mealId: "meal-1", date: { gte: today } },
+      select: { date: true },
+      orderBy: { date: "asc" },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(tx.planMeal.deleteMany).toHaveBeenCalledWith({
+      where: { mealId: "meal-1", date: { lt: today } },
+    });
+    expect(tx.meal.delete).toHaveBeenCalledWith({ where: { id: "meal-1" } });
+  });
+
+  test("refuses to delete a meal that is still planned today or later", async () => {
+    planMeal.findMany.mockResolvedValue([
+      { date: new Date(Date.UTC(2026, 9, 13)) },
+      { date: new Date(Date.UTC(2026, 9, 20)) },
+    ]);
+
+    const failure = await deleteMeal("meal-1").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(MealInUseError);
+    expect((failure as MealInUseError).dayKeys).toEqual([
+      "2026-10-13",
+      "2026-10-20",
+    ]);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   test("names the meal when Prisma reports it missing", async () => {
-    meal.delete.mockRejectedValue(notFound("Record to delete does not exist."));
+    tx.meal.delete.mockRejectedValue(
+      notFound("Record to delete does not exist."),
+    );
 
     await expect(deleteMeal("missing")).rejects.toThrow(
       "Unknown meal: missing",
@@ -283,7 +328,7 @@ describe("deleteMeal", () => {
 
   test("rethrows a non-Prisma error as is", async () => {
     const failure = new Error("connection terminated");
-    meal.delete.mockRejectedValue(failure);
+    prisma.$transaction.mockRejectedValue(failure);
 
     await expect(deleteMeal("meal-1")).rejects.toBe(failure);
   });

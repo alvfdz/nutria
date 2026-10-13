@@ -7,7 +7,7 @@ import {
   deleteMealAction,
   updateMealAction,
 } from "@/app/meals/actions";
-import { UnknownIngredientError } from "@/lib/meals/errors";
+import { MealInUseError, UnknownIngredientError } from "@/lib/meals/errors";
 import {
   initialMealDeleteState,
   initialMealFormState,
@@ -255,6 +255,22 @@ describe("deleteMealAction", () => {
     expect(state).toMatchObject({
       status: "error",
       formError: "The meal could not be deleted. Please try again.",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  test("explains that a meal with forward plans cannot be deleted", async () => {
+    vi.mocked(deleteMeal).mockRejectedValue(new MealInUseError(["2026-10-20"]));
+
+    const state = await deleteMealAction(
+      initialMealDeleteState,
+      makeMealFormData({ id: "meal-9", name: "Porridge" }),
+    );
+
+    expect(state).toMatchObject({
+      status: "error",
+      formError:
+        "This meal is still planned on Tue 20. Remove those plans before deleting it.",
     });
     expect(refresh).not.toHaveBeenCalled();
   });

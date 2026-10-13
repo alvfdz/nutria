@@ -15,3 +15,24 @@ export class UnknownIngredientError extends Error {
     this.name = "UnknownIngredientError";
   }
 }
+
+/**
+ * Error raised when a meal is deleted while planned meals on today or a future
+ * day still reference it. The flow clears only past plans first, so a meal
+ * that is still part of the forward plan cannot silently disappear.
+ *
+ * Lives in its own module for the same reason as {@link UnknownIngredientError}.
+ */
+export class MealInUseError extends Error {
+  /** The `YYYY-MM-DD` days that still have this meal planned. */
+  readonly dayKeys: string[];
+
+  /**
+   * @param dayKeys The days that still have this meal planned.
+   */
+  constructor(dayKeys: string[]) {
+    super(`Meal is planned on ${dayKeys.join(", ")}`);
+    this.name = "MealInUseError";
+    this.dayKeys = dayKeys;
+  }
+}

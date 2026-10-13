@@ -52,6 +52,10 @@ model Meal {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   /// The ingredients that make up the meal, in the order they were added.
   items MealItem[]
+  /// Calendar entries that planned this template. `Restrict` on the
+  /// `PlanMeal` side blocks deleting a meal while it is still planned;
+  /// `deleteMeal` clears only past plans first.
+  planMeals PlanMeal[]
 
   @@map("meals")
 }
@@ -116,7 +120,40 @@ model MealSlot {
   /// Goals row the slot belongs to; removed together with it.
   goalsId String @db.Uuid
   goals Goals @relation(fields: [goalsId], references: [id], onDelete: Cascade)
+  /// Calendar entries planned into this meal slot. `onDelete: Cascade` on the
+  /// `PlanMeal` side removes a slot's future plans when the slot is deleted,
+  /// which `saveGoals` guards against first.
+  planMeals PlanMeal[]
 
   @@unique([goalsId, sortOrder])
   @@map("meal_slots")
+}
+
+/// One meal template planned into one of the day's meal slots. The plan stores
+/// only *which* meal sits in *which* slot on *which* day; the slot's name,
+/// order, share and macro targets always come from the current {@link Goals}.
+model PlanMeal {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id String @id @default(uuid()) @db.Uuid
+  /// The calendar day, `YYYY-MM-DD` at UTC midnight.
+  date DateTime @db.Date
+  /// Position within its slot, preserving the order meals were added in.
+  sortOrder Int
+  /// The Goals slot this meal fills. Cascade removes a slot's planned meals
+  /// when the slot itself is deleted; `saveGoals` guards that removal.
+  mealSlotId String @db.Uuid
+  mealSlot MealSlot @relation(fields: [mealSlotId], references: [id], onDelete: Cascade)
+  /// The meal template. Restrict is a safety net; the delete flow checks the
+  /// plan dates first and clears only past plans.
+  mealId String @db.Uuid
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Restrict)
+  /// Set by the database on insert.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  /// The same template cannot be added to the same slot on the same day twice.
+  @@unique([date, mealSlotId, mealId])
+  @@index([date])
+  @@index([mealSlotId])
+  @@index([mealId])
+  @@map("plan_meals")
 }

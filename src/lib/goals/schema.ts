@@ -94,6 +94,7 @@ export const goalsSchema = z
     slots: z
       .array(
         z.object({
+          slotId: z.uuid().optional(),
           name: z
             .string({ error: "Name is required" })
             .trim()
@@ -137,6 +138,7 @@ export type GoalsInput = z.infer<typeof goalsSchema>;
  * the form-level sum errors.
  */
 export function parseGoalsFormData(formData: FormData) {
+  const slotIds = formData.getAll("slotId");
   const names = formData.getAll("slotName");
   const percents = formData.getAll("slotPercent");
   const rowCount = Math.max(names.length, percents.length);
@@ -146,9 +148,15 @@ export function parseGoalsFormData(formData: FormData) {
     proteinPct: formData.get("proteinPct"),
     carbsPct: formData.get("carbsPct"),
     fatPct: formData.get("fatPct"),
-    slots: Array.from({ length: rowCount }, (_, index) => ({
-      name: names[index] ?? "",
-      percent: percents[index],
-    })),
+    slots: Array.from({ length: rowCount }, (_, index) => {
+      const slotId = slotIds[index];
+
+      return {
+        slotId:
+          typeof slotId === "string" && slotId !== "" ? slotId : undefined,
+        name: names[index] ?? "",
+        percent: percents[index],
+      };
+    }),
   });
 }

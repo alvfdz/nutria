@@ -39,4 +39,13 @@ describe("PageContainer", () => {
     expect(container).toHaveClass("max-w-3xl");
     expect(container).not.toHaveClass("max-w-5xl");
   });
+
+  test('width="full" drops the width ladder but keeps the padding', () => {
+    render(<PageContainer data-testid="container" width="full" />);
+
+    const container = screen.getByTestId("container");
+    expect(container).toHaveClass("mx-auto", "w-full", "px-4", "sm:px-6");
+    expect(container).not.toHaveClass("max-w-5xl");
+    expect(container).not.toHaveClass("2xl:max-w-[100rem]");
+  });
 });

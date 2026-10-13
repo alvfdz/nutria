@@ -1,6 +1,7 @@
 import type { Ingredient, NewIngredient } from "@/lib/ingredients/types";
-import type { Goals, NewGoals } from "@/lib/goals/types";
+import type { Goals, MealSlot, NewGoals } from "@/lib/goals/types";
 import type { Meal, MealItem, NewMeal } from "@/lib/meals/types";
+import type { PlannedMeal } from "@/lib/plan/types";
 
 /** Sensible defaults for an ingredient, overridable field by field. */
 export const ingredientDefaults: NewIngredient = {
@@ -169,13 +170,76 @@ export function makeGoals(overrides: Partial<Goals> = {}): Goals {
     id: "goals-1",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-    slots: goalsDefaults.slots.map((slot, index) => ({
-      ...slot,
-      id: `meal-slot-${index + 1}`,
-      sortOrder: index,
-    })),
+    slots: goalsDefaults.slots.map((slot, index) =>
+      makeMealSlot({
+        id: `meal-slot-${index + 1}`,
+        name: slot.name,
+        percent: slot.percent,
+        sortOrder: index,
+      }),
+    ),
     ...overrides,
   };
+}
+
+/**
+ * Builds a stored meal slot with a deterministic id, overridable field by
+ * field.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makeMealSlot(overrides: Partial<MealSlot> = {}): MealSlot {
+  return {
+    id: "meal-slot-1",
+    name: "Breakfast",
+    percent: 30,
+    sortOrder: 0,
+    ...overrides,
+  };
+}
+
+/**
+ * Builds a stored plan row, defaulting to the first meal in the first slot on
+ * `2026-10-13`.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makePlannedMeal(
+  overrides: Partial<PlannedMeal> = {},
+): PlannedMeal {
+  const meal = overrides.meal ?? makeMeal();
+
+  return {
+    id: "plan-meal-1",
+    date: "2026-10-13",
+    mealSlotId: "meal-slot-1",
+    mealId: meal.id,
+    sortOrder: 0,
+    ...overrides,
+    meal,
+  };
+}
+
+/**
+ * Builds the form submission an assign dialog would send.
+ *
+ * @param values Fields to set; `null` leaves the field out of the submission.
+ */
+export function makeAssignMealFormData(
+  values: Record<string, string | null> = {},
+): FormData {
+  return makeIngredientFormData(values);
+}
+
+/**
+ * Builds the form submission a slot card's remove form would send.
+ *
+ * @param values Fields to set; `null` leaves the field out of the submission.
+ */
+export function makeRemoveMealFormData(
+  values: Record<string, string | null> = {},
+): FormData {
+  return makeIngredientFormData(values);
 }
 
 /**

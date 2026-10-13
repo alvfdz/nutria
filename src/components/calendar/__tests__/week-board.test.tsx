@@ -1,12 +1,20 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
 
-import { type DayColumn, WeekBoard } from "@/components/calendar/week-board";
-import { formatDayLabel, weekDays } from "@/lib/calendar/week";
+import { WeekBoard } from "@/components/calendar/week-board";
+import { dayOfMonth, weekDays, weekdayShort } from "@/lib/calendar/week";
 import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
+import type { MealTotals } from "@/lib/meals/macros";
+import type { DayColumn } from "@/lib/plan/types";
+import { makeMeal } from "@test/factories";
 
-/** A day budget whose calorie target has no decimal, unlike the slot targets. */
-const dayBudget: MacroBudget = {
+vi.mock("@/app/calendar/actions", () => ({
+  assignMealAction: vi.fn(),
+  removeMealAction: vi.fn(),
+}));
+
+/** The day's total target, used for the column header. */
+const budget: MacroBudget = {
   calories: 2200,
   proteinGrams: 156,
   carbsGrams: 200,
@@ -22,89 +30,121 @@ const slotTargets: SlotBudget[] = [
 
 const slotNames = ["Breakfast", "Lunch", "Dinner"];
 
+const ZERO: MealTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
 /** The week of Mon 12 Oct 2026, with today standing on Wednesday. */
 function makeDays(): DayColumn[] {
   return weekDays("2026-10-12").map((date) => ({
     date,
-    label: formatDayLabel(date),
+    weekday: weekdayShort(date),
+    dayOfMonth: dayOfMonth(date),
     isToday: date === "2026-10-14",
-    budget: dayBudget,
+    isEditable: date >= "2026-10-13",
+    budget,
+    planned: ZERO,
     slots: slotNames.map((name, index) => ({
+      id: `meal-slot-${index + 1}`,
       name,
       percent: 30,
       target: slotTargets[index],
+      meals: [],
+      totals: ZERO,
     })),
   }));
 }
 
 describe("WeekBoard", () => {
   test("renders seven day columns, Monday through Sunday", () => {
-    render(<WeekBoard days={makeDays()} />);
+    render(<WeekBoard days={makeDays()} meals={[]} />);
 
-    const labels = [
-      "Mon 12",
-      "Tue 13",
-      "Wed 14",
-      "Thu 15",
-      "Fri 16",
-      "Sat 17",
-      "Sun 18",
-    ];
-
-    for (const label of labels) {
-      expect(
-        screen.getByRole("columnheader", { name: new RegExp(label) }),
-      ).toBeInTheDocument();
+    for (const weekday of ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]) {
+      expect(screen.getByText(weekday)).toBeInTheDocument();
     }
   });
 
-  test("marks today's column and leaves the others unmarked", () => {
-    render(<WeekBoard days={makeDays()} />);
+  test("renders one slot card per slot per day", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
 
-    expect(screen.getByText("Wed 14").closest("th")).toHaveAttribute(
-      "data-today",
-      "true",
-    );
-    expect(screen.getByText("Mon 12").closest("th")).not.toHaveAttribute(
-      "data-today",
-    );
-  });
-
-  test("renders every Goal slot once as a row header, in dining order", () => {
-    render(<WeekBoard days={makeDays()} />);
-
-    const rowHeaders = screen.getAllByRole("rowheader");
-
-    expect(rowHeaders).toHaveLength(slotNames.length);
-    expect(rowHeaders[0]).toHaveTextContent("Breakfast");
-    expect(rowHeaders[1]).toHaveTextContent("Lunch");
-    expect(rowHeaders[2]).toHaveTextContent("Dinner");
-  });
-
-  test("formats day and slot targets through formatMacro", () => {
-    render(<WeekBoard days={makeDays()} />);
-
-    // The day line repeats once per column.
-    expect(screen.getAllByText("0 / 2200 kcal")).toHaveLength(7);
-    expect(screen.getAllByText("P 0/156 · C 0/200 · F 0/70")).toHaveLength(7);
-
-    // The first slot's decimal survives, and only appears on its row header.
+    expect(screen.getAllByRole("region")).toHaveLength(7 * slotNames.length);
     expect(
-      screen.getByText(/660 kcal · P 46\.8 g · C 60 g · F 21 g/),
+      screen.getByRole("region", { name: "Breakfast on 2026-10-12" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Dinner on 2026-10-18" }),
     ).toBeInTheDocument();
   });
 
-  test("shows an empty placeholder in every day × slot cell", () => {
-    render(<WeekBoard days={makeDays()} />);
+  test("marks today's column and leaves the others unmarked", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
 
-    expect(screen.getAllByText("Nothing planned")).toHaveLength(7 * 3);
+    expect(screen.getByText("14").closest("[data-today]")).toHaveAttribute(
+      "data-today",
+      "true",
+    );
+    expect(screen.getByText("12").closest("[data-today]")).toBeNull();
   });
 
-  test("falls back to a placeholder when a day has no budget", () => {
+  test("hides the add control on a read-only day", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
+
+    const past = screen.getByRole("region", {
+      name: "Breakfast on 2026-10-12",
+    });
+    const editable = screen.getByRole("region", {
+      name: "Breakfast on 2026-10-13",
+    });
+
+    expect(
+      within(past).queryByRole("button", { name: /Add meal/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(editable).getByRole("button", { name: /Add meal/ }),
+    ).toBeInTheDocument();
+  });
+
+  test("shows a planned meal in its slot and a placeholder everywhere else", () => {
+    const meal = makeMeal({ id: "meal-1", name: "Porridge" });
+    const totals: MealTotals = {
+      calories: 240,
+      protein: 20,
+      carbs: 40,
+      fat: 8,
+    };
+    const days = makeDays();
+    const wednesday = days[2];
+    days[2] = {
+      ...wednesday,
+      planned: totals,
+      slots: [
+        {
+          ...wednesday.slots[0],
+          meals: [
+            {
+              id: "plan-1",
+              mealId: meal.id,
+              name: meal.name,
+              totals,
+            },
+          ],
+          totals,
+        },
+        ...wednesday.slots.slice(1),
+      ],
+    };
+
+    render(<WeekBoard days={days} meals={[meal]} />);
+
+    expect(screen.getByText("Porridge")).toBeInTheDocument();
+    expect(screen.getAllByText("Nothing planned")).toHaveLength(
+      7 * slotNames.length - 1,
+    );
+  });
+
+  test("falls back to a zero target when a day has no budget", () => {
     const days = makeDays().map((day) => ({ ...day, budget: null }));
 
-    render(<WeekBoard days={days} />);
+    render(<WeekBoard days={days} meals={[]} />);
 
-    expect(screen.getAllByText("No target set")).toHaveLength(7);
+    expect(screen.getAllByText("0 / 0 kcal")).toHaveLength(7);
   });
 });

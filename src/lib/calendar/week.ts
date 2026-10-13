@@ -185,6 +185,59 @@ export function formatDayLabel(dateKey: string): string {
 }
 
 /**
+ * Short English weekday name for a calendar key, e.g. `Mon`. Independent of
+ * {@link formatDayLabel}, which also carries the day number.
+ *
+ * @param dateKey Any valid `YYYY-MM-DD` key.
+ * @returns The three-letter weekday abbreviation.
+ */
+export function weekdayShort(dateKey: string): string {
+  const [year, month, day] = partsOf(dateKey);
+
+  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
+
+/**
+ * The day of the month as a bare number string, e.g. `13`. Used for the
+ * circled day number in a week column header, where the weekday is already
+ * spelled out separately.
+ *
+ * @param dateKey Any valid `YYYY-MM-DD` key.
+ * @returns The day of the month, `1`–`31`.
+ */
+export function dayOfMonth(dateKey: string): string {
+  const [, , day] = partsOf(dateKey);
+
+  return String(day);
+}
+
+/**
+ * Turns a `YYYY-MM-DD` key into the `Date` the database's `@db.Date` columns
+ * store: UTC midnight. Using UTC here (rather than a local constructor) keeps
+ * the stored day from shifting across timezones.
+ *
+ * @param dateKey Any valid `YYYY-MM-DD` key.
+ * @returns The same day at UTC midnight.
+ */
+export function dbDateFromKey(dateKey: string): Date {
+  const [year, month, day] = partsOf(dateKey);
+
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/**
+ * The inverse of {@link dbDateFromKey}: reads a `@db.Date` value back as a
+ * `YYYY-MM-DD` key. Prisma returns those columns as `Date` at UTC midnight,
+ * so the UTC getters round-trip the stored day exactly.
+ *
+ * @param date A `Date` read from a `@db.Date` column.
+ * @returns The stored day as `YYYY-MM-DD`.
+ */
+export function keyFromDbDate(date: Date): string {
+  return formatUtcKey(date);
+}
+
+/**
  * Resolves the `?week=` search parameter to the Monday of the week it names.
  * A valid date key anywhere in a week selects that whole week; a repeated
  * parameter uses its first entry; anything else falls back to the week the

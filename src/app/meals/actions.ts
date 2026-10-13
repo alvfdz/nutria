@@ -2,7 +2,8 @@
 
 import { refresh } from "next/cache";
 
-import { UnknownIngredientError } from "@/lib/meals/errors";
+import { formatDayLabel } from "@/lib/calendar/week";
+import { MealInUseError, UnknownIngredientError } from "@/lib/meals/errors";
 import {
   mealFieldErrors,
   type MealDeleteState,
@@ -168,6 +169,18 @@ export async function deleteMealAction(
       deletedName: typeof name === "string" ? name : "",
     };
   } catch (error) {
+    // A meal that is still planned today or later cannot be deleted, because
+    // that would silently drop it from the forward plan.
+    if (error instanceof MealInUseError) {
+      const days = error.dayKeys.map(formatDayLabel).join(", ");
+
+      return {
+        ...previousState,
+        status: "error",
+        formError: `This meal is still planned on ${days}. Remove those plans before deleting it.`,
+      };
+    }
+
     console.error("Could not delete the meal", error);
 
     return {
