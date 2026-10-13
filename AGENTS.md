@@ -13,6 +13,7 @@ Check the `docs/vision.md`. Make sure that any suggested change is aligned with 
 
 - Keep the output clear and straight to the point. Avoid unnecessary wording or overexplanation.
 - Proactively identify tasks that could be done in parallel. Spawn subagents when possible.
+- **Do not commit** anything by yourself.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
