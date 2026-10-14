@@ -78,30 +78,22 @@ describe("MacroBars", () => {
     ).toBeInTheDocument();
   });
 
-  test("fills the whole track and leaves the target tick below when over", () => {
+  test("fills the whole track when the plan is over", () => {
     render(<MacroBars totals={totals({ fat: 25 })} target={target} />);
 
     const bar = screen.getByRole("listitem", {
       name: "Fat: 25 of 20 g, 5 g over",
     });
     const fill = bar.querySelector('[data-slot="macro-bar-fill"]');
-    const tick = bar.querySelector('[data-slot="macro-bar-tick"]');
 
-    // max = 25, so the plan fills 100% and the target sits at 20 / 25 = 80%.
     expect(fill).toHaveStyle({ width: "100%" });
-    expect(tick).toHaveStyle({ left: "80%" });
   });
 
-  test("draws no tick when the target is zero", () => {
+  test("draws no target tick in any state", () => {
     render(
       <MacroBars
-        totals={totals()}
-        target={{
-          calories: 0,
-          proteinGrams: 0,
-          carbsGrams: 0,
-          fatGrams: 0,
-        }}
+        totals={totals({ protein: 30, carbs: 46.8, fat: 25 })}
+        target={target}
       />,
     );
 

@@ -61,10 +61,10 @@ function markerFor(state: MacroState, delta: number): string {
 /**
  * The food panel's macro guidance: one bar per macro, protein → carbs → fat.
  * Each row reads left to right as the macro name, the planned amount against
- * its target in grams, and a state marker. Below the row, a track is scaled to
- * the larger of the plan and the target, with the plan painted over it and a
- * tick at the target, so an overshoot visibly passes its own tick. Every row
- * carries the full {@link stateLabel} sentence as its accessible name.
+ * its target in grams, and a state marker. Below the row, a track scaled to
+ * the larger of the plan and the target carries the plan as a fill, so an
+ * overshoot fills the whole track. Every row carries the full
+ * {@link stateLabel} sentence as its accessible name.
  *
  * @param props.totals The macros the food's planned meals deliver.
  * @param props.target The food's target macros.
@@ -83,7 +83,7 @@ export function MacroBars({
         const targetValue = bar.target(target);
         const { state, delta } = macroState(planned, targetValue);
         const label = stateLabel(state, bar.key, planned, targetValue);
-        const { fillPercent, tickPercent } = barGeometry(planned, targetValue);
+        const { fillPercent } = barGeometry(planned, targetValue);
 
         return (
           <li
@@ -108,20 +108,13 @@ export function MacroBars({
             <span
               aria-hidden="true"
               data-slot="macro-bar-track"
-              className="bg-muted relative block h-2 overflow-hidden rounded-full"
+              className="bg-muted block h-2 overflow-hidden rounded-full"
             >
               <span
                 data-slot="macro-bar-fill"
                 className="bg-primary block h-full rounded-full"
                 style={{ width: `${fillPercent}%` }}
               />
-              {tickPercent !== null ? (
-                <span
-                  data-slot="macro-bar-tick"
-                  className="bg-foreground/40 absolute inset-y-0 w-0.5 -translate-x-1/2"
-                  style={{ left: `${tickPercent}%` }}
-                />
-              ) : null}
             </span>
           </li>
         );

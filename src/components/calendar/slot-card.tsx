@@ -64,7 +64,10 @@ export function SlotCard({
           <span className="inline-flex items-center gap-1 text-[0.65rem] tabular-nums">
             {over ? (
               <>
-                <span aria-hidden="true" className="inline-block -translate-y-0.5 leading-none">
+                <span
+                  aria-hidden="true"
+                  className="inline-block -translate-y-0.5 leading-none"
+                >
                   ▲
                 </span>
                 <span className="text-foreground font-semibold">

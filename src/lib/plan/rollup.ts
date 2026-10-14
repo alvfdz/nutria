@@ -131,28 +131,23 @@ export function stateLabel(
 }
 
 /**
- * The geometry of one macro bar: how much of the row the plan fills, and
- * where the target sits on that same scale.
+ * The geometry of one macro bar: how much of the row the plan fills.
  *
- * The row is scaled to the larger of the plan and the target, so an overshoot
- * visibly passes its target tick while a shortfall stops before it. A zero
- * scale draws no fill, and a zero target draws no tick.
+ * The row is scaled to the larger of the plan and the target, so the fill
+ * reaches the end of the track exactly when the plan meets or exceeds its
+ * target and stops short otherwise. A zero scale draws no fill.
  *
  * @param planned The macro amount the planned meals deliver.
  * @param target The macro amount the goal asks for.
- * @returns The fill width as a percentage, and the tick position, or `null`
- *   when no tick should be drawn.
+ * @returns The fill width as a percentage.
  */
 export function barGeometry(
   planned: number,
   target: number,
-): { fillPercent: number; tickPercent: number | null } {
+): { fillPercent: number } {
   const max = Math.max(planned, target);
 
-  return {
-    fillPercent: max === 0 ? 0 : (planned / max) * 100,
-    tickPercent: max === 0 || target === 0 ? null : (target / max) * 100,
-  };
+  return { fillPercent: max === 0 ? 0 : (planned / max) * 100 };
 }
 
 /**

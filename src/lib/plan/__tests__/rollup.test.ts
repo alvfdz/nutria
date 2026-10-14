@@ -134,53 +134,32 @@ describe("stateLabel", () => {
 });
 
 describe("barGeometry", () => {
-  test("draws no fill and a full tick for an empty plan", () => {
-    expect(barGeometry(0, 100)).toEqual({
-      fillPercent: 0,
-      tickPercent: 100,
-    });
+  test("draws no fill for an empty plan", () => {
+    expect(barGeometry(0, 100)).toEqual({ fillPercent: 0 });
   });
 
-  test("fills the row and puts the tick at the end when plan equals target", () => {
-    expect(barGeometry(100, 100)).toEqual({
-      fillPercent: 100,
-      tickPercent: 100,
-    });
+  test("fills the row when the plan equals the target", () => {
+    expect(barGeometry(100, 100)).toEqual({ fillPercent: 100 });
   });
 
-  test("scales to the plan and leaves the tick short when over", () => {
-    expect(barGeometry(150, 100)).toEqual({
-      fillPercent: 100,
-      tickPercent: (100 / 150) * 100,
-    });
+  test("fills the row when the plan is over the target", () => {
+    expect(barGeometry(150, 100)).toEqual({ fillPercent: 100 });
   });
 
-  test("leaves the tick far behind a heavily overshot plan", () => {
-    expect(barGeometry(1000, 100)).toEqual({
-      fillPercent: 100,
-      tickPercent: 10,
-    });
+  test("fills the row for a heavily overshot plan", () => {
+    expect(barGeometry(1000, 100)).toEqual({ fillPercent: 100 });
   });
 
-  test("fills the row and draws no tick for a plan against a zero target", () => {
-    expect(barGeometry(50, 0)).toEqual({
-      fillPercent: 100,
-      tickPercent: null,
-    });
+  test("fills the row for a plan against a zero target", () => {
+    expect(barGeometry(50, 0)).toEqual({ fillPercent: 100 });
   });
 
   test("draws nothing for a zero plan and a zero target", () => {
-    expect(barGeometry(0, 0)).toEqual({
-      fillPercent: 0,
-      tickPercent: null,
-    });
+    expect(barGeometry(0, 0)).toEqual({ fillPercent: 0 });
   });
 
   test("handles fractional amounts", () => {
-    expect(barGeometry(2.5, 5)).toEqual({
-      fillPercent: 50,
-      tickPercent: 100,
-    });
+    expect(barGeometry(2.5, 5)).toEqual({ fillPercent: 50 });
   });
 });
 
