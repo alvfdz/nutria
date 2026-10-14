@@ -1,6 +1,6 @@
 import { cn } from "cn";
 
-import { SlotCard } from "@/components/calendar/slot-card";
+import { SlotCard, slotCardId } from "@/components/calendar/slot-card";
 import { formatMacro } from "@/lib/ingredients/format";
 import type { DayColumn as DayColumnData, SlotView } from "@/lib/plan/types";
 
@@ -11,20 +11,17 @@ import type { DayColumn as DayColumnData, SlotView } from "@/lib/plan/types";
  * render no controls.
  *
  * @param props.day The day column data.
- * @param props.onAdd Opens the assign dialog for one of the day's slots.
- * @param props.removeAction The board's shared remove form action.
- * @param props.removePending Whether a remove is in flight.
+ * @param props.activeCardId Id of the card whose panel is open, if any.
+ * @param props.onOpen Opens the food panel for one of the day's slots.
  */
 export function DayColumn({
   day,
-  onAdd,
-  removeAction,
-  removePending,
+  activeCardId,
+  onOpen,
 }: {
   day: DayColumnData;
-  onAdd: (date: string, slot: SlotView, addButtonId: string) => void;
-  removeAction: (formData: FormData) => void;
-  removePending: boolean;
+  activeCardId: string | null;
+  onOpen: (date: string, slot: SlotView, cardId: string) => void;
 }) {
   const targetCalories = day.budget?.calories ?? 0;
   const plannedPercent = targetCalories
@@ -76,7 +73,7 @@ export function DayColumn({
 
       <div className="flex flex-col gap-2">
         {day.slots.map((slot) => {
-          const addButtonId = `add-${day.date}-${slot.id}`;
+          const cardId = slotCardId(day.date, slot.id);
 
           return (
             <SlotCard
@@ -84,10 +81,8 @@ export function DayColumn({
               date={day.date}
               slot={slot}
               editable={day.isEditable}
-              addButtonId={addButtonId}
-              onAdd={() => onAdd(day.date, slot, addButtonId)}
-              removeAction={removeAction}
-              removePending={removePending}
+              open={activeCardId === cardId}
+              onOpen={() => onOpen(day.date, slot, cardId)}
             />
           );
         })}

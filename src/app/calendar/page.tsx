@@ -26,7 +26,7 @@ import {
 import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
 import { getGoals } from "@/lib/goals/repository";
 import type { Goals } from "@/lib/goals/types";
-import { computeMealTotals } from "@/lib/meals/macros";
+import { computeMealTotals, itemCalories } from "@/lib/meals/macros";
 import { listMeals } from "@/lib/meals/repository";
 import { getPlansForRange } from "@/lib/plan/repository";
 import { sumTotals } from "@/lib/plan/rollup";
@@ -76,6 +76,12 @@ function buildDays(
         mealId: plan.meal.id,
         name: plan.meal.name,
         totals: computeMealTotals(plan.meal),
+        items: plan.meal.items.map((item) => ({
+          id: item.id,
+          name: item.ingredient.name,
+          grams: item.grams,
+          calories: itemCalories(item),
+        })),
       }));
 
       return {

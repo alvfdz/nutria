@@ -1,6 +1,6 @@
 /**
  * State returned by {@link assignMealAction} on every submit, consumed by the
- * assign dialog's `useActionState`.
+ * add-meal picker's `useActionState`.
  */
 export type AssignMealState = {
   /** Outcome of the last submit. */

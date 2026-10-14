@@ -45,6 +45,20 @@ export type PlannedMealView = {
   name: string;
   /** The template's macros, computed from the current ingredient values. */
   totals: MealTotals;
+  /** The meal's ingredients, in the order the template stores them. */
+  items: PlannedMealItemView[];
+};
+
+/** One ingredient of a planned meal, as the panel's expanded row renders it. */
+export type PlannedMealItemView = {
+  /** Identifier of the stored meal item. */
+  id: string;
+  /** Display name of the ingredient. */
+  name: string;
+  /** Quantity used, in grams. */
+  grams: number;
+  /** The calories this quantity contributes. */
+  calories: number;
 };
 
 /** One meal slot of one day, with its current plan and computed guidance. */
@@ -53,7 +67,10 @@ export type SlotView = {
   id: string;
   /** Slot name from the current Goals, e.g. "Breakfast". */
   name: string;
-  /** Share of the day's budget, 0–100, from the current Goals. */
+  /**
+   * Share of the day's budget, 0–100, from the current Goals. Kept for the
+   * goals form, which still thinks in shares; the board no longer reads it.
+   */
   percent: number;
   /** The slot's target budget, derived from the current Goals. */
   target: SlotBudget;

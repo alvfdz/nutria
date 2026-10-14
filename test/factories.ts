@@ -1,7 +1,15 @@
 import type { Ingredient, NewIngredient } from "@/lib/ingredients/types";
 import type { Goals, MealSlot, NewGoals } from "@/lib/goals/types";
+import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
+import type { MealTotals } from "@/lib/meals/macros";
 import type { Meal, MealItem, NewMeal } from "@/lib/meals/types";
-import type { PlannedMeal } from "@/lib/plan/types";
+import type {
+  DayColumn,
+  PlannedMeal,
+  PlannedMealItemView,
+  PlannedMealView,
+  SlotView,
+} from "@/lib/plan/types";
 
 /** Sensible defaults for an ingredient, overridable field by field. */
 export const ingredientDefaults: NewIngredient = {
@@ -217,6 +225,100 @@ export function makePlannedMeal(
     sortOrder: 0,
     ...overrides,
     meal,
+  };
+}
+
+/** Sensible defaults for one planned-meal ingredient view. */
+export const plannedMealItemDefaults: PlannedMealItemView = {
+  id: "meal-item-1",
+  name: "Oats",
+  grams: 80,
+  calories: 311.2,
+};
+
+/**
+ * Builds one planned-meal ingredient view, overridable field by field.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makePlannedMealItem(
+  overrides: Partial<PlannedMealItemView> = {},
+): PlannedMealItemView {
+  return { ...plannedMealItemDefaults, ...overrides };
+}
+
+/** Sensible defaults for one planned meal view. */
+export const plannedMealViewDefaults: PlannedMealView = {
+  id: "plan-meal-1",
+  mealId: "meal-1",
+  name: "Oatmeal & Protein Bowl",
+  totals: { calories: 462, protein: 88.2, carbs: 0, fat: 10.08 },
+  items: [makePlannedMealItem()],
+};
+
+/**
+ * Builds one planned meal view, overridable field by field.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makePlannedMealView(
+  overrides: Partial<PlannedMealView> = {},
+): PlannedMealView {
+  return { ...plannedMealViewDefaults, ...overrides };
+}
+
+/** The daily target used by {@link makeDayColumn} and friends. */
+export const macroBudgetDefaults: MacroBudget = {
+  calories: 2200,
+  proteinGrams: 156,
+  carbsGrams: 200,
+  fatGrams: 70,
+};
+
+/** The slot target used by {@link makeSlotView}, overridable field by field. */
+export const slotBudgetDefaults: SlotBudget = {
+  calories: 660,
+  proteinGrams: 46.8,
+  carbsGrams: 60,
+  fatGrams: 21,
+};
+
+/** A zeroed totals row, shared by the view builders. */
+const ZERO_TOTALS: MealTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+/**
+ * Builds one slot view with nothing planned, overridable field by field.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makeSlotView(overrides: Partial<SlotView> = {}): SlotView {
+  return {
+    id: "meal-slot-1",
+    name: "Breakfast",
+    percent: 30,
+    target: slotBudgetDefaults,
+    meals: [],
+    totals: ZERO_TOTALS,
+    ...overrides,
+  };
+}
+
+/**
+ * Builds one day column with a single empty slot, overridable field by field.
+ *
+ * @param overrides Fields to change on top of the defaults.
+ */
+export function makeDayColumn(overrides: Partial<DayColumn> = {}): DayColumn {
+  return {
+    date: "2026-10-12",
+    weekday: "Mon",
+    dayOfMonth: "12",
+    isToday: false,
+    isEditable: true,
+    budget: macroBudgetDefaults,
+    planned: ZERO_TOTALS,
+    slots: [makeSlotView()],
+    ...overrides,
   };
 }
 

@@ -9,7 +9,7 @@ import type { Meal } from "@/lib/meals/types";
  */
 export const MACRO_TOLERANCE = 0.05;
 
-/** The three macronutrients the guidance chips report on. */
+/** The three macronutrients the food panel's guidance bars report on. */
 export type MacroKey = "protein" | "carbs" | "fat";
 
 /**
@@ -105,7 +105,7 @@ export function macroState(
  * never carried by colour or a glyph alone.
  *
  * @param state The classification from {@link macroState}.
- * @param macro Which macronutrient the chip reports on.
+ * @param macro Which macronutrient the bar reports on.
  * @param planned The planned amount, in grams.
  * @param target The target amount, in grams.
  * @returns A string such as `Protein: 46.8 of 62 g, 15.2 g short`.
@@ -128,4 +128,47 @@ export function stateLabel(
   }
 
   return `${name}: ${amount}, on target`;
+}
+
+/**
+ * The geometry of one macro bar: how much of the row the plan fills, and
+ * where the target sits on that same scale.
+ *
+ * The row is scaled to the larger of the plan and the target, so an overshoot
+ * visibly passes its target tick while a shortfall stops before it. A zero
+ * scale draws no fill, and a zero target draws no tick.
+ *
+ * @param planned The macro amount the planned meals deliver.
+ * @param target The macro amount the goal asks for.
+ * @returns The fill width as a percentage, and the tick position, or `null`
+ *   when no tick should be drawn.
+ */
+export function barGeometry(
+  planned: number,
+  target: number,
+): { fillPercent: number; tickPercent: number | null } {
+  const max = Math.max(planned, target);
+
+  return {
+    fillPercent: max === 0 ? 0 : (planned / max) * 100,
+    tickPercent: max === 0 || target === 0 ? null : (target / max) * 100,
+  };
+}
+
+/**
+ * Whether a planned amount counts as over its target, and the sentence that
+ * spells it out. Uses the same tolerance as the macro guidance, so the card's
+ * over marker and the bars agree on what "over" means.
+ *
+ * @param planned The amount the plan delivers.
+ * @param target The amount the goal asks for.
+ * @returns A sentence such as `60 kcal over target`, or `null` when the plan
+ *   is within tolerance or short.
+ */
+export function overLabel(planned: number, target: number): string | null {
+  const { state } = macroState(planned, target);
+
+  return state === "over"
+    ? `${formatMacro(planned - target)} kcal over target`
+    : null;
 }

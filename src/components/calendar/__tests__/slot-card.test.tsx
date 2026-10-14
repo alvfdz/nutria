@@ -3,137 +3,142 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
 import { SlotCard } from "@/components/calendar/slot-card";
-import type { SlotBudget } from "@/lib/goals/budget";
-import type { MealTotals } from "@/lib/meals/macros";
 import type { SlotView } from "@/lib/plan/types";
-
-/** The slot's target macros. */
-const target: SlotBudget = {
-  calories: 600,
-  proteinGrams: 60,
-  carbsGrams: 60,
-  fatGrams: 20,
-};
-
-/** A slot view with nothing planned. */
-function makeSlot(overrides: Partial<SlotView> = {}): SlotView {
-  return {
-    id: "meal-slot-1",
-    name: "Breakfast",
-    percent: 30,
-    target,
-    meals: [],
-    totals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    ...overrides,
-  };
-}
-
-/** A one-meal slot view carrying explicit totals. */
-function plannedSlot(mealTotals: MealTotals): SlotView {
-  return makeSlot({
-    meals: [
-      { id: "plan-1", mealId: "meal-1", name: "Porridge", totals: mealTotals },
-    ],
-    totals: mealTotals,
-  });
-}
+import { makePlannedMealView, makeSlotView } from "@test/factories";
 
 /**
- * Renders the card with the given slot and editability.
+ * Renders the card with the given slot, editability and open state.
  *
- * @param overrides The slot and `editable` flag to use.
- * @returns The `onAdd` spy, so a test can assert it fired.
+ * @param overrides The slot, `editable` and `open` values to use.
+ * @returns The `onOpen` spy, so a test can assert it fired.
  */
-function renderCard(overrides: { slot?: SlotView; editable?: boolean } = {}): {
-  onAdd: ReturnType<typeof vi.fn>;
-} {
-  const onAdd = vi.fn();
+function renderCard(
+  overrides: { slot?: SlotView; editable?: boolean; open?: boolean } = {},
+): { onOpen: ReturnType<typeof vi.fn> } {
+  const onOpen = vi.fn();
 
   render(
     <SlotCard
       date="2026-10-13"
-      slot={overrides.slot ?? makeSlot()}
+      slot={overrides.slot ?? makeSlotView()}
       editable={overrides.editable ?? true}
-      addButtonId="add-2026-10-13-meal-slot-1"
-      onAdd={onAdd}
-      removeAction={vi.fn()}
-      removePending={false}
+      open={overrides.open ?? false}
+      onOpen={onOpen}
     />,
   );
 
-  return { onAdd };
+  return { onOpen };
 }
 
 describe("SlotCard", () => {
-  test("labels the card as the slot on its day", () => {
-    renderCard();
-
-    expect(
-      screen.getByRole("region", { name: "Breakfast on 2026-10-13" }),
-    ).toBeInTheDocument();
-  });
-
-  test("shows the planned kcal against the slot target", () => {
+  test("shows the food, the planned and target kcal, and one row per meal", () => {
     renderCard({
-      slot: plannedSlot({ calories: 240, protein: 20, carbs: 40, fat: 8 }),
+      slot: makeSlotView({
+        name: "Lunch",
+        target: {
+          calories: 840,
+          proteinGrams: 60,
+          carbsGrams: 80,
+          fatGrams: 28,
+        },
+        meals: [
+          makePlannedMealView({ name: "Chicken & Rice Bowl", id: "plan-1" }),
+          makePlannedMealView({ name: "Greek Yogurt", id: "plan-2" }),
+        ],
+        totals: { calories: 620, protein: 40, carbs: 60, fat: 20 },
+      }),
     });
 
-    // Once in the slot header and once on the meal row.
-    expect(screen.getAllByText("240")).toHaveLength(2);
-    expect(screen.getByText("/ 600")).toBeInTheDocument();
+    expect(screen.getByText("Lunch")).toBeInTheDocument();
+    expect(screen.getByText("620")).toBeInTheDocument();
+    expect(screen.getByText("/ 840")).toBeInTheDocument();
+    expect(screen.getByText("Chicken & Rice Bowl")).toBeInTheDocument();
+    expect(screen.getByText("Greek Yogurt")).toBeInTheDocument();
+    // One kcal figure per meal row.
+    expect(screen.getAllByText("462")).toHaveLength(2);
   });
 
-  test("shows a placeholder when nothing is planned", () => {
+  test("shows the target alone and a placeholder when nothing is planned", () => {
     renderCard();
 
     expect(screen.getByText("Nothing planned")).toBeInTheDocument();
+    expect(screen.getByText("660")).toBeInTheDocument();
+    expect(screen.queryByText("/ 660")).not.toBeInTheDocument();
   });
 
-  test("lists each planned meal with its kcal and a labelled remove button", () => {
+  test("marks food over its kcal target and names the excess", () => {
     renderCard({
-      slot: plannedSlot({ calories: 240, protein: 20, carbs: 40, fat: 8 }),
+      slot: makeSlotView({
+        name: "Lunch",
+        target: {
+          calories: 840,
+          proteinGrams: 60,
+          carbsGrams: 80,
+          fatGrams: 28,
+        },
+        meals: [makePlannedMealView({ name: "Chicken & Rice Bowl" })],
+        totals: { calories: 900, protein: 40, carbs: 60, fat: 20 },
+      }),
     });
 
-    expect(screen.getByText("Porridge")).toBeInTheDocument();
-    // Once in the slot header and once on the meal row.
-    expect(screen.getAllByText("240")).toHaveLength(2);
+    expect(screen.getByText("▲")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: "Remove Porridge from Breakfast",
-      }),
+      screen.getByRole("button", { name: /60 kcal over target/ }),
     ).toBeInTheDocument();
   });
 
-  test("renders the three macro guidance chips", () => {
-    renderCard();
+  test("names the card with the food and the day when editable", () => {
+    renderCard({ slot: makeSlotView({ name: "Breakfast" }) });
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(
+      screen.getByRole("button", { name: /Breakfast, Tue 13/ }),
+    ).toBeInTheDocument();
   });
 
-  test("opens the assign dialog from Add meal when editable", async () => {
+  test("mirrors the open state through aria-expanded and opens on click", async () => {
     const user = userEvent.setup();
-    const { onAdd } = renderCard();
+    const { onOpen } = renderCard({ open: true });
 
-    await user.click(screen.getByRole("button", { name: /Add meal/ }));
+    const card = screen.getByRole("button", { name: /Breakfast/ });
 
-    expect(onAdd).toHaveBeenCalledOnce();
+    expect(card).toHaveAttribute("aria-expanded", "true");
+    expect(card).toHaveAttribute("aria-haspopup", "dialog");
+
+    await user.click(card);
+
+    expect(onOpen).toHaveBeenCalledOnce();
   });
 
-  test("hides every control on a read-only day", () => {
+  test("is not a button and has nothing focusable on a past day", () => {
     renderCard({
-      slot: plannedSlot({ calories: 240, protein: 20, carbs: 40, fat: 8 }),
       editable: false,
+      slot: makeSlotView({
+        meals: [makePlannedMealView({ name: "Porridge" })],
+      }),
     });
 
-    const card = screen.getByRole("region", {
-      name: "Breakfast on 2026-10-13",
-    });
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText("Porridge")).toBeInTheDocument();
+  });
 
+  test("carries no macro chips, add or remove controls", () => {
+    const { container } = render(
+      <SlotCard
+        date="2026-10-13"
+        slot={makeSlotView({
+          meals: [makePlannedMealView({ name: "Porridge" })],
+        })}
+        editable={true}
+        open={false}
+        onOpen={vi.fn()}
+      />,
+    );
+    const card = within(container);
+
+    expect(card.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(card.queryByText(/Add meal/)).not.toBeInTheDocument();
     expect(
-      within(card).queryByRole("button", { name: /Remove/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(card).queryByRole("button", { name: /Add meal/ }),
+      card.queryByRole("button", { name: /Remove/ }),
     ).not.toBeInTheDocument();
   });
 });

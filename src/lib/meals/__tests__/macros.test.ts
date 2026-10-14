@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import type { Ingredient } from "@/lib/ingredients/types";
-import { computeMealTotals, sumMealItems } from "@/lib/meals/macros";
+import {
+  computeMealTotals,
+  itemCalories,
+  sumMealItems,
+} from "@/lib/meals/macros";
 import type { MealItem } from "@/lib/meals/types";
 import { makeIngredient, makeMeal } from "@test/factories";
 
@@ -95,6 +99,19 @@ describe("computeMealTotals", () => {
       carbs: 40.5,
       fat: 5,
     });
+  });
+});
+
+describe("itemCalories", () => {
+  test("scales the ingredient's density by the grams used", () => {
+    const chicken = makeIngredient();
+
+    // 165 kcal per 100 g at 50 g is 82.5 kcal.
+    expect(itemCalories({ grams: 50, ingredient: chicken })).toBe(82.5);
+  });
+
+  test("is zero at zero grams", () => {
+    expect(itemCalories({ grams: 0, ingredient: makeIngredient() })).toBe(0);
   });
 });
 

@@ -5,6 +5,7 @@ import CalendarPage from "@/app/calendar/page";
 import {
   addDays,
   dbDateFromKey,
+  formatDayLabel,
   formatWeekRange,
   startOfWeek,
   todayKey,
@@ -37,14 +38,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/**
- * Renders the page with the given stored state resolved.
- *
- * @param options.week The raw `week` search parameter, if any.
- * @param options.meals The meal library to return.
- * @param options.plans The week's plan rows to return.
- * @param options.goals The goals to return, or null for a first visit.
- */
 async function renderPage({
   week,
   meals = [],
@@ -76,18 +69,9 @@ describe("CalendarPage", () => {
       screen.getByRole("heading", { level: 1, name: "Calendar" }),
     ).toBeInTheDocument();
 
-    const breakfast = screen.getAllByRole("region", { name: /^Breakfast on/ });
-    expect(breakfast).toHaveLength(7);
-
-    expect(
-      screen.getByRole("region", { name: "Breakfast on 2026-10-14" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "Lunch on 2026-10-14" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "Dinner on 2026-10-14" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Breakfast")).toHaveLength(7);
+    expect(screen.getAllByText("Lunch")).toHaveLength(7);
+    expect(screen.getAllByText("Dinner")).toHaveLength(7);
   });
 
   test("selects the requested week from the search param", async () => {
@@ -134,29 +118,22 @@ describe("CalendarPage", () => {
 
     await renderPage({ meals: [porridge, oldOats], plans });
 
-    const todaySlot = screen.getByRole("region", {
-      name: `Breakfast on ${today}`,
+    const todaySlot = screen.getByRole("button", {
+      name: new RegExp(`Breakfast, ${formatDayLabel(today)}.*Porridge`),
     });
-    const pastSlot = screen.getByRole("region", {
-      name: `Breakfast on ${monday}`,
-    });
+    expect(todaySlot).toBeInTheDocument();
 
-    expect(within(todaySlot).getByText("Porridge")).toBeInTheDocument();
+    expect(screen.getByText("Porridge")).toBeInTheDocument();
+
+    const pastSlot = screen
+      .getByText("Old oats")
+      .closest("div.rounded-lg.border");
+    expect(pastSlot).not.toBeNull();
     expect(
-      within(todaySlot).getByRole("button", {
-        name: "Remove Porridge from Breakfast",
-      }),
+      within(pastSlot as HTMLElement).getByText("Old oats"),
     ).toBeInTheDocument();
     expect(
-      within(todaySlot).getByRole("button", { name: /Add meal/ }),
-    ).toBeInTheDocument();
-
-    expect(within(pastSlot).getByText("Old oats")).toBeInTheDocument();
-    expect(
-      within(pastSlot).queryByRole("button", { name: /Remove/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(pastSlot).queryByRole("button", { name: /Add meal/ }),
+      within(pastSlot as HTMLElement).queryByRole("button"),
     ).not.toBeInTheDocument();
   });
 
@@ -167,7 +144,7 @@ describe("CalendarPage", () => {
     expect(
       screen.getByRole("link", { name: "Set your budget" }),
     ).toHaveAttribute("href", "/goals");
-    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+    expect(screen.queryByText("Breakfast")).not.toBeInTheDocument();
   });
 
   test("loads the goals, library and week plan once", async () => {

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  barGeometry,
   dayTotals,
   macroState,
   MACRO_TOLERANCE,
+  overLabel,
   slotTotals,
   stateLabel,
   sumTotals,
@@ -128,5 +130,84 @@ describe("stateLabel", () => {
 
   test("spells out an over macro with the excess grams", () => {
     expect(stateLabel("over", "fat", 70, 62)).toBe("Fat: 70 of 62 g, 8 g over");
+  });
+});
+
+describe("barGeometry", () => {
+  test("draws no fill and a full tick for an empty plan", () => {
+    expect(barGeometry(0, 100)).toEqual({
+      fillPercent: 0,
+      tickPercent: 100,
+    });
+  });
+
+  test("fills the row and puts the tick at the end when plan equals target", () => {
+    expect(barGeometry(100, 100)).toEqual({
+      fillPercent: 100,
+      tickPercent: 100,
+    });
+  });
+
+  test("scales to the plan and leaves the tick short when over", () => {
+    expect(barGeometry(150, 100)).toEqual({
+      fillPercent: 100,
+      tickPercent: (100 / 150) * 100,
+    });
+  });
+
+  test("leaves the tick far behind a heavily overshot plan", () => {
+    expect(barGeometry(1000, 100)).toEqual({
+      fillPercent: 100,
+      tickPercent: 10,
+    });
+  });
+
+  test("fills the row and draws no tick for a plan against a zero target", () => {
+    expect(barGeometry(50, 0)).toEqual({
+      fillPercent: 100,
+      tickPercent: null,
+    });
+  });
+
+  test("draws nothing for a zero plan and a zero target", () => {
+    expect(barGeometry(0, 0)).toEqual({
+      fillPercent: 0,
+      tickPercent: null,
+    });
+  });
+
+  test("handles fractional amounts", () => {
+    expect(barGeometry(2.5, 5)).toEqual({
+      fillPercent: 50,
+      tickPercent: 100,
+    });
+  });
+});
+
+describe("overLabel", () => {
+  test("is null inside the tolerance band", () => {
+    expect(overLabel(100, 100)).toBeNull();
+    expect(overLabel(95, 100)).toBeNull();
+    expect(overLabel(105, 100)).toBeNull();
+  });
+
+  test("is null exactly at the band boundary", () => {
+    expect(overLabel(105, 100)).toBeNull();
+  });
+
+  test("spells the excess out just past the band", () => {
+    expect(overLabel(106, 100)).toBe("6 kcal over target");
+  });
+
+  test("spells the excess out far past the band", () => {
+    expect(overLabel(900, 840)).toBe("60 kcal over target");
+  });
+
+  test("marks any plan against a zero target as over", () => {
+    expect(overLabel(50, 0)).toBe("50 kcal over target");
+  });
+
+  test("leaves an empty plan against a zero target alone", () => {
+    expect(overLabel(0, 0)).toBeNull();
   });
 });

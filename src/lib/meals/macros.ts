@@ -60,3 +60,14 @@ export function sumMealItems(items: TotalsItem[]): MealTotals {
 export function computeMealTotals(meal: Pick<Meal, "items">): MealTotals {
   return sumMealItems(meal.items);
 }
+
+/**
+ * The energy one item contributes: the ingredient's density scaled by the
+ * quantity used.
+ *
+ * @param item The item to price, carrying its ingredient and grams.
+ * @returns The item's kilocalories; zero at zero grams.
+ */
+export function itemCalories(item: TotalsItem): number {
+  return item.ingredient.caloriesPer100g * (item.grams / 100);
+}

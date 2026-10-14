@@ -1,4 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
 import { WeekBoard } from "@/components/calendar/week-board";
@@ -6,7 +7,7 @@ import { dayOfMonth, weekDays, weekdayShort } from "@/lib/calendar/week";
 import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
 import type { MealTotals } from "@/lib/meals/macros";
 import type { DayColumn } from "@/lib/plan/types";
-import { makeMeal } from "@test/factories";
+import { makeSlotView } from "@test/factories";
 
 vi.mock("@/app/calendar/actions", () => ({
   assignMealAction: vi.fn(),
@@ -21,7 +22,7 @@ const budget: MacroBudget = {
   fatGrams: 70,
 };
 
-/** One target per Goals slot; the first carries a decimal to prove formatting. */
+/** One target per Goals slot. */
 const slotTargets: SlotBudget[] = [
   { calories: 660, proteinGrams: 46.8, carbsGrams: 60, fatGrams: 21 },
   { calories: 880, proteinGrams: 62, carbsGrams: 80, fatGrams: 28 },
@@ -29,7 +30,6 @@ const slotTargets: SlotBudget[] = [
 ];
 
 const slotNames = ["Breakfast", "Lunch", "Dinner"];
-
 const ZERO: MealTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
 /** The week of Mon 12 Oct 2026, with today standing on Wednesday. */
@@ -43,12 +43,13 @@ function makeDays(): DayColumn[] {
     budget,
     planned: ZERO,
     slots: slotNames.map((name, index) => ({
-      id: `meal-slot-${index + 1}`,
-      name,
-      percent: 30,
-      target: slotTargets[index],
-      meals: [],
-      totals: ZERO,
+      ...makeSlotView({
+        id: `meal-slot-${index + 1}`,
+        name,
+        target: slotTargets[index],
+        meals: [],
+        totals: ZERO,
+      }),
     })),
   }));
 }
@@ -62,19 +63,15 @@ describe("WeekBoard", () => {
     }
   });
 
-  test("renders one slot card per slot per day", () => {
+  test("renders one card per food per day", () => {
     render(<WeekBoard days={makeDays()} meals={[]} />);
 
-    expect(screen.getAllByRole("region")).toHaveLength(7 * slotNames.length);
-    expect(
-      screen.getByRole("region", { name: "Breakfast on 2026-10-12" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "Dinner on 2026-10-18" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Breakfast")).toHaveLength(7);
+    expect(screen.getAllByText("Lunch")).toHaveLength(7);
+    expect(screen.getAllByText("Dinner")).toHaveLength(7);
   });
 
-  test("marks today's column and leaves the others unmarked", () => {
+  test("marks today's column", () => {
     render(<WeekBoard days={makeDays()} meals={[]} />);
 
     expect(screen.getByText("14").closest("[data-today]")).toHaveAttribute(
@@ -84,60 +81,27 @@ describe("WeekBoard", () => {
     expect(screen.getByText("12").closest("[data-today]")).toBeNull();
   });
 
-  test("hides the add control on a read-only day", () => {
+  test("a past card has no button", () => {
     render(<WeekBoard days={makeDays()} meals={[]} />);
 
-    const past = screen.getByRole("region", {
-      name: "Breakfast on 2026-10-12",
-    });
-    const editable = screen.getByRole("region", {
-      name: "Breakfast on 2026-10-13",
-    });
-
     expect(
-      within(past).queryByRole("button", { name: /Add meal/ }),
+      screen.queryByRole("button", { name: /Breakfast, Mon 12/ }),
     ).not.toBeInTheDocument();
     expect(
-      within(editable).getByRole("button", { name: /Add meal/ }),
+      screen.getByRole("button", { name: /Breakfast, Tue 13/ }),
     ).toBeInTheDocument();
   });
 
-  test("shows a planned meal in its slot and a placeholder everywhere else", () => {
-    const meal = makeMeal({ id: "meal-1", name: "Porridge" });
-    const totals: MealTotals = {
-      calories: 240,
-      protein: 20,
-      carbs: 40,
-      fat: 8,
-    };
-    const days = makeDays();
-    const wednesday = days[2];
-    days[2] = {
-      ...wednesday,
-      planned: totals,
-      slots: [
-        {
-          ...wednesday.slots[0],
-          meals: [
-            {
-              id: "plan-1",
-              mealId: meal.id,
-              name: meal.name,
-              totals,
-            },
-          ],
-          totals,
-        },
-        ...wednesday.slots.slice(1),
-      ],
-    };
+  test("opening one food opens one panel and opening a second closes the first", async () => {
+    const user = userEvent.setup();
+    render(<WeekBoard days={makeDays()} meals={[]} />);
 
-    render(<WeekBoard days={days} meals={[meal]} />);
+    await user.click(screen.getByRole("button", { name: /Breakfast, Tue 13/ }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
 
-    expect(screen.getByText("Porridge")).toBeInTheDocument();
-    expect(screen.getAllByText("Nothing planned")).toHaveLength(
-      7 * slotNames.length - 1,
-    );
+    await user.click(screen.getByRole("button", { name: /Lunch, Tue 13/ }));
+    const dialogs = screen.getAllByRole("dialog");
+    expect(dialogs).toHaveLength(1);
   });
 
   test("falls back to a zero target when a day has no budget", () => {
@@ -146,5 +110,22 @@ describe("WeekBoard", () => {
     render(<WeekBoard days={days} meals={[]} />);
 
     expect(screen.getAllByText("0 / 0 kcal")).toHaveLength(7);
+  });
+
+  test("a food whose slot vanished renders no panel", async () => {
+    const user = userEvent.setup();
+    const days = makeDays();
+    const { rerender } = render(<WeekBoard days={days} meals={[]} />);
+
+    await user.click(screen.getByRole("button", { name: /Breakfast, Tue 13/ }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    const daysWithoutBreakfast = days.map((day) => ({
+      ...day,
+      slots: day.slots.filter((slot) => slot.name !== "Breakfast"),
+    }));
+
+    rerender(<WeekBoard days={daysWithoutBreakfast} meals={[]} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
