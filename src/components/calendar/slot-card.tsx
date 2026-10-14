@@ -51,7 +51,7 @@ export function SlotCard({
 
   const inner = (
     <>
-      <span className="flex items-baseline justify-between gap-2">
+      <span className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-[0.6rem] font-semibold tracking-wide uppercase">
           {slot.name}
         </span>
@@ -61,10 +61,12 @@ export function SlotCard({
             {formatMacro(slot.target.calories)}
           </span>
         ) : (
-          <span className="text-[0.65rem] tabular-nums">
+          <span className="inline-flex items-center gap-1 text-[0.65rem] tabular-nums">
             {over ? (
               <>
-                <span aria-hidden="true">▲</span>{" "}
+                <span aria-hidden="true" className="inline-block -translate-y-0.5 leading-none">
+                  ▲
+                </span>
                 <span className="text-foreground font-semibold">
                   {formatMacro(slot.totals.calories)}
                 </span>
