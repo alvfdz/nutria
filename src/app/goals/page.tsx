@@ -13,7 +13,8 @@ export const metadata: Metadata = {
  * and renders the setup form under the intro. The form is keyed on
  * `updatedAt` so a successful save re-seeds it from the database; when no
  * goals exist yet the same form acts as the onboarding step. The intro and
- * form share a centred width so both stay aligned on wide screens.
+ * form span the shared page width so the page keeps the same gutters as the
+ * other sections.
  */
 export default async function GoalsPage() {
   const goals = await getGoals();
@@ -21,7 +22,7 @@ export default async function GoalsPage() {
   return (
     <main className="flex-1">
       <PageContainer className="py-10">
-        <div className="mx-auto grid max-w-6xl gap-8">
+        <div className="grid gap-8">
           <header className="grid gap-1">
             <h1 className="font-heading text-2xl font-medium tracking-tight">
               Goals

@@ -130,7 +130,7 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
 
   return (
     <main className="flex-1">
-      <PageContainer width="full" className="py-10">
+      <PageContainer width="wide" className="py-10">
         <header className="grid gap-1">
           <h1 className="font-heading text-2xl font-medium tracking-tight">
             Calendar

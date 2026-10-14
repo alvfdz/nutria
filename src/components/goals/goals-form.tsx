@@ -230,7 +230,7 @@ export function GoalsForm({ goals }: { goals: Goals | null }) {
 
   return (
     <form action={formAction}>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <Card>
           <CardHeader>
             <CardTitle>
