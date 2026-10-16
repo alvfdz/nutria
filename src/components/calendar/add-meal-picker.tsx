@@ -99,14 +99,14 @@ export function AddMealPicker({
         </p>
       ) : (
         <div className="max-h-72 overflow-y-auto">
-          <ul className="grid gap-1">
+          <ul className="grid min-w-0 gap-1">
             {filtered.map((meal) => {
               const totals = computeMealTotals(meal);
               const already = plannedMealIds.has(meal.id);
               const over = totals.calories - remaining;
 
               return (
-                <li key={meal.id}>
+                <li key={meal.id} className="min-w-0">
                   <form action={formAction}>
                     <input type="hidden" name="date" value={date} />
                     <input type="hidden" name="mealSlotId" value={slot.id} />
@@ -120,7 +120,10 @@ export function AddMealPicker({
                       className="h-auto w-full justify-between gap-3 py-2 text-left"
                     >
                       <span className="flex min-w-0 flex-col items-start">
-                        <span className="max-w-full truncate text-sm font-medium">
+                        <span
+                          className="max-w-full truncate text-sm font-medium"
+                          title={meal.name}
+                        >
                           {meal.name}
                         </span>
                         <span className="text-muted-foreground text-xs tabular-nums">

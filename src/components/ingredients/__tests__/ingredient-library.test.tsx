@@ -153,4 +153,17 @@ describe("IngredientLibrary", () => {
       "Oats removed from your ingredient library.",
     );
   });
+
+  test("clips a long ingredient name instead of stretching the table", () => {
+    const longName = "a".repeat(60);
+    render(
+      <IngredientLibrary
+        ingredients={[makeIngredient({ id: "long", name: longName })]}
+      />,
+    );
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+  });
 });

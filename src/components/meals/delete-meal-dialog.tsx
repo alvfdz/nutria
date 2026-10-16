@@ -57,7 +57,7 @@ export function DeleteMealDialog({
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete meal</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription className="wrap-anywhere">
             This permanently removes {meal.name} from your meal library. This
             cannot be undone.
           </AlertDialogDescription>

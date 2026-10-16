@@ -62,7 +62,7 @@ export function EditIngredientDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit ingredient</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="wrap-anywhere">
             Update the macros for {ingredient.name}.
           </DialogDescription>
         </DialogHeader>

@@ -231,4 +231,26 @@ describe("MealFields", () => {
     expect(data.getAll("ingredientId")).toHaveLength(1);
     expect(data.getAll("grams")).toHaveLength(1);
   });
+
+  test("clips a long ingredient name in the option list", async () => {
+    const user = userEvent.setup();
+    const longName = "a".repeat(60);
+    render(
+      <MealFields
+        ingredients={[makeIngredient({ id: "ing-long", name: longName })]}
+        fieldErrors={{}}
+      />,
+    );
+
+    // The trigger must be able to shrink below the name's intrinsic width,
+    // otherwise it grows past its column (and the popup with it).
+    expect(screen.getByRole("combobox", { name: "Ingredient 1" })).toHaveClass(
+      "min-w-0",
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Ingredient 1" }));
+    const option = await screen.findByRole("option", { name: longName });
+
+    expect(within(option).getByText(longName)).toHaveClass("truncate");
+  });
 });

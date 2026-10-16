@@ -153,4 +153,63 @@ describe("FoodPanel", () => {
     expect(screen.getByText("0")).toBeInTheDocument();
     expect(screen.getByText(/660 kcal/)).toBeInTheDocument();
   });
+
+  test("clips a long food name so the popup header cannot overflow", () => {
+    const longName = "a".repeat(60);
+    renderPanel({ slot: makeSlotView({ name: longName }) });
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+    // The header and its grid must be able to shrink, or the popup widens.
+    expect(name.parentElement).toHaveClass("min-w-0");
+    expect(name.parentElement?.parentElement).toHaveClass("min-w-0");
+  });
+
+  test("clips a long meal name and lets its form chain shrink", () => {
+    const longName = "a".repeat(60);
+    renderPanel({
+      slot: makeSlotView({ meals: [makePlannedMealView({ name: longName })] }),
+    });
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+    // button > row > meal box > form > section; every grid/flex item in the
+    // chain needs `min-w-0`, or the popup grows to the name's width.
+    const chain: HTMLElement[] = [];
+    let node: HTMLElement | null = name.parentElement;
+    while (node && chain.length < 5) {
+      chain.push(node);
+      node = node.parentElement;
+    }
+    expect(chain).toHaveLength(5);
+    for (const ancestor of chain) {
+      expect(ancestor).toHaveClass("min-w-0");
+    }
+  });
+
+  test("clips a long ingredient name inside an expanded meal", async () => {
+    const user = userEvent.setup();
+    const longName = "a".repeat(60);
+    renderPanel({
+      slot: makeSlotView({
+        meals: [
+          makePlannedMealView({
+            name: "Oatmeal",
+            items: [makePlannedMealItem({ id: "item-1", name: longName })],
+          }),
+        ],
+      }),
+    });
+
+    await user.click(screen.getByRole("button", { name: /^Oatmeal/ }));
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+    // The item's list and row need `min-w-0` so the grid track can collapse.
+    expect(name.parentElement).toHaveClass("min-w-0");
+    expect(name.parentElement?.parentElement).toHaveClass("min-w-0");
+  });
 });

@@ -57,7 +57,7 @@ export function DeleteIngredientDialog({
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete ingredient</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription className="wrap-anywhere">
             This permanently removes {ingredient.name} from your library. This
             cannot be undone.
           </AlertDialogDescription>

@@ -620,26 +620,29 @@ function GoalsForm({
                   })}
                 </div>
 
-                <ul className="grid gap-4">
+                <ul className="grid min-w-0 gap-4">
                   {slotBudgets.map((budget, index) => {
                     const row = rows[index];
                     if (!row) return null;
                     const segment = segments[index];
                     const share = shares[index] ?? 0;
+                    const label = row.name || `Meal ${index + 1}`;
 
                     return (
-                      <li key={row.key} className="grid gap-1">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <span className="flex items-center gap-2 text-sm font-medium">
+                      <li key={row.key} className="grid min-w-0 gap-1">
+                        <div className="flex min-w-0 items-baseline justify-between gap-3">
+                          <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
                             <span
                               aria-hidden="true"
                               data-slot="day-split-swatch"
                               className="bg-primary size-2.5 shrink-0 rounded-[0.2rem]"
                               style={{ opacity: segment?.opacity }}
                             />
-                            {row.name || `Meal ${index + 1}`}
+                            <span className="truncate" title={label}>
+                              {label}
+                            </span>
                           </span>
-                          <span className="text-muted-foreground text-xs tabular-nums">
+                          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                             {formatMacro(share)}%
                           </span>
                         </div>

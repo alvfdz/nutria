@@ -65,7 +65,7 @@ export function EditMealDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit meal</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="wrap-anywhere">
             Update the ingredients that make up {meal.name}.
           </DialogDescription>
         </DialogHeader>

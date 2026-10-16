@@ -141,4 +141,30 @@ describe("SlotCard", () => {
       card.queryByRole("button", { name: /Remove/ }),
     ).not.toBeInTheDocument();
   });
+
+  test("clips a long food name so the card cannot widen", () => {
+    const longName = "a".repeat(60);
+    renderCard({ slot: makeSlotView({ name: longName }) });
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+  });
+
+  test("clips a long meal name and lets its row and grid shrink", () => {
+    const longName = "a".repeat(60);
+    renderCard({
+      slot: makeSlotView({
+        meals: [makePlannedMealView({ name: longName })],
+      }),
+    });
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+    // Without `min-w-0` on the row and the grid that holds it, the grid track
+    // grows to the name's intrinsic width and widens the card instead.
+    expect(name.parentElement).toHaveClass("min-w-0");
+    expect(name.parentElement?.parentElement).toHaveClass("min-w-0");
+  });
 });

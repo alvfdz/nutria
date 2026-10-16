@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "sonner";
@@ -405,5 +405,26 @@ describe("GoalsView", () => {
     await user.clear(screen.getByLabelText("Calories (kcal)"));
 
     expect(segments()).toHaveLength(0);
+  });
+
+  test("clips a long meal name in the day-split summary", async () => {
+    const user = userEvent.setup();
+    const longName = "a".repeat(60);
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 1 name"));
+    await user.type(screen.getByLabelText("Meal 1 name"), longName);
+
+    const [firstRow] = screen.getAllByRole("listitem");
+    const name = within(firstRow).getByText(longName);
+
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+    // The name sits in a flex row inside a grid inside the list. Each grid
+    // track must be allowed to shrink, or it widens past the card.
+    const row = name.parentElement;
+    expect(row).toHaveClass("min-w-0");
+    expect(row?.parentElement).toHaveClass("min-w-0");
+    expect(row?.parentElement?.parentElement).toHaveClass("min-w-0");
   });
 });

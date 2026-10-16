@@ -113,4 +113,19 @@ describe("DeleteIngredientDialog", () => {
       "The ingredient could not be deleted. Please try again.",
     );
   });
+
+  test("wraps a long name in the description so it stays inside the dialog", () => {
+    const longName = "a".repeat(60);
+    render(
+      <DeleteIngredientDialog
+        ingredient={makeIngredient({ id: "long", name: longName })}
+        onClose={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/This permanently removes/)).toHaveClass(
+      "wrap-anywhere",
+    );
+  });
 });

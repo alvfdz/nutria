@@ -220,4 +220,18 @@ describe("AddMealPicker", () => {
       within(message).getByRole("link", { name: "Build a meal" }),
     ).toHaveAttribute("href", "/meals");
   });
+
+  test("clips a long meal name and lets its list shrink", () => {
+    const longName = "a".repeat(60);
+    renderPicker({ meals: [mealWithCalories("meal-long", longName, 200)] });
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+    // The list and its rows must be able to shrink, or the row widens the
+    // popup instead of clipping the name.
+    expect(name.parentElement).toHaveClass("min-w-0");
+    expect(name.closest("li")).toHaveClass("min-w-0");
+    expect(name.closest("ul")).toHaveClass("min-w-0");
+  });
 });

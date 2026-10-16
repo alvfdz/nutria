@@ -130,4 +130,19 @@ describe("DeleteMealDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(onDeleted).not.toHaveBeenCalled();
   });
+
+  test("wraps a long name in the description so it stays inside the dialog", () => {
+    const longName = "a".repeat(60);
+    render(
+      <DeleteMealDialog
+        meal={makeMeal({ id: "meal-long", name: longName, items: [] })}
+        onClose={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/This permanently removes/)).toHaveClass(
+      "wrap-anywhere",
+    );
+  });
 });

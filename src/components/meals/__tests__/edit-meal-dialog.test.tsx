@@ -192,4 +192,32 @@ describe("EditMealDialog", () => {
     ).toHaveTextContent("Milk");
     expect(screen.getByLabelText("Grams 2")).toHaveValue(200);
   });
+
+  test("wraps a long name in the description so it stays inside the dialog", () => {
+    const longName = "a".repeat(60);
+    render(
+      <EditMealDialog
+        meal={makeMeal({
+          id: "meal-long",
+          name: longName,
+          items: [
+            {
+              id: "item-1",
+              sortOrder: 0,
+              ingredientId: "ing-oats",
+              grams: 100,
+              ingredient: oats,
+            },
+          ],
+        })}
+        ingredients={[oats, milk]}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Update the ingredients that make up/)).toHaveClass(
+      "wrap-anywhere",
+    );
+  });
 });

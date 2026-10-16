@@ -71,15 +71,15 @@ export function MealLibrary({
             planning.
           </p>
         ) : (
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead>Meal</TableHead>
-                <TableHead className="text-right">kcal</TableHead>
-                <TableHead className="text-right">Protein</TableHead>
-                <TableHead className="text-right">Carbs</TableHead>
-                <TableHead className="text-right">Fat</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-20 text-right">kcal</TableHead>
+                <TableHead className="w-20 text-right">Protein</TableHead>
+                <TableHead className="w-20 text-right">Carbs</TableHead>
+                <TableHead className="w-20 text-right">Fat</TableHead>
+                <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -94,9 +94,14 @@ export function MealLibrary({
 
                 return (
                   <TableRow key={meal.id}>
-                    <TableCell className="whitespace-normal font-medium">
-                      <div>{meal.name}</div>
-                      <div className="text-muted-foreground text-sm font-normal">
+                    <TableCell className="font-medium">
+                      <div className="truncate" title={meal.name}>
+                        {meal.name}
+                      </div>
+                      <div
+                        className="text-muted-foreground truncate text-sm font-normal"
+                        title={items}
+                      >
                         {items}
                       </div>
                     </TableCell>

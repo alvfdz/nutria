@@ -232,4 +232,31 @@ describe("MealLibrary", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByRole("status", { hidden: true })).toBeEmptyDOMElement();
   });
+
+  test("clips a long meal name and its ingredient list", () => {
+    const longName = "a".repeat(60);
+    const longMeal = makeMeal({
+      id: "meal-long",
+      name: longName,
+      items: [
+        {
+          id: "item-long",
+          sortOrder: 0,
+          ingredientId: "ing-oats",
+          grams: 100,
+          ingredient: oats,
+        },
+      ],
+    });
+
+    render(<MealLibrary meals={[longMeal]} ingredients={[oats, milk]} />);
+
+    const name = screen.getByText(longName);
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", longName);
+
+    const items = screen.getByText("Oats (100 g)");
+    expect(items).toHaveClass("truncate");
+    expect(items).toHaveAttribute("title", "Oats (100 g)");
+  });
 });

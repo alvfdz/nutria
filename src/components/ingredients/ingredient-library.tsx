@@ -65,22 +65,24 @@ export function IngredientLibrary({
             Your library is empty. Add an ingredient to start building meals.
           </p>
         ) : (
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead>Ingredient</TableHead>
-                <TableHead className="text-right">kcal</TableHead>
-                <TableHead className="text-right">Protein</TableHead>
-                <TableHead className="text-right">Carbs</TableHead>
-                <TableHead className="text-right">Fat</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-20 text-right">kcal</TableHead>
+                <TableHead className="w-20 text-right">Protein</TableHead>
+                <TableHead className="w-20 text-right">Carbs</TableHead>
+                <TableHead className="w-20 text-right">Fat</TableHead>
+                <TableHead className="w-20 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {ingredients.map((ingredient) => (
                 <TableRow key={ingredient.id}>
                   <TableCell className="font-medium">
-                    {ingredient.name}
+                    <div className="truncate" title={ingredient.name}>
+                      {ingredient.name}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatMacro(ingredient.caloriesPer100g)}

@@ -67,9 +67,12 @@ export function FoodPanel({
 
   return (
     <div className="grid gap-4">
-      <header className="flex items-start justify-between gap-2">
-        <div className="grid gap-0.5">
-          <PopoverTitle className="text-base font-medium">
+      <header className="flex min-w-0 items-start justify-between gap-2">
+        <div className="grid min-w-0 gap-0.5">
+          <PopoverTitle
+            className="truncate text-base font-medium"
+            title={slot.name}
+          >
             {slot.name}
           </PopoverTitle>
           <PopoverDescription className="text-xs tabular-nums">
@@ -97,7 +100,7 @@ export function FoodPanel({
 
       {isEmpty ? null : <MacroBars totals={slot.totals} target={slot.target} />}
 
-      <section className="grid gap-2">
+      <section className="grid min-w-0 gap-2">
         <h3 className="text-muted-foreground text-[0.6rem] font-semibold tracking-wide uppercase">
           Meals in this food
         </h3>
@@ -105,16 +108,16 @@ export function FoodPanel({
         {isEmpty ? (
           <p className="text-muted-foreground text-sm">Nothing planned yet</p>
         ) : (
-          <form action={removeAction} className="grid gap-2">
+          <form action={removeAction} className="grid min-w-0 gap-2">
             {slot.meals.map((meal) => {
               const isExpanded = expanded.has(meal.id);
 
               return (
                 <div
                   key={meal.id}
-                  className="grid gap-1.5 rounded-lg border p-1.5"
+                  className="grid min-w-0 gap-1.5 rounded-lg border p-1.5"
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex min-w-0 items-center gap-1">
                     <button
                       type="button"
                       aria-expanded={isExpanded}
@@ -128,7 +131,10 @@ export function FoodPanel({
                           isExpanded && "rotate-90",
                         )}
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm">
+                      <span
+                        className="min-w-0 flex-1 truncate text-sm"
+                        title={meal.name}
+                      >
                         {meal.name}
                       </span>
                       <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
@@ -149,13 +155,16 @@ export function FoodPanel({
                   </div>
 
                   {isExpanded ? (
-                    <ul className="grid gap-0.5 border-t pt-1.5">
+                    <ul className="grid min-w-0 gap-0.5 border-t pt-1.5">
                       {meal.items.map((item) => (
                         <li
                           key={item.id}
-                          className="text-muted-foreground flex items-baseline gap-2 text-xs"
+                          className="text-muted-foreground flex min-w-0 items-baseline gap-2 text-xs"
                         >
-                          <span className="min-w-0 flex-1 truncate">
+                          <span
+                            className="min-w-0 flex-1 truncate"
+                            title={item.name}
+                          >
                             {item.name}
                           </span>
                           <span className="tabular-nums">

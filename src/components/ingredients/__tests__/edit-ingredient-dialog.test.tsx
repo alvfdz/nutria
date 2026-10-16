@@ -158,4 +158,19 @@ describe("EditIngredientDialog", () => {
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(90);
     expect(screen.getByLabelText("Protein (g)")).toHaveValue(17.8);
   });
+
+  test("wraps a long name in the description so it stays inside the dialog", () => {
+    const longName = "a".repeat(60);
+    render(
+      <EditIngredientDialog
+        ingredient={makeIngredient({ id: "long", name: longName })}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Update the macros for/)).toHaveClass(
+      "wrap-anywhere",
+    );
+  });
 });

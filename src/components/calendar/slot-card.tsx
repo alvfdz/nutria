@@ -52,16 +52,19 @@ export function SlotCard({
   const inner = (
     <>
       <span className="flex items-center justify-between gap-2">
-        <span className="text-muted-foreground text-[0.6rem] font-semibold tracking-wide uppercase">
+        <span
+          className="text-muted-foreground min-w-0 truncate text-[0.6rem] font-semibold tracking-wide uppercase"
+          title={slot.name}
+        >
           {slot.name}
         </span>
         <span className="sr-only">, {formatDayLabel(date)}</span>
         {isEmpty ? (
-          <span className="text-muted-foreground text-[0.65rem] tabular-nums">
+          <span className="text-muted-foreground shrink-0 text-[0.65rem] tabular-nums">
             {formatMacro(slot.target.calories)}
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-[0.65rem] tabular-nums">
+          <span className="inline-flex shrink-0 items-center gap-1 text-[0.65rem] tabular-nums">
             {over ? (
               <>
                 <span
@@ -88,10 +91,13 @@ export function SlotCard({
       {isEmpty ? (
         <span className="text-muted-foreground text-xs">Nothing planned</span>
       ) : (
-        <span className="grid gap-0.5">
+        <span className="grid min-w-0 gap-0.5">
           {slot.meals.map((meal) => (
-            <span key={meal.id} className="flex items-baseline gap-1">
-              <span className="min-w-0 flex-1 truncate text-sm">
+            <span key={meal.id} className="flex min-w-0 items-baseline gap-1">
+              <span
+                className="min-w-0 flex-1 truncate text-sm"
+                title={meal.name}
+              >
                 {meal.name}
               </span>
               <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
