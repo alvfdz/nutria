@@ -99,6 +99,31 @@ describe("GoalsView", () => {
     expect(shares().reduce((sum, value) => sum + value, 0)).toBeCloseTo(100);
   });
 
+  test("keeps keys unique when adding after a middle removal", async () => {
+    const user = userEvent.setup();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      render(<GoalsView goals={null} />);
+
+      // Removing the middle row leaves keys like row-0, row-2 — no longer
+      // positional — so an append must not reuse a positional fallback key.
+      await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+      await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+      expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
+      expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Dinner");
+      expect(screen.getByLabelText("Meal 3 name")).toHaveValue("Meal 3");
+
+      const duplicateKeyWarnings = errorSpy.mock.calls.filter((args) =>
+        args.some((arg) => typeof arg === "string" && arg.includes("same key")),
+      );
+      expect(duplicateKeyWarnings).toEqual([]);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   test("removes a meal and rebalances the rows that stay", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
@@ -109,6 +134,38 @@ describe("GoalsView", () => {
 
     expect(screen.queryByLabelText("Meal 3 name")).not.toBeInTheDocument();
     expect(shares()).toEqual([50, 50]);
+  });
+
+  test("removes the middle meal, not the last one", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+
+    expect(screen.queryByLabelText("Meal 3 name")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Dinner");
+    expect(shares()).toEqual([50, 50]);
+    expect(screen.getByText("Lunch removed")).toBeInTheDocument();
+  });
+
+  test("removes the visible row after reordering, carrying its slot id", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={makeGoals()} />);
+
+    // Move Dinner (slot 3) into the middle before removing that position.
+    await user.click(screen.getByRole("button", { name: "Move meal 3 up" }));
+    await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+
+    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
+    // The removed row was Dinner, so its slot id is the one no longer posted.
+    const slotIds = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        'input[type="hidden"][name="slotId"]',
+      ),
+    ).map((input) => input.value);
+    expect(slotIds).toEqual(["meal-slot-1", "meal-slot-2"]);
   });
 
   test("disables removal once only one meal remains", async () => {

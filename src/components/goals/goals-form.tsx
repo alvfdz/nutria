@@ -211,7 +211,9 @@ function GoalsForm({
   /**
    * Resizes the day to `count` meals, rebalancing every share to
    * `100 / count` so changing the count can never break the sum-to-100 check.
-   * Existing rows keep their names; appended ones default to "Meal N".
+   * Existing rows keep their names; appended ones default to "Meal N" and get
+   * a random key, because a row's original key stops matching its position
+   * after a middle removal and a positional fallback would collide.
    */
   const resizeRows = (count: number) => {
     const clamped = Math.max(1, Math.min(MAX_MEALS, Math.floor(count)));
@@ -219,7 +221,7 @@ function GoalsForm({
       const percents = evenPercents(clamped);
 
       return Array.from({ length: clamped }, (_, index) => ({
-        key: current[index]?.key ?? `row-${index}`,
+        key: current[index]?.key ?? crypto.randomUUID(),
         slotId: current[index]?.slotId,
         name: current[index]?.name ?? `Meal ${index + 1}`,
         percent: percents[index],
@@ -252,6 +254,26 @@ function GoalsForm({
       return next;
     });
     setAnnouncement(`${label} moved to position ${target + 1}`);
+  };
+
+  /**
+   * Removes the row at `index`, keeping every surviving row's key, slot id,
+   * name and share, then rebalances the remaining shares to `100 / count` so
+   * the sum-to-100 check always holds. The removal is announced for screen
+   * readers, which cannot see the row disappear.
+   */
+  const removeRow = (index: number) => {
+    setRows((current) => {
+      const remaining = current.filter((_, position) => position !== index);
+      const percents = evenPercents(remaining.length);
+
+      return remaining.map((row, position) => ({
+        ...row,
+        percent: percents[position],
+      }));
+    });
+    const label = rows[index].name || `Meal ${index + 1}`;
+    setAnnouncement(`${label} removed`);
   };
 
   // Live summary inputs: an empty or non-numeric calorie field hides it.
@@ -501,7 +523,7 @@ function GoalsForm({
                         size="icon-sm"
                         aria-label={`Remove meal ${index + 1}`}
                         disabled={rows.length === 1}
-                        onClick={() => resizeRows(rows.length - 1)}
+                        onClick={() => removeRow(index)}
                       >
                         <X />
                       </Button>
