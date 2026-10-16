@@ -30,6 +30,18 @@ import { formatMacro } from "@/lib/ingredients/format";
 /** Highest number of daily meals the form offers. */
 const MAX_MEALS = 8;
 
+/**
+ * Opts a row action button out of Firefox's persistence of a `<button>`'s
+ * dynamic `disabled` state across page loads (see the `disabled` attribute on
+ * MDN and Firefox bug 654072). An unsaved edit can flip a row button's disabled
+ * state — adding a meal re-enables the previously-last row's "Move down" — so a
+ * reload would otherwise restore a state that contradicts the freshly
+ * server-rendered HTML and trigger a hydration mismatch React never patches.
+ * React's `ButtonHTMLAttributes` omits `autoComplete` for buttons, so it is
+ * spread in rather than set as a typed prop.
+ */
+const NO_STATE_RESTORE = { autoComplete: "off" } as const;
+
 /** Seed values for a first-time visit without stored goals. */
 const DEFAULT_CALORIES = 2000;
 const DEFAULT_MACROS = { proteinPct: "30", carbsPct: "40", fatPct: "30" };
@@ -508,10 +520,14 @@ function GoalsForm({
                         />
                       </div>
 
+                      {/* See {@link NO_STATE_RESTORE}: it keeps Firefox's
+                          button-state restore from resurrecting a stale
+                          disabled state that no longer matches the rows. */}
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        {...NO_STATE_RESTORE}
                         aria-label={`Move meal ${index + 1} up`}
                         disabled={index === 0}
                         onClick={() => moveRow(index, -1)}
@@ -522,6 +538,7 @@ function GoalsForm({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        {...NO_STATE_RESTORE}
                         aria-label={`Move meal ${index + 1} down`}
                         disabled={index === rows.length - 1}
                         onClick={() => moveRow(index, 1)}
@@ -532,6 +549,7 @@ function GoalsForm({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        {...NO_STATE_RESTORE}
                         aria-label={`Remove meal ${index + 1}`}
                         disabled={rows.length === 1}
                         onClick={() => removeRow(index)}

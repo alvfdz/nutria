@@ -269,6 +269,25 @@ describe("GoalsView", () => {
     ).toBeEnabled();
   });
 
+  test("opts the row action buttons out of Firefox's button-state restore", () => {
+    render(<GoalsView goals={makeGoals()} />);
+
+    // Firefox persists a button's dynamic `disabled` state across reloads; a
+    // reload after an unsaved edit (e.g. adding a meal) can restore a state
+    // that disagrees with the server HTML. `autocomplete="off"` opts out.
+    for (const name of [
+      "Move meal 1 up",
+      "Move meal 1 down",
+      "Remove meal 1",
+      "Move meal 3 down",
+    ]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute(
+        "autocomplete",
+        "off",
+      );
+    }
+  });
+
   test("announces the new position after a move", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
