@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
+import { daySplitSegments } from "@/lib/goals/day-split";
 import {
   initialGoalsFormState,
   type GoalsFieldErrors,
@@ -158,10 +159,11 @@ export function GoalsView({ goals }: { goals: Goals | null }) {
  * submit handler and pending flag are passed in from {@link GoalsView} so the
  * toast outlives that remount. On large screens the editor and a sticky
  * live-summary card sit side by side; the summary uses `budget.ts` to show the
- * daily grams, each meal's kcal/gram slice, and a bar for its share of the day
- * while the user edits. Each row also carries up/down buttons that reorder the
- * meals; because the summary maps over the same rows, it follows the new
- * dining order.
+ * daily grams, and `day-split.ts` to draw one stacked bar that divides the day
+ * across the meals — in dining order, tinted light to dark — with each meal's
+ * kcal and gram slice listed below it. Each row also carries up/down buttons
+ * that reorder the meals; because the summary maps over the same rows, it
+ * follows the new dining order.
  *
  * @param props.goals The stored goals, or `null` on a first visit; seeds the
  * local field state.
@@ -303,6 +305,15 @@ function GoalsForm({
         : [],
     [source, rows],
   );
+
+  // Shares clamped to 0–100, so a stray out-of-range entry cannot stretch the
+  // bar past its track; the day bar and the rows both read from these.
+  const shares = useMemo(
+    () =>
+      rows.map((row) => Math.min(100, Math.max(0, Number(row.percent) || 0))),
+    [rows],
+  );
+  const segments = useMemo(() => daySplitSegments(shares), [shares]);
 
   return (
     <form action={formAction}>
@@ -584,33 +595,53 @@ function GoalsForm({
                   <Stat label="Fat" value={daily.fatGrams} unit="g" />
                 </dl>
 
+                {/* The bar is decorative: every row below spells out its own
+                    share and grams, so a screen reader loses nothing. */}
+                <div
+                  aria-hidden="true"
+                  data-slot="day-split-bar"
+                  className="bg-muted flex h-9 overflow-hidden rounded-full"
+                >
+                  {segments.map((segment, index) => {
+                    const row = rows[index];
+                    if (!row) return null;
+
+                    return (
+                      <div
+                        key={row.key}
+                        data-slot="day-split-segment"
+                        className="bg-primary h-full shrink-0"
+                        style={{
+                          width: `${segment.widthPercent}%`,
+                          opacity: segment.opacity,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+
                 <ul className="grid gap-4">
                   {slotBudgets.map((budget, index) => {
                     const row = rows[index];
                     if (!row) return null;
-                    const share = Math.min(
-                      100,
-                      Math.max(0, Number(row.percent) || 0),
-                    );
+                    const segment = segments[index];
+                    const share = shares[index] ?? 0;
 
                     return (
-                      <li key={row.key} className="grid gap-2">
+                      <li key={row.key} className="grid gap-1">
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="text-sm font-medium">
+                          <span className="flex items-center gap-2 text-sm font-medium">
+                            <span
+                              aria-hidden="true"
+                              data-slot="day-split-swatch"
+                              className="bg-primary size-2.5 shrink-0 rounded-[0.2rem]"
+                              style={{ opacity: segment?.opacity }}
+                            />
                             {row.name || `Meal ${index + 1}`}
                           </span>
                           <span className="text-muted-foreground text-xs tabular-nums">
                             {formatMacro(share)}%
                           </span>
-                        </div>
-                        <div
-                          aria-hidden="true"
-                          className="bg-muted h-1.5 overflow-hidden rounded-full"
-                        >
-                          <div
-                            className="bg-primary h-full rounded-full"
-                            style={{ width: `${share}%` }}
-                          />
                         </div>
                         <span className="text-muted-foreground text-xs tabular-nums">
                           {formatMacro(budget.calories)} kcal · P{" "}

@@ -37,6 +37,23 @@ const summaryMeals = () =>
     .getAllByRole("listitem")
     .map((item) => item.querySelector("span")?.textContent);
 
+/** The stacked day bar's segments, left to right. */
+const segments = () =>
+  Array.from(
+    document.querySelectorAll<HTMLElement>('[data-slot="day-split-segment"]'),
+  );
+
+/** The bar's segment widths exactly as they reach the styles, e.g. `30%`. */
+const segmentWidths = () => segments().map((segment) => segment.style.width);
+
+/** The bar's segment opacities, as numbers, left to right. */
+const segmentOpacities = () =>
+  segments().map((segment) => Number(segment.style.opacity));
+
+/** The bar's total drawn width, as a percentage of the track. */
+const drawnWidth = () =>
+  segmentWidths().reduce((sum, width) => sum + Number.parseFloat(width), 0);
+
 describe("GoalsView", () => {
   test("starts with three default meals when no goals are stored", () => {
     render(<GoalsView goals={null} />);
@@ -293,5 +310,100 @@ describe("GoalsView", () => {
       "The goals could not be saved. Please try again.",
     );
     expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  test("divides the day into one bar segment per meal, in dining order", () => {
+    render(<GoalsView goals={null} />);
+
+    // The defaults are Breakfast 30, Lunch 40, Dinner 30.
+    expect(segmentWidths()).toEqual(["30%", "40%", "30%"]);
+  });
+
+  test("tints the segments night-to-day so the dining order survives a grey palette", () => {
+    render(<GoalsView goals={null} />);
+
+    expect(segmentOpacities()).toEqual([0.25, 0.625, 1]);
+  });
+
+  test("marks each meal row with its own segment's tint", () => {
+    render(<GoalsView goals={null} />);
+
+    const swatches = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-slot="day-split-swatch"]'),
+    );
+
+    expect(swatches).toHaveLength(3);
+    expect(swatches.map((swatch) => Number(swatch.style.opacity))).toEqual(
+      segmentOpacities(),
+    );
+  });
+
+  test("redraws the bar as a share is edited", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 3 share (%)"));
+    await user.type(screen.getByLabelText("Meal 3 share (%)"), "10");
+
+    // Breakfast's 30 now looks three times Dinner's 10.
+    expect(segmentWidths()).toEqual(["30%", "40%", "10%"]);
+  });
+
+  test("leaves the unclaimed stretch of the track empty while the shares fall short", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+    await user.type(screen.getByLabelText("Meal 1 share (%)"), "10");
+
+    // 10 + 40 + 30 = 80, so a fifth of the track stays bare — the same gap the
+    // save-time sum check rejects.
+    expect(segmentWidths()).toEqual(["10%", "40%", "30%"]);
+    expect(drawnWidth()).toBeCloseTo(80);
+  });
+
+  test("scales the whole bar back when the shares exceed 100", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+    await user.type(screen.getByLabelText("Meal 1 share (%)"), "80");
+
+    // 80 + 40 + 30 = 150, so Breakfast draws 80/150 of the track.
+    expect(drawnWidth()).toBeCloseTo(100);
+    expect(Number.parseFloat(segmentWidths()[0])).toBeCloseTo(53.3333333);
+  });
+
+  test("repaints the bar in the new order after a meal is moved", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Move meal 2 down" }));
+
+    // Lunch's 40% takes the last place, so it also takes the darkest step.
+    expect(summaryMeals()).toEqual(["Breakfast", "Dinner", "Lunch"]);
+    expect(segmentWidths()).toEqual(["30%", "30%", "40%"]);
+    expect(segmentOpacities()).toEqual([0.25, 0.625, 1]);
+  });
+
+  test("gives every meal its own tint past the five greys in the theme", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    expect(segmentWidths()).toEqual(["20%", "20%", "20%", "20%", "20%"]);
+    expect(new Set(segmentOpacities()).size).toBe(5);
+    expect(segmentOpacities()[4]).toBe(1);
+  });
+
+  test("draws no bar until a calorie target is entered", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Calories (kcal)"));
+
+    expect(segments()).toHaveLength(0);
   });
 });
