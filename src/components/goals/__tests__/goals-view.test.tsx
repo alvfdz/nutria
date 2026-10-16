@@ -1,13 +1,29 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { toast } from "sonner";
 
-import { GoalsForm } from "@/components/goals/goals-form";
+import { saveGoalsAction } from "@/app/goals/actions";
+import { GoalsView } from "@/components/goals/goals-form";
 import { makeGoals } from "@test/factories";
 
-// `@/app/goals/actions` pulls in the `server-only` repository; the form never
-// submits in these tests, so a stub action is enough.
+// `@/app/goals/actions` pulls in the `server-only` repository; the tests stub
+// the action instead, so a fake is enough.
 vi.mock("@/app/goals/actions", () => ({ saveGoalsAction: vi.fn() }));
+
+// The real sonner module only feeds the toast container, which these tests do
+// not render; mocking it keeps the calls assertable.
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+  Toaster: () => null,
+}));
+
+const action = vi.mocked(saveGoalsAction);
+
+beforeEach(() => {
+  action.mockReset();
+  vi.mocked(toast.success).mockClear();
+});
 
 /** The share inputs of every meal row, as numbers. */
 const shares = () =>
@@ -21,9 +37,9 @@ const summaryMeals = () =>
     .getAllByRole("listitem")
     .map((item) => item.querySelector("span")?.textContent);
 
-describe("GoalsForm", () => {
+describe("GoalsView", () => {
   test("starts with three default meals when no goals are stored", () => {
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(2000);
@@ -36,7 +52,7 @@ describe("GoalsForm", () => {
   });
 
   test("seeds every field from the stored goals", () => {
-    render(<GoalsForm goals={makeGoals()} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(2000);
     expect(screen.getByLabelText("Protein %")).toHaveValue(30);
@@ -50,7 +66,7 @@ describe("GoalsForm", () => {
   });
 
   test("shows the meal count as read-only text derived from the rows", () => {
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
     // No number input offers a second way to change the count.
@@ -61,7 +77,7 @@ describe("GoalsForm", () => {
 
   test("rebalances every share to 100 / count as meals are added", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
     await user.click(screen.getByRole("button", { name: "Add meal" }));
@@ -75,7 +91,7 @@ describe("GoalsForm", () => {
 
   test("appends a row named Meal N and keeps the shares summing to 100", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
@@ -85,7 +101,7 @@ describe("GoalsForm", () => {
 
   test("removes a meal and rebalances the rows that stay", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     expect(screen.getByRole("button", { name: "Remove meal 3" })).toBeEnabled();
 
@@ -97,7 +113,7 @@ describe("GoalsForm", () => {
 
   test("disables removal once only one meal remains", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Remove meal 3" }));
     await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
@@ -110,7 +126,7 @@ describe("GoalsForm", () => {
 
   test("edits a slot name and share in place", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={makeGoals()} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.clear(screen.getByLabelText("Meal 1 name"));
     await user.type(screen.getByLabelText("Meal 1 name"), "Brunch");
@@ -123,7 +139,7 @@ describe("GoalsForm", () => {
 
   test("updates the live summary as the calorie target changes", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     // 2000 kcal at 30% protein → 150 g.
     expect(screen.getByText("150")).toBeInTheDocument();
@@ -138,7 +154,7 @@ describe("GoalsForm", () => {
 
   test("moves a meal up and carries its name and share with it", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Move meal 2 up" }));
 
@@ -151,7 +167,7 @@ describe("GoalsForm", () => {
 
   test("moves a meal down and keeps the live summary in step", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     expect(summaryMeals()).toEqual(["Breakfast", "Lunch", "Dinner"]);
 
@@ -163,7 +179,7 @@ describe("GoalsForm", () => {
   });
 
   test("disables the move buttons at the ends of the list", () => {
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     expect(
       screen.getByRole("button", { name: "Move meal 1 up" }),
@@ -181,10 +197,44 @@ describe("GoalsForm", () => {
 
   test("announces the new position after a move", async () => {
     const user = userEvent.setup();
-    render(<GoalsForm goals={null} />);
+    render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Move meal 2 up" }));
 
     expect(screen.getByText("Lunch moved to position 1")).toBeInTheDocument();
+  });
+
+  test("toasts the saved message once a save succeeds", async () => {
+    const user = userEvent.setup();
+    action.mockImplementation(async () => ({
+      status: "success",
+      resetKey: 1,
+      savedMessage: "Goals saved.",
+    }));
+
+    render(<GoalsView goals={makeGoals()} />);
+    await user.click(screen.getByRole("button", { name: "Save goals" }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
+    expect(toast.success).toHaveBeenCalledWith("Goals saved.");
+    // The live region keeps the same message for screen readers.
+    expect(screen.getByText("Goals saved.")).toBeInTheDocument();
+  });
+
+  test("shows a failed save inline, without a success toast", async () => {
+    const user = userEvent.setup();
+    action.mockImplementation(async () => ({
+      status: "error",
+      resetKey: 0,
+      formError: "The goals could not be saved. Please try again.",
+    }));
+
+    render(<GoalsView goals={makeGoals()} />);
+    await user.click(screen.getByRole("button", { name: "Save goals" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The goals could not be saved. Please try again.",
+    );
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });

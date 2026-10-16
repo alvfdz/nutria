@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useId, useMemo, useState } from "react";
+import { useActionState, useEffect, useId, useMemo, useState } from "react";
 
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { saveGoalsAction } from "@/app/goals/actions";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
 import {
   initialGoalsFormState,
   type GoalsFieldErrors,
+  type GoalsFormState,
 } from "@/lib/goals/form-state";
 import type { Goals } from "@/lib/goals/types";
 import { formatMacro } from "@/lib/ingredients/format";
@@ -111,22 +113,74 @@ function Stat({
 }
 
 /**
- * The daily goals form. Fields are controlled by local state so React
- * re-applies the entered values after the native form reset that every server
- * action submission triggers; a failed submit therefore keeps the values. The
- * page keys this component on the stored `goals.updatedAt`, so a successful
- * save remounts it seeded from the freshly saved values. On large screens the
- * editor and a sticky live-summary card sit side by side; the summary uses
- * `budget.ts` to show the daily grams, each meal's kcal/gram slice, and a bar
- * for its share of the day while the user edits. Each row also carries
- * up/down buttons that reorder the meals; because the summary maps over the
- * same rows, it follows the new dining order.
+ * The goals page's client entry. Owns the save action's `useActionState` and
+ * turns a successful save into a visible toast, then renders the form keyed on
+ * `goals.updatedAt` so a save remounts it seeded from the stored values. The
+ * key deliberately sits on the child: the action's `refresh()` re-renders the
+ * route but keeps this wrapper mounted, so the success state — and the effect
+ * below that fires the toast — survive the remount that would otherwise
+ * discard them.
+ *
+ * @param props.goals The stored goals, or `null` on a first visit.
+ * @returns The keyed goals form; never throws.
  */
-export function GoalsForm({ goals }: { goals: Goals | null }) {
+export function GoalsView({ goals }: { goals: Goals | null }) {
   const [state, formAction, pending] = useActionState(
     saveGoalsAction,
     initialGoalsFormState,
   );
+
+  // One toast per completed save: `state` gets a fresh object on every
+  // submit, so this runs exactly when the action resolves successfully.
+  useEffect(() => {
+    if (state.status === "success") {
+      toast.success(state.savedMessage ?? "Goals saved.");
+    }
+  }, [state]);
+
+  return (
+    <GoalsForm
+      key={goals?.updatedAt ?? "first"}
+      goals={goals}
+      state={state}
+      formAction={formAction}
+      pending={pending}
+    />
+  );
+}
+
+/**
+ * The daily goals form. Fields are controlled by local state so React
+ * re-applies the entered values after the native form reset that every server
+ * action submission triggers; a failed submit therefore keeps the values. The
+ * parent keys this component on the stored `goals.updatedAt`, so a successful
+ * save remounts it seeded from the freshly saved values; the action state,
+ * submit handler and pending flag are passed in from {@link GoalsView} so the
+ * toast outlives that remount. On large screens the editor and a sticky
+ * live-summary card sit side by side; the summary uses `budget.ts` to show the
+ * daily grams, each meal's kcal/gram slice, and a bar for its share of the day
+ * while the user edits. Each row also carries up/down buttons that reorder the
+ * meals; because the summary maps over the same rows, it follows the new
+ * dining order.
+ *
+ * @param props.goals The stored goals, or `null` on a first visit; seeds the
+ * local field state.
+ * @param props.state State returned by the last save action submit.
+ * @param props.formAction Submit handler from the parent's `useActionState`.
+ * @param props.pending Whether a save is currently in flight.
+ * @returns The goals form markup; never throws.
+ */
+function GoalsForm({
+  goals,
+  state,
+  formAction,
+  pending,
+}: {
+  goals: Goals | null;
+  state: GoalsFormState;
+  formAction: (formData: FormData) => void;
+  pending: boolean;
+}) {
   const baseId = useId();
   const fieldErrors: GoalsFieldErrors = state.fieldErrors ?? {};
 

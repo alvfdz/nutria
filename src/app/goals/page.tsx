@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { GoalsForm } from "@/components/goals/goals-form";
+import { GoalsView } from "@/components/goals/goals-form";
 import { PageContainer } from "@/components/page-container";
 import { getGoals } from "@/lib/goals/repository";
 
@@ -10,11 +10,12 @@ export const metadata: Metadata = {
 
 /**
  * Goals route. Loads the single stored goals row (or nothing on first visit)
- * and renders the setup form under the intro. The form is keyed on
- * `updatedAt` so a successful save re-seeds it from the database; when no
- * goals exist yet the same form acts as the onboarding step. The intro and
- * form span the shared page width so the page keeps the same gutters as the
- * other sections.
+ * and renders the setup form under the intro. `GoalsView` keys its form on
+ * `updatedAt` so a successful save re-seeds it from the database; it also
+ * owns the save action, so the success toast fires even though the form
+ * remounts after each save. When no goals exist yet the same form acts as the
+ * onboarding step. The intro and form span the shared page width so the page
+ * keeps the same gutters as the other sections.
  */
 export default async function GoalsPage() {
   const goals = await getGoals();
@@ -32,7 +33,7 @@ export default async function GoalsPage() {
             </p>
           </header>
 
-          <GoalsForm key={goals?.updatedAt ?? "first"} goals={goals} />
+          <GoalsView goals={goals} />
         </div>
       </PageContainer>
     </main>
