@@ -17,10 +17,12 @@ import type { SlotView } from "@/lib/plan/types";
 
 /**
  * The food panel's picker for adding a meal template. Filters the library by
- * name and flags templates that would push the food past its kcal target. One
- * small form per row submits the shared assign action, so keyboard activation
- * works without JavaScript. Unlike the modal it replaces, a successful add
- * keeps the picker open — a food often takes two or three meals.
+ * name and flags templates that would push the food past its kcal target.
+ * Templates already planned in the food are marked with how many copies sit
+ * there, but stay addable — a food often takes two or three servings of the
+ * same template. One small form per row submits the shared assign action, so
+ * keyboard activation works without JavaScript. Unlike the modal it replaces,
+ * a successful add keeps the picker open.
  *
  * @param props.date The day's key, `YYYY-MM-DD`.
  * @param props.slot The food being filled.
@@ -52,10 +54,15 @@ export function AddMealPicker({
       : meals;
   }, [meals, query]);
 
-  const plannedMealIds = useMemo(
-    () => new Set(slot.meals.map((meal) => meal.mealId)),
-    [slot.meals],
-  );
+  const plannedCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const meal of slot.meals) {
+      counts.set(meal.mealId, (counts.get(meal.mealId) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [slot.meals]);
 
   useEffect(() => {
     if (state.status !== "success" || state.assignedName === undefined) return;
@@ -102,7 +109,7 @@ export function AddMealPicker({
           <ul className="grid min-w-0 gap-1">
             {filtered.map((meal) => {
               const totals = computeMealTotals(meal);
-              const already = plannedMealIds.has(meal.id);
+              const added = plannedCounts.get(meal.id) ?? 0;
               const over = totals.calories - remaining;
 
               return (
@@ -115,7 +122,7 @@ export function AddMealPicker({
                     <Button
                       type="submit"
                       variant="ghost"
-                      disabled={already || pending}
+                      disabled={pending}
                       aria-label={`Add ${meal.name}`}
                       className="h-auto w-full justify-between gap-3 py-2 text-left"
                     >
@@ -136,11 +143,12 @@ export function AddMealPicker({
                         <span className="text-sm tabular-nums">
                           {formatMacro(totals.calories)} kcal
                         </span>
-                        {already ? (
-                          <span className="text-muted-foreground text-xs">
-                            Already added
+                        {added > 0 ? (
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            Added ×{added}
                           </span>
-                        ) : over > 0 ? (
+                        ) : null}
+                        {over > 0 ? (
                           <span className="text-muted-foreground text-xs tabular-nums">
                             over by {formatMacro(over)}
                           </span>

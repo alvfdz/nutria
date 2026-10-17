@@ -92,16 +92,40 @@ export function SlotCard({
         <span className="text-muted-foreground text-xs">Nothing planned</span>
       ) : (
         <span className="grid min-w-0 gap-0.5">
-          {slot.meals.map((meal) => (
-            <span key={meal.id} className="flex min-w-0 items-baseline gap-1">
+          {Object.values(
+            slot.meals.reduce<Record<string, { mealId: string; name: string; count: number; calories: number }>>(
+              (acc, meal) => {
+                const key = meal.mealId;
+                const existing = acc[key];
+                if (existing) {
+                  existing.count += 1;
+                  existing.calories += meal.totals.calories;
+                } else {
+                  acc[key] = {
+                    mealId: meal.mealId,
+                    name: meal.name,
+                    count: 1,
+                    calories: meal.totals.calories,
+                  };
+                }
+                return acc;
+              },
+              {},
+            ),
+          ).map((group) => (
+            <span
+              key={group.mealId}
+              className="flex min-w-0 items-baseline gap-1"
+            >
               <span
                 className="min-w-0 flex-1 truncate text-sm"
-                title={meal.name}
+                title={group.count > 1 ? `${group.name} ×${group.count}` : group.name}
               >
-                {meal.name}
+                {group.name}
+                {group.count > 1 ? ` ×${group.count}` : ""}
               </span>
               <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                {formatMacro(meal.totals.calories)}
+                {formatMacro(group.calories)}
               </span>
             </span>
           ))}

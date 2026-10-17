@@ -39,7 +39,7 @@ export type NewPlannedMeal = {
 export type PlannedMealView = {
   /** Identifier of the plan row, used to remove it again. */
   id: string;
-  /** Identifier of the template, used to block adding it twice to a slot. */
+  /** Identifier of the template, used to count copies within a slot. */
   mealId: string;
   /** Display name of the template. */
   name: string;

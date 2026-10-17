@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db/prisma";
-import { AlreadyPlannedError } from "@/lib/plan/errors";
 import {
   assignMeal,
   getPlannedMeal,
@@ -115,14 +114,6 @@ function mappedRow() {
   };
 }
 
-/** The `P2002` Prisma throws when the unique plan index is violated. */
-function duplicate(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
-    code: "P2002",
-    clientVersion: "7.10.0",
-  });
-}
-
 /** The `P2025` Prisma throws when a delete matches no row. */
 function notFound(): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError("Record not found", {
@@ -188,7 +179,9 @@ describe("getPlannedMeal", () => {
 });
 
 describe("assignMeal", () => {
-  test("appends after what is already in the slot", async () => {
+  test("appends after what is already in the slot, copies included", async () => {
+    // Two rows already in the slot — possibly two copies of the same
+    // template — so the next one, duplicate or not, takes position 2.
     planMeal.count.mockResolvedValue(2);
     planMeal.create.mockResolvedValue(dbRow());
 
@@ -205,15 +198,6 @@ describe("assignMeal", () => {
         sortOrder: 2,
       },
     });
-  });
-
-  test("translates the unique-index violation into an already-planned error", async () => {
-    planMeal.count.mockResolvedValue(0);
-    planMeal.create.mockRejectedValue(duplicate());
-
-    await expect(
-      assignMeal(DATE, "meal-slot-1", "meal-1"),
-    ).rejects.toBeInstanceOf(AlreadyPlannedError);
   });
 
   test("rethrows any other failure as is", async () => {

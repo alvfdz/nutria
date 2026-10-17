@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { assignMealAction, removeMealAction } from "@/app/calendar/actions";
 import { addDays, dbDateFromKey, todayKey } from "@/lib/calendar/week";
-import { AlreadyPlannedError } from "@/lib/plan/errors";
 import {
   initialAssignMealState,
   initialRemoveMealState,
@@ -92,25 +91,6 @@ describe("assignMealAction", () => {
       formError: "Choose a meal",
     });
     expect(assignMeal).not.toHaveBeenCalled();
-  });
-
-  test("explains a duplicate plan", async () => {
-    vi.mocked(assignMeal).mockRejectedValue(new AlreadyPlannedError());
-
-    const state = await assignMealAction(
-      initialAssignMealState,
-      makeAssignMealFormData({
-        date: TOMORROW,
-        mealSlotId: SLOT_ID,
-        mealId: MEAL_ID,
-      }),
-    );
-
-    expect(state).toMatchObject({
-      status: "error",
-      formError: "That meal is already planned in this slot.",
-    });
-    expect(refresh).not.toHaveBeenCalled();
   });
 
   test("returns a form error when the repository throws", async () => {

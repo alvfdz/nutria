@@ -122,7 +122,8 @@ describe("AddMealPicker", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("blocks a meal that is already in the food", () => {
+  test("marks a meal already in the food with its copy count and keeps it addable", async () => {
+    const user = userEvent.setup();
     const totals: MealTotals = {
       calories: 100,
       protein: 10,
@@ -146,8 +147,47 @@ describe("AddMealPicker", () => {
       }),
     });
 
-    expect(screen.getByRole("button", { name: "Add Porridge" })).toBeDisabled();
-    expect(screen.getByText("Already added")).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Add Porridge" });
+    expect(button).toBeEnabled();
+    expect(screen.getByText("Added ×1")).toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+  });
+
+  test("counts every copy when the same meal sits in the food twice", () => {
+    const totals: MealTotals = {
+      calories: 100,
+      protein: 10,
+      carbs: 10,
+      fat: 5,
+    };
+    renderPicker({
+      slot: makeSlotView({
+        id: SLOT_ID,
+        name: "Breakfast",
+        target,
+        meals: [
+          makePlannedMealView({
+            id: "plan-1",
+            mealId: porridge.id,
+            name: "Porridge",
+            totals,
+          }),
+          makePlannedMealView({
+            id: "plan-2",
+            mealId: porridge.id,
+            name: "Porridge",
+            totals,
+          }),
+        ],
+        totals: { ...totals, calories: 200 },
+      }),
+    });
+
+    expect(screen.getByText("Added ×2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Porridge" })).toBeEnabled();
   });
 
   test("flags a meal that would push the food over its kcal target", () => {
@@ -198,14 +238,14 @@ describe("AddMealPicker", () => {
     const user = userEvent.setup();
     action.mockImplementation(async () => ({
       status: "error",
-      formError: "That meal is already planned in this slot.",
+      formError: "The meal could not be added. Please try again.",
     }));
 
     renderPicker();
     await user.click(screen.getByRole("button", { name: "Add Porridge" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "That meal is already planned in this slot.",
+      "The meal could not be added. Please try again.",
     );
     expect(
       screen.getByRole("textbox", { name: "Search meals" }),

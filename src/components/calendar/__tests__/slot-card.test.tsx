@@ -42,8 +42,16 @@ describe("SlotCard", () => {
           fatGrams: 28,
         },
         meals: [
-          makePlannedMealView({ name: "Chicken & Rice Bowl", id: "plan-1" }),
-          makePlannedMealView({ name: "Greek Yogurt", id: "plan-2" }),
+          makePlannedMealView({
+            name: "Chicken & Rice Bowl",
+            id: "plan-1",
+            mealId: "meal-chicken-rice",
+          }),
+          makePlannedMealView({
+            name: "Greek Yogurt",
+            id: "plan-2",
+            mealId: "meal-yogurt",
+          }),
         ],
         totals: { calories: 620, protein: 40, carbs: 60, fat: 20 },
       }),

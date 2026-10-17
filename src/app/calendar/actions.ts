@@ -3,7 +3,6 @@
 import { refresh } from "next/cache";
 
 import { dbDateFromKey, todayKey } from "@/lib/calendar/week";
-import { AlreadyPlannedError } from "@/lib/plan/errors";
 import type { AssignMealState, RemoveMealState } from "@/lib/plan/form-state";
 import {
   assignMeal,
@@ -63,14 +62,6 @@ export async function assignMealAction(
       assignedName: typeof mealName === "string" ? mealName : "",
     };
   } catch (error) {
-    if (error instanceof AlreadyPlannedError) {
-      return {
-        ...previousState,
-        status: "error",
-        formError: "That meal is already planned in this slot.",
-      };
-    }
-
     console.error("Could not add the meal to the plan", error);
 
     return {

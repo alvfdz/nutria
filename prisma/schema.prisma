@@ -150,8 +150,6 @@ model PlanMeal {
   /// Set by the database on insert.
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
-  /// The same template cannot be added to the same slot on the same day twice.
-  @@unique([date, mealSlotId, mealId])
   @@index([date])
   @@index([mealSlotId])
   @@index([mealId])

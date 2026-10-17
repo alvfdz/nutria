@@ -13,7 +13,6 @@ import {
   toMeal,
   type MealWithItems,
 } from "@/lib/meals/repository";
-import { AlreadyPlannedError } from "./errors";
 import type { PlannedMeal } from "./types";
 
 /** A plan row as reads ask for it: the meal with its ordered items embedded. */
@@ -86,37 +85,25 @@ export async function getPlannedMeal(id: string): Promise<PlannedMeal | null> {
 
 /**
  * Plans a meal into a slot on a day. The position is appended after whatever
- * is already in the slot; the unique index on
- * `[date, mealSlotId, mealId]` stops the same template being planned twice.
+ * is already in the slot; the same template may be planned into the same slot
+ * on the same day more than once, and each copy gets the next position.
  *
  * @param date The day to plan on, at UTC midnight.
  * @param mealSlotId The Goals slot to fill.
  * @param mealId The template to plan.
- * @throws {AlreadyPlannedError} If that template is already in that slot.
  */
 export async function assignMeal(
   date: Date,
   mealSlotId: string,
   mealId: string,
 ): Promise<void> {
-  try {
-    const sortOrder = await getPrisma().planMeal.count({
-      where: { date, mealSlotId },
-    });
+  const sortOrder = await getPrisma().planMeal.count({
+    where: { date, mealSlotId },
+  });
 
-    await getPrisma().planMeal.create({
-      data: { date, mealSlotId, mealId, sortOrder },
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new AlreadyPlannedError();
-    }
-
-    throw error;
-  }
+  await getPrisma().planMeal.create({
+    data: { date, mealSlotId, mealId, sortOrder },
+  });
 }
 
 /**
