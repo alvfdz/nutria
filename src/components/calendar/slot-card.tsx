@@ -93,25 +93,32 @@ export function SlotCard({
       ) : (
         <span className="grid min-w-0 gap-0.5">
           {Object.values(
-            slot.meals.reduce<Record<string, { mealId: string; name: string; count: number; calories: number }>>(
-              (acc, meal) => {
-                const key = meal.mealId;
-                const existing = acc[key];
-                if (existing) {
-                  existing.count += 1;
-                  existing.calories += meal.totals.calories;
-                } else {
-                  acc[key] = {
-                    mealId: meal.mealId,
-                    name: meal.name,
-                    count: 1,
-                    calories: meal.totals.calories,
-                  };
+            slot.meals.reduce<
+              Record<
+                string,
+                {
+                  mealId: string;
+                  name: string;
+                  count: number;
+                  calories: number;
                 }
-                return acc;
-              },
-              {},
-            ),
+              >
+            >((acc, meal) => {
+              const key = meal.mealId;
+              const existing = acc[key];
+              if (existing) {
+                existing.count += 1;
+                existing.calories += meal.totals.calories;
+              } else {
+                acc[key] = {
+                  mealId: meal.mealId,
+                  name: meal.name,
+                  count: 1,
+                  calories: meal.totals.calories,
+                };
+              }
+              return acc;
+            }, {}),
           ).map((group) => (
             <span
               key={group.mealId}
@@ -119,7 +126,9 @@ export function SlotCard({
             >
               <span
                 className="min-w-0 flex-1 truncate text-sm"
-                title={group.count > 1 ? `${group.name} ×${group.count}` : group.name}
+                title={
+                  group.count > 1 ? `${group.name} ×${group.count}` : group.name
+                }
               >
                 {group.name}
                 {group.count > 1 ? ` ×${group.count}` : ""}

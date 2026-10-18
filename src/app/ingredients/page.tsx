@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { FoodfactsImport } from "@/components/ingredients/foodfacts-import";
 import { IngredientLibrary } from "@/components/ingredients/ingredient-library";
 import { NewIngredientForm } from "@/components/ingredients/new-ingredient-form";
 import { PageContainer } from "@/components/page-container";
@@ -29,7 +30,10 @@ export default async function IngredientsPage() {
         </header>
 
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <NewIngredientForm />
+          <div className="grid gap-6">
+            <NewIngredientForm />
+            <FoodfactsImport />
+          </div>
           <IngredientLibrary ingredients={ingredients} />
         </div>
       </PageContainer>

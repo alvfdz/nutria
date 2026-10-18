@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   createIngredientAction,
+  createIngredientFromFoodfactsAction,
   deleteIngredientAction,
   updateIngredientAction,
 } from "@/app/ingredients/actions";
@@ -237,5 +238,138 @@ describe("deleteIngredientAction", () => {
         "This ingredient is used in 3 meals. Remove it from them first.",
     });
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("createIngredientFromFoodfactsAction", () => {
+  /**
+   * Builds the hidden-field submission an import button sends.
+   *
+   * @param overrides Fields to override on the defaults.
+   * @returns The form data for the action.
+   */
+  function importFormData(overrides: Record<string, string> = {}): FormData {
+    const formData = new FormData();
+    const fields: Record<string, string> = {
+      productName: "Almond Butter",
+      brand: "BrandCo",
+      caloriesPer100g: "567",
+      proteinPer100g: "21.2",
+      carbsPer100g: "18.7",
+      fatPer100g: "49.4",
+      ...overrides,
+    };
+
+    for (const [key, value] of Object.entries(fields)) {
+      formData.set(key, value);
+    }
+
+    return formData;
+  }
+
+  test("stores the macros and names the ingredient after product and brand", async () => {
+    vi.mocked(createIngredient).mockResolvedValue({
+      id: "new-1",
+      name: "Almond Butter (BrandCo)",
+      caloriesPer100g: 567,
+      proteinPer100g: 21.2,
+      carbsPer100g: 18.7,
+      fatPer100g: 49.4,
+      createdAt: new Date().toISOString(),
+    });
+
+    const state = await createIngredientFromFoodfactsAction(
+      initialIngredientFormState,
+      importFormData(),
+    );
+
+    expect(createIngredient).toHaveBeenCalledWith({
+      name: "Almond Butter (BrandCo)",
+      caloriesPer100g: 567,
+      proteinPer100g: 21.2,
+      carbsPer100g: 18.7,
+      fatPer100g: 49.4,
+    });
+    expect(refresh).toHaveBeenCalled();
+    expect(state).toMatchObject({
+      status: "success",
+      savedName: "Almond Butter (BrandCo)",
+    });
+  });
+
+  test("omits the brand from the name when it adds nothing", async () => {
+    vi.mocked(createIngredient).mockResolvedValue({
+      id: "new-2",
+      name: "Almond Butter",
+      caloriesPer100g: 0,
+      proteinPer100g: 0,
+      carbsPer100g: 0,
+      fatPer100g: 0,
+      createdAt: new Date().toISOString(),
+    });
+
+    await createIngredientFromFoodfactsAction(
+      initialIngredientFormState,
+      importFormData({ brand: "" }),
+    );
+
+    expect(createIngredient).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Almond Butter" }),
+    );
+  });
+
+  test("stores missing macros as zero", async () => {
+    vi.mocked(createIngredient).mockResolvedValue({
+      id: "new-2",
+      name: "Almond Butter (BrandCo)",
+      caloriesPer100g: 0,
+      proteinPer100g: 0,
+      carbsPer100g: 0,
+      fatPer100g: 0,
+      createdAt: new Date().toISOString(),
+    });
+
+    await createIngredientFromFoodfactsAction(
+      initialIngredientFormState,
+      importFormData({
+        caloriesPer100g: "",
+        proteinPer100g: "",
+        carbsPer100g: "",
+        fatPer100g: "",
+      }),
+    );
+
+    expect(createIngredient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caloriesPer100g: 0,
+        proteinPer100g: 0,
+        carbsPer100g: 0,
+        fatPer100g: 0,
+      }),
+    );
+  });
+
+  test("rejects an import with no product name", async () => {
+    const state = await createIngredientFromFoodfactsAction(
+      initialIngredientFormState,
+      importFormData({ productName: "" }),
+    );
+
+    expect(state.status).toBe("error");
+    expect(createIngredient).not.toHaveBeenCalled();
+  });
+
+  test("returns a form error when the repository throws", async () => {
+    vi.mocked(createIngredient).mockRejectedValue(new Error("boom"));
+
+    const state = await createIngredientFromFoodfactsAction(
+      initialIngredientFormState,
+      importFormData(),
+    );
+
+    expect(state).toMatchObject({
+      status: "error",
+      formError: "The ingredient could not be saved. Please try again.",
+    });
   });
 });
