@@ -1,0 +1,12 @@
+.git
+.next
+node_modules
+coverage
+docs
+.env*
+!.env.example
+*.tsbuildinfo
+compose.yaml
+Dockerfile
+.dockerignore
+src/generated

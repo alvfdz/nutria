@@ -46,30 +46,31 @@ Every command below is written twice. Use whichever pair matches your engine:
 | `podman compose down`         | `docker compose down`         |
 | `podman compose down -v`      | `docker compose down -v`      |
 
-### 2. Start PostgreSQL
+### 2. Configure
 
 ```bash
-podman compose up -d --wait   # or: docker compose up -d --wait
+cp .env.example .env
 ```
 
-`--wait` blocks until the container's healthcheck reports ready, so the next
-step cannot race the database. The data lives in the `nutria-postgres` named
-volume and survives restarts; add `-v` to `down` to throw it away.
+Set `BETTER_AUTH_SECRET` in `.env` (`openssl rand -base64 32`); compose refuses
+to run while it is empty. The Prisma CLI and Next.js load `.env` through
+`@next/env`, so it is the single source of truth for `DATABASE_URL`.
 
-The defaults (`nutria` / `nutria` / `nutria` on port 5432) need no
-configuration. To override them, uncomment the `POSTGRES_*` lines in
-`.env.local` — `compose.yaml` reads the same file through its `${VAR:-default}`
-fallbacks.
-
-### 3. Configure the app and create the schema
+### 3. Start PostgreSQL and create the schema
 
 ```bash
-cp .env.example .env.local
+podman compose up -d --wait postgres   # or: docker compose up -d --wait postgres
 npm run db:migrate -- --name init
 ```
 
-The Prisma CLI loads `.env*` through `@next/env`, so `.env.local` is the single
-source of truth for `DATABASE_URL` and no `.env` copy is needed.
+Naming `postgres` starts only the database, since `npm run dev` serves the app.
+`--wait` blocks until the healthcheck reports ready, so the migration cannot
+race the database. The data lives in the `nutria-postgres` named volume and
+survives restarts; add `-v` to `down` to throw it away.
+
+The database defaults (`nutria` / `nutria` / `nutria` on port 5432) need no
+configuration. To override them, uncomment the `POSTGRES_*` lines in `.env`;
+`compose.yaml` reads the same file through its `${VAR:-default}` fallbacks.
 
 ### 4. Run it
 
@@ -79,6 +80,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). A fresh install sends you
 to `/setup` to create the owner account; see [Authentication](#authentication).
+
+## Run with containers
+
+```bash
+cp .env.example .env     # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
+podman compose up -d --build --wait   # or: docker compose ...
+```
+
+Open [http://localhost:3000](http://localhost:3000) (to change the host port, edit `ports` in `compose.yaml` and set `BETTER_AUTH_URL` to match).
+The `app` container applies pending Prisma migrations every time it starts, then
+serves Nutria. Inside the compose network it reaches the database at
+`postgres:5432`, so the `DATABASE_URL` in `.env` is ignored by compose.
+`POSTGRES_USER` and `POSTGRES_PASSWORD` are placed into that URL unescaped, so
+avoid URL-reserved characters (`@ / : #`) in them. Behind a reverse proxy, set
+`BETTER_AUTH_URL` to the public origin. Build the image alone with
+`podman build -t nutria .`.
 
 ## Authentication
 
@@ -94,7 +111,7 @@ stored in PostgreSQL and passwords hashed with scrypt.
   same rule against sign-ups racing each other.
 - **Configuration.** Set `BETTER_AUTH_SECRET` (signs the session cookies; keep
   it stable) and `BETTER_AUTH_URL` (the public origin you open Nutria at) in
-  `.env.local`, as shown in `.env.example`.
+  `.env`, as shown in `.env.example`.
 - **Rate limiting.** In production Better Auth allows 3 sign-in attempts per 10
   seconds per client. Behind a reverse proxy, make sure it forwards the client
   address in `X-Forwarded-For`; otherwise all clients share one bucket.
@@ -103,7 +120,8 @@ stored in PostgreSQL and passwords hashed with scrypt.
 - **Locked out?** Nutria sends no email, so there is no "forgot password"
   link. Anyone with shell access to the deployment can reset the password
   instead, from a full checkout of the repository (including `scripts/` and `src/`) that
-  can reach the database, e.g. the app container if it ships the source:
+  can reach the database. The container image ships only the built server, so
+  this is not available inside it:
 
   ```bash
   npm run auth:reset-password            # the only account

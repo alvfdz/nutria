@@ -19,8 +19,8 @@ function readDatabaseUrl(): string {
 
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not set. Copy .env.example to .env.local and start " +
-        "PostgreSQL with `podman compose up -d --wait` (or `docker compose`).",
+      "DATABASE_URL is not set. Copy .env.example to .env and start " +
+        "PostgreSQL with `podman compose up -d --wait postgres` (or `docker compose`).",
     );
   }
 

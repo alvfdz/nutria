@@ -1,10 +1,43 @@
-# Local PostgreSQL for development. Engine-agnostic: it runs unchanged under
+# Nutria and its PostgreSQL database. Engine-agnostic: it runs unchanged under
 # `podman compose` and `docker compose` (see the README for the one-time
 # plugin setup each engine needs).
 #
-# Every setting falls back to a development-only default through `${VAR:-default}`,
-# so `compose up -d` works with no configuration at all.
+# Database settings fall back to development-only defaults through
+# `${VAR:-default}`. `BETTER_AUTH_SECRET` has none: set it in `.env`.
+#
+# `podman compose up -d --wait` runs Nutria and PostgreSQL. While developing,
+# start only the database with `podman compose up -d --wait postgres`.
 services:
+  app:
+    build: .
+    image: localhost/nutria
+    environment:
+      # Inside the compose network the database is reachable as `postgres`.
+      # The user and password are not URL-encoded: avoid `@ / : #` in them.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nutria}:${POSTGRES_PASSWORD:-nutria}@postgres:5432/${POSTGRES_DB:-nutria}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env (openssl rand -base64 32)}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+    ports: ["3000:3000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # The container applies pending migrations before serving, so the first
+    # start takes a few seconds longer. The app has no curl, so the probe is a
+    # one-liner on the bundled Node.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.status<500?0:1),()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
   postgres:
     image: docker.io/library/postgres:18-alpine
     environment:
