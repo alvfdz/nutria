@@ -5,6 +5,15 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --animate-highlight-fade: highlight-fade 1.6s ease-out;
+  @keyframes highlight-fade {
+    from {
+      background-color: var(--accent);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);

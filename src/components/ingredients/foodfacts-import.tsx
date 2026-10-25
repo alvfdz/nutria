@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import { buildIngredientName } from "@/lib/foodfacts/ingredient-name";
 import { cn } from "@/lib/utils";
 import type {
@@ -81,6 +82,14 @@ export interface SearchState {
   lastPage: number;
   /** Whether another page may exist. */
   hasMore: boolean;
+  /**
+   * How many results were shown before the last "load more" page arrived, so
+   * the rows after that index are the new ones. 0 when the last load was a
+   * first-page search.
+   */
+  previousCount: number;
+  /** Whether the page being fetched is added to the list ("load more"). */
+  appending: boolean;
 }
 
 /** Search state of a freshly opened dialog. */
@@ -92,6 +101,8 @@ export const INITIAL_SEARCH_STATE: SearchState = {
   activeQuery: "",
   lastPage: 1,
   hasMore: false,
+  previousCount: 0,
+  appending: false,
 };
 
 /** Transitions accepted by {@link searchReducer}. */
@@ -130,6 +141,9 @@ export function searchReducer(
         loading: true,
         error: null,
         searched: state.searched || !action.append,
+        // The rows of the previous page are no longer new.
+        previousCount: 0,
+        appending: action.append,
       };
     case "success": {
       const results = uniqueByCode(
@@ -149,6 +163,7 @@ export function searchReducer(
         activeQuery: action.query,
         lastPage: action.page,
         hasMore,
+        previousCount: action.append ? state.results.length : 0,
       };
     }
     case "failure":
@@ -410,14 +425,46 @@ export function FoodfactsImport({
 }: FoodfactsImportProps) {
   const [query, setQuery] = useState("");
   const [search, dispatch] = useReducer(searchReducer, INITIAL_SEARCH_STATE);
-  const { results, loading, error, searched, activeQuery, lastPage, hasMore } =
-    search;
+  const {
+    results,
+    loading,
+    error,
+    searched,
+    activeQuery,
+    lastPage,
+    hasMore,
+    previousCount,
+    appending,
+  } = search;
   const libraryNames = useMemo(
     () => new Set(ingredientNames),
     [ingredientNames],
   );
   const searchId = useId();
   const controllerRef = useRef<AbortController | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+
+  // After a "load more" page lands, bring its first row into view: the rows are
+  // appended below the fold of the scrollable list, so nothing else shows that
+  // the click did anything.
+  useEffect(() => {
+    if (previousCount === 0) return;
+    const list = listRef.current;
+    const firstNew = list?.children[previousCount];
+    if (!list || !firstNew) return;
+    const reduceMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    // Scroll the list itself: `scrollIntoView` would also scroll the dialog
+    // and the page, pushing the header or the button out of view.
+    list.scrollTo?.({
+      top:
+        list.scrollTop +
+        firstNew.getBoundingClientRect().top -
+        list.getBoundingClientRect().top,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [lastPage, previousCount]);
 
   /**
    * Whether the library already holds the ingredient this result would be
@@ -551,13 +598,19 @@ export function FoodfactsImport({
 
         {results.length > 0 ? (
           <ul
+            ref={listRef}
             data-testid="foodfacts-results"
             className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1"
           >
-            {results.map((result) => (
+            {results.map((result, index) => (
               <li
                 key={result.code}
-                className="grid min-w-0 gap-2 rounded-md border p-2.5"
+                data-new={
+                  previousCount > 0 && index >= previousCount
+                    ? "true"
+                    : undefined
+                }
+                className="data-[new=true]:animate-highlight-fade grid min-w-0 gap-2 rounded-md border p-2.5 motion-reduce:data-[new=true]:animate-none"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <ProductImage key={result.imageUrl} src={result.imageUrl} />
@@ -589,8 +642,20 @@ export function FoodfactsImport({
           </ul>
         ) : null}
 
-        <p role="status" aria-live="polite" className="sr-only">
-          {results.length > 0 ? `${results.length} results loaded` : ""}
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-muted-foreground text-sm empty:hidden"
+        >
+          {loading
+            ? appending
+              ? "Loading more results…"
+              : "Searching…"
+            : results.length === 0
+              ? ""
+              : previousCount > 0 && previousCount === results.length
+                ? `No new results. Showing ${results.length}`
+                : `Showing ${results.length} ${results.length === 1 ? "result" : "results"}`}
         </p>
 
         {results.length > 0 && hasMore ? (
@@ -598,9 +663,16 @@ export function FoodfactsImport({
             type="button"
             variant="outline"
             disabled={loading}
+            aria-busy={loading}
             onClick={() => void fetchPage(activeQuery, lastPage + 1)}
           >
-            {loading ? "Loading…" : "Load more"}
+            {loading ? (
+              <Spinner
+                data-icon="inline-start"
+                data-testid="foodfacts-load-more-spinner"
+              />
+            ) : null}
+            Load more
           </Button>
         ) : null}
       </DialogContent>

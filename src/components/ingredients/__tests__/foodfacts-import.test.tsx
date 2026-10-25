@@ -639,13 +639,163 @@ describe("FoodfactsImport", () => {
       });
     });
 
-    it("announces how many results are loaded", async () => {
+    it("shows and announces how many results are loaded", async () => {
       const user = await openDialog();
-      respond({ results: [makeResult()], page: 1, pages: 1 });
+      respond({ results: [makeResult()], page: 1, pages: 2 });
       await searchAlmond(user);
 
       expect(await screen.findByRole("status")).toHaveTextContent(
-        "1 results loaded",
+        "Showing 1 result",
+      );
+
+      respond({
+        results: [makeResult({ code: "2", productName: "Cashew Butter" })],
+        page: 2,
+        pages: 2,
+      });
+      await user.click(screen.getByRole("button", { name: "Load more" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "Showing 2 results",
+        ),
+      );
+    });
+
+    it("shows a spinner on the button while the next page loads", async () => {
+      const user = await openDialog();
+      respond({ results: [makeResult()], page: 1, pages: 2 });
+      await searchAlmond(user);
+      await screen.findByText("Almond Butter");
+      expect(
+        screen.queryByTestId("foodfacts-load-more-spinner"),
+      ).not.toBeInTheDocument();
+
+      let release: (value: unknown) => void = () => {};
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      );
+      await user.click(screen.getByRole("button", { name: "Load more" }));
+
+      expect(
+        screen.getByTestId("foodfacts-load-more-spinner"),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Load more" })).toBeDisabled();
+
+      release({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [], page: 2, pages: 2 }),
+      });
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId("foodfacts-load-more-spinner"),
+        ).not.toBeInTheDocument(),
+      );
+    });
+
+    it("scrolls to and highlights only the rows a page added", async () => {
+      const scrollTo = vi.fn();
+      // jsdom has no `Element.scrollTo`; `vi.stubGlobal` can't reach a
+      // prototype method, so define it and restore it afterwards.
+      const original = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        "scrollTo",
+      );
+      Object.defineProperty(Element.prototype, "scrollTo", {
+        value: scrollTo,
+        configurable: true,
+        writable: true,
+      });
+      try {
+        const user = await openDialog();
+        respond({ results: [makeResult()], page: 1, pages: 2 });
+        await searchAlmond(user);
+        await screen.findByText("Almond Butter");
+        expect(scrollTo).not.toHaveBeenCalled();
+
+        respond({
+          results: [makeResult({ code: "2", productName: "Cashew Butter" })],
+          page: 2,
+          pages: 2,
+        });
+        await user.click(screen.getByRole("button", { name: "Load more" }));
+        await screen.findByText("Cashew Butter");
+
+        const rows = screen.getByTestId("foodfacts-results").children;
+        expect(rows[0]).not.toHaveAttribute("data-new");
+        expect(rows[1]).toHaveAttribute("data-new", "true");
+        expect(scrollTo).toHaveBeenCalledTimes(1);
+        expect(scrollTo.mock.instances[0]).toBe(
+          screen.getByTestId("foodfacts-results"),
+        );
+      } finally {
+        if (original) {
+          Object.defineProperty(Element.prototype, "scrollTo", original);
+        } else {
+          delete (Element.prototype as { scrollTo?: unknown }).scrollTo;
+        }
+      }
+    });
+
+    it("shows a loading message and marks the button busy while loading", async () => {
+      const user = await openDialog();
+      respond({ results: [makeResult()], page: 1, pages: 2 });
+      await searchAlmond(user);
+      await screen.findByText("Almond Butter");
+
+      mockFetch.mockReturnValueOnce(new Promise(() => {}));
+      await user.click(screen.getByRole("button", { name: "Load more" }));
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading more results",
+      );
+      expect(screen.getByRole("button", { name: "Load more" })).toHaveAttribute(
+        "aria-busy",
+        "true",
+      );
+    });
+
+    it("keeps the status line mounted but empty before there are results", async () => {
+      await openDialog();
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    });
+
+    it("says it is searching, not loading more, on a new search", async () => {
+      const user = await openDialog();
+      respond({ results: [makeResult()], page: 1, pages: 2 });
+      await searchAlmond(user);
+      await screen.findByText("Almond Butter");
+
+      mockFetch.mockReturnValueOnce(new Promise(() => {}));
+      await user.click(screen.getByRole("button", { name: "Search" }));
+
+      expect(screen.getByRole("status")).toHaveTextContent("Searching…");
+    });
+
+    it("says it is searching during the first search too", async () => {
+      const user = await openDialog();
+      mockFetch.mockReturnValueOnce(new Promise(() => {}));
+      await searchAlmond(user);
+
+      expect(screen.getByRole("status")).toHaveTextContent("Searching…");
+    });
+
+    it("says so when a page brings no new products", async () => {
+      const user = await openDialog();
+      respond({ results: [makeResult()], page: 1, pages: 3 });
+      await searchAlmond(user);
+      await screen.findByText("Almond Butter");
+
+      respond({ results: [makeResult()], page: 2, pages: 3 });
+      await user.click(screen.getByRole("button", { name: "Load more" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "No new results. Showing 1",
+        ),
       );
     });
 
@@ -755,6 +905,43 @@ describe("searchReducer", () => {
 
     expect(next.results).toEqual([a, b]);
     expect(next.lastPage).toBe(2);
+  });
+
+  it("records how many results preceded the appended page", () => {
+    expect(loaded.previousCount).toBe(0);
+    const next = searchReducer(loaded, {
+      type: "success",
+      query: "almond",
+      page: 2,
+      received: [b],
+      append: true,
+      totalPages: 3,
+    });
+    expect(next.previousCount).toBe(1);
+
+    const fresh = searchReducer(next, {
+      type: "success",
+      query: "cashew",
+      page: 1,
+      received: [a],
+      append: false,
+      totalPages: 3,
+    });
+    expect(fresh.previousCount).toBe(0);
+  });
+
+  it("clears the new-rows marker when the next load starts", () => {
+    const next = searchReducer(loaded, {
+      type: "success",
+      query: "almond",
+      page: 2,
+      received: [b],
+      append: true,
+      totalPages: 3,
+    });
+    expect(searchReducer(next, { type: "start", append: true })).toMatchObject({
+      previousCount: 0,
+    });
   });
 
   it("has no more pages after the last one", () => {
