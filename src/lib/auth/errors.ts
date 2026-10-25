@@ -9,10 +9,10 @@ export type AuthClientError = {
 };
 
 /** Which screen made the request; decides how a 401/403 reads. */
-export type AuthScreen = "login" | "setup";
+export type AuthScreen = "login" | "setup" | "account";
 
 /**
- * Turns a failed sign-in or sign-up into the message shown above the form.
+ * Turns a failed sign-in, sign-up or password change into the message shown above the form.
  * Sign-in failures stay generic on purpose, so the screen never reveals
  * whether an email has an account.
  *
@@ -41,6 +41,23 @@ export function authErrorMessage(
   if (screen === "setup" && error.status === 400 && error.message) {
     return error.message;
   }
+
+  // Better Auth answers a wrong current password with 400 INVALID_PASSWORD.
+  if (screen === "account" && error.code === "INVALID_PASSWORD") {
+    return "Current password is incorrect.";
+  }
+
+  // The session expired or was revoked while the form was open.
+  if (screen === "account" && error.status === 401) {
+    return "Your session has expired. Sign in again.";
+  }
+
+  if (screen === "account" && error.status === 400 && error.message) {
+    return error.message;
+  }
+
+  if (screen === "account")
+    return "Could not change the password. Please try again.";
 
   return screen === "login"
     ? "Could not sign in. Please try again."

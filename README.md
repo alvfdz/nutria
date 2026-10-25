@@ -11,7 +11,7 @@ Docker.
 
 ## Prerequisites
 
-- Node.js 20.19 or newer (developed on 24.x)
+- Node.js 22.18 or newer (developed on 24.x)
 - Either [Podman](https://podman.io/) or Docker, plus a Compose provider (below)
 
 ## Setup
@@ -98,6 +98,22 @@ stored in PostgreSQL and passwords hashed with scrypt.
 - **Rate limiting.** In production Better Auth allows 3 sign-in attempts per 10
   seconds per client. Behind a reverse proxy, make sure it forwards the client
   address in `X-Forwarded-For`; otherwise all clients share one bucket.
+- **Changing the password.** Signed in, open **Account** in the header. The
+  current password is required, and other devices are signed out on success.
+- **Locked out?** Nutria sends no email, so there is no "forgot password"
+  link. Anyone with shell access to the deployment can reset the password
+  instead, from a full checkout of the repository (including `scripts/` and `src/`) that
+  can reach the database, e.g. the app container if it ships the source:
+
+  ```bash
+  npm run auth:reset-password            # the only account
+  npm run auth:reset-password -- owner@example.com
+  ```
+
+  It prompts for the new password without echoing it (or reads
+  `NUTRIA_NEW_PASSWORD` for scripted use) and signs the account out
+  everywhere.
+
 - **Multi-user ready.** Every ingredient, meal, goals row and plan carries the
   `userId` that owns it, and every query is scoped by it, so opening sign-up
   to more accounts later needs no data migration.

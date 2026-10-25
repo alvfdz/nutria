@@ -48,7 +48,7 @@ export function SignOutButton({ name }: { name: string }) {
       title={`Signed in as ${name}`}
     >
       <LogOutIcon />
-      Sign out
+      <span className="max-sm:sr-only">Sign out</span>
     </Button>
   );
 }

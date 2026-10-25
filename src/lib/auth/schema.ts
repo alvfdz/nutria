@@ -60,6 +60,38 @@ export const setupSchema = z
 /** Values of a valid setup submission. */
 export type SetupInput = z.infer<typeof setupSchema>;
 
+/**
+ * Validates the change-password form. The new password follows the same
+ * bounds as account creation; the current one is only checked for presence,
+ * since the server is the judge of whether it is right.
+ */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, { error: "Current password is required" }),
+    newPassword: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, {
+        error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      })
+      .max(MAX_PASSWORD_LENGTH, {
+        error: `Password must be at most ${MAX_PASSWORD_LENGTH} characters`,
+      }),
+    confirmPassword: z.string(),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    error: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+  .refine((values) => values.newPassword !== values.currentPassword, {
+    error: "Choose a password different from the current one",
+    path: ["newPassword"],
+  });
+
+/** Values of a valid change-password submission. */
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 /** Validation messages keyed by field name. */
 export type AuthFieldErrors<Field extends string> = Partial<
   Record<Field, string[]>

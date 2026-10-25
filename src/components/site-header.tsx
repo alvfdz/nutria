@@ -1,14 +1,16 @@
+import { UserIcon } from "lucide-react";
 import Link from "next/link";
 
 import { AppNav } from "@/components/app-nav";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { PageContainer } from "@/components/page-container";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { buttonVariants } from "@/components/ui/button";
 import type { AuthUser } from "@/lib/auth/types";
 
 /**
- * Sticky app bar with the home link, the section nav, the theme toggle and
- * the sign-out control.
+ * Sticky app bar with the home link, the section nav, the theme toggle, the
+ * account link and the sign-out control.
  *
  * The bar is the frame around every page, so it takes the canvas width tier
  * rather than the content tier: it spans the app's widest surface, lines up
@@ -27,6 +29,13 @@ export function SiteHeader({ user }: { user: AuthUser }) {
         <AppNav />
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
+          <Link
+            href="/account"
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            <UserIcon />
+            <span className="max-sm:sr-only">Account</span>
+          </Link>
           <SignOutButton name={user.name} />
         </div>
       </PageContainer>

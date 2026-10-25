@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/limits";
-import { authFieldErrors, loginSchema, setupSchema } from "@/lib/auth/schema";
+import {
+  authFieldErrors,
+  changePasswordSchema,
+  loginSchema,
+  setupSchema,
+} from "@/lib/auth/schema";
 
 const validSetup = {
   name: "Owner",
@@ -98,6 +103,69 @@ describe("setupSchema", () => {
   test("rejects an over-long name", () => {
     expect(setupErrors({ name: "a".repeat(81) }).name).toEqual([
       "Name must be at most 80 characters",
+    ]);
+  });
+});
+
+describe("changePasswordSchema", () => {
+  const valid = {
+    currentPassword: "old password here",
+    newPassword: "a long enough passphrase",
+    confirmPassword: "a long enough passphrase",
+  };
+
+  test("accepts a valid submission", () => {
+    expect(changePasswordSchema.safeParse(valid).success).toBe(true);
+  });
+
+  test("requires the current password", () => {
+    const result = changePasswordSchema.safeParse({
+      ...valid,
+      currentPassword: "",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error && authFieldErrors(result.error)).toEqual({
+      currentPassword: ["Current password is required"],
+    });
+  });
+
+  test.each([
+    ["short", "short", "Password must be at least 12 characters"],
+    ["long", "x".repeat(129), "Password must be at most 128 characters"],
+  ])("rejects a %s new password", (_, newPassword, message) => {
+    const result = changePasswordSchema.safeParse({
+      ...valid,
+      newPassword,
+      confirmPassword: newPassword,
+    });
+
+    expect(result.error && authFieldErrors(result.error).newPassword).toContain(
+      message,
+    );
+  });
+
+  test("rejects a mismatched confirmation", () => {
+    const result = changePasswordSchema.safeParse({
+      ...valid,
+      confirmPassword: "nope",
+    });
+
+    expect(result.error && authFieldErrors(result.error)).toEqual({
+      confirmPassword: ["Passwords do not match"],
+    });
+  });
+
+  test("rejects reusing the current password", () => {
+    const same = "a long enough passphrase";
+    const result = changePasswordSchema.safeParse({
+      currentPassword: same,
+      newPassword: same,
+      confirmPassword: same,
+    });
+
+    expect(result.error && authFieldErrors(result.error).newPassword).toEqual([
+      "Choose a password different from the current one",
     ]);
   });
 });

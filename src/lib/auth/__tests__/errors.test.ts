@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { authErrorMessage } from "@/lib/auth/errors";
 
 describe("authErrorMessage", () => {
-  test.each(["login", "setup"] as const)(
+  test.each(["login", "setup", "account"] as const)(
     "explains a rate-limited %s attempt",
     (screen) => {
       expect(authErrorMessage({ status: 429 }, screen)).toBe(
@@ -56,6 +56,36 @@ describe("authErrorMessage", () => {
     );
     expect(authErrorMessage({ status: 400 }, "setup")).toBe(
       "Could not create the account. Please try again.",
+    );
+  });
+
+  test("names a wrong current password on the account screen", () => {
+    expect(
+      authErrorMessage(
+        { status: 400, code: "INVALID_PASSWORD", message: "Invalid password" },
+        "account",
+      ),
+    ).toBe("Current password is incorrect.");
+  });
+
+  test("tells an expired session to sign in again", () => {
+    expect(authErrorMessage({ status: 401 }, "account")).toBe(
+      "Your session has expired. Sign in again.",
+    );
+  });
+
+  test("passes an account validation message through", () => {
+    expect(
+      authErrorMessage(
+        { status: 400, message: "Password too short" },
+        "account",
+      ),
+    ).toBe("Password too short");
+  });
+
+  test("falls back to a generic account message", () => {
+    expect(authErrorMessage({ status: 500 }, "account")).toBe(
+      "Could not change the password. Please try again.",
     );
   });
 });
