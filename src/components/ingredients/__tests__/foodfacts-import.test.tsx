@@ -367,7 +367,7 @@ describe("FoodfactsImport", () => {
     expect(screen.queryByText("Almond Butter")).not.toBeInTheDocument();
   });
 
-  it("keeps the product imported when onImported throws", async () => {
+  it("does not report an error when onImported throws", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -397,11 +397,8 @@ describe("FoodfactsImport", () => {
     await screen.findByText("Almond Butter");
     await user.click(screen.getByRole("button", { name: "Import" }));
 
-    expect(
-      await screen.findByRole("button", { name: "Imported" }),
-    ).toBeDisabled();
+    await waitFor(() => expect(consoleError).toHaveBeenCalled());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
   });
 
@@ -419,7 +416,7 @@ describe("FoodfactsImport", () => {
     expect(screen.getByRole("textbox")).toHaveValue("");
   });
 
-  it("calls onImported once and keeps the product imported after reopening", async () => {
+  it("calls onImported once with the saved name", async () => {
     const onImported = vi.fn();
     vi.mocked(createIngredientFromFoodfactsAction).mockResolvedValueOnce({
       status: "success",
@@ -428,37 +425,100 @@ describe("FoodfactsImport", () => {
     });
     const user = userEvent.setup();
     render(<FoodfactsImport onImported={onImported} />);
-    const trigger = () =>
-      screen.getByRole("button", { name: "Import from OpenFoodFacts" });
-    const search = async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ results: [makeResult()] }),
-      });
-      await user.type(screen.getByRole("textbox"), "almond");
-      await user.click(screen.getByRole("button", { name: /search/i }));
-      await screen.findByText("Almond Butter");
-    };
+    await user.click(
+      screen.getByRole("button", { name: "Import from OpenFoodFacts" }),
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [makeResult()] }),
+    });
+    await user.type(screen.getByRole("textbox"), "almond");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+    await user.click(await screen.findByRole("button", { name: "Import" }));
 
-    await user.click(trigger());
-    await search();
-    await user.click(screen.getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
+    expect(onImported).toHaveBeenCalledWith("Almond Butter");
+  });
+
+  it("lets the product be imported again once its ingredient is removed", async () => {
+    vi.mocked(createIngredientFromFoodfactsAction).mockResolvedValueOnce({
+      status: "success",
+      savedName: "Almond Butter",
+      resetKey: 1,
+    });
+    const user = userEvent.setup();
+    const { rerender } = render(<FoodfactsImport ingredientNames={[]} />);
+    await user.click(
+      screen.getByRole("button", { name: "Import from OpenFoodFacts" }),
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [makeResult({ brand: undefined })] }),
+    });
+    await user.type(screen.getByRole("textbox"), "almond");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+    await screen.findByText("Almond Butter");
+    expect(screen.getByRole("button", { name: "Import" })).toBeEnabled();
+
+    rerender(<FoodfactsImport ingredientNames={["Almond Butter"]} />);
     expect(
       await screen.findByRole("button", { name: "Imported" }),
     ).toBeDisabled();
-    expect(onImported).toHaveBeenCalledTimes(1);
-    expect(onImported).toHaveBeenCalledWith("Almond Butter");
 
-    await user.keyboard("{Escape}");
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    rerender(<FoodfactsImport ingredientNames={[]} />);
+    expect(screen.getByRole("button", { name: "Import" })).toBeEnabled();
+  });
+
+  it("stays imported after success until the library catches up", async () => {
+    vi.mocked(createIngredientFromFoodfactsAction).mockResolvedValueOnce({
+      status: "success",
+      savedName: "Almond Butter",
+      resetKey: 1,
     });
-    await user.click(trigger());
-    await search();
+    const user = userEvent.setup();
+    const { rerender } = render(<FoodfactsImport ingredientNames={[]} />);
+    await user.click(
+      screen.getByRole("button", { name: "Import from OpenFoodFacts" }),
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [makeResult({ brand: undefined })] }),
+    });
+    await user.type(screen.getByRole("textbox"), "almond");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+    await user.click(await screen.findByRole("button", { name: "Import" }));
 
-    expect(screen.getByRole("button", { name: "Imported" })).toBeDisabled();
-    expect(onImported).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole("button", { name: "Imported" }),
+    ).toBeDisabled();
+
+    rerender(<FoodfactsImport ingredientNames={["Almond Butter"]} />);
+    rerender(<FoodfactsImport ingredientNames={[]} />);
+    expect(screen.getByRole("button", { name: "Import" })).toBeEnabled();
+  });
+
+  it("marks a product imported from the library, brand included", async () => {
+    const user = userEvent.setup();
+    render(<FoodfactsImport ingredientNames={["Almond Butter (BrandCo)"]} />);
+    await user.click(
+      screen.getByRole("button", { name: "Import from OpenFoodFacts" }),
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [makeResult({ brand: "BrandCo" })],
+      }),
+    });
+    await user.type(screen.getByRole("textbox"), "almond");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    expect(
+      await screen.findByRole("button", { name: "Imported" }),
+    ).toBeDisabled();
   });
 
   it("shows a product once when a response repeats its code", async () => {

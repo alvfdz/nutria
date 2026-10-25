@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -23,11 +24,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { buildIngredientName } from "@/lib/foodfacts/ingredient-name";
 import { cn } from "@/lib/utils";
 import type {
   FoodfactsSearchResponse,
   FoodfactsSearchResult,
 } from "@/lib/foodfacts/mapping";
+
+/** Library names used when none are given; a stable reference for `useMemo`. */
+const NO_INGREDIENTS: readonly string[] = [];
 
 /** Number of products requested per search. */
 const RESULT_LIMIT = 10;
@@ -163,6 +168,12 @@ export function searchReducer(
  * Props for the OpenFoodFacts import component.
  */
 interface FoodfactsImportProps {
+  /**
+   * Names of the ingredients currently in the library. A product is marked as
+   * imported while the name it would be saved under is listed, so deleting
+   * the ingredient makes it importable again.
+   */
+  ingredientNames?: readonly string[];
   /** Called after an ingredient is imported, with its saved name. */
   onImported?: (name: string) => void;
 }
@@ -302,7 +313,7 @@ function ImportButton({
 }: {
   result: FoodfactsSearchResult;
   imported: boolean;
-  onSuccess: (code: string, name: string) => void;
+  onSuccess?: (name: string) => void;
 }) {
   // The action outlives the render that created it, so it reads the latest
   // callback from a ref instead of closing over a stale one.
@@ -318,7 +329,7 @@ function ImportButton({
       const next = await createIngredientFromFoodfactsAction(prev, formData);
       if (next.status === "success" && next.savedName) {
         try {
-          onSuccessRef.current(result.code, next.savedName);
+          onSuccessRef.current?.(next.savedName);
         } catch (error) {
           // The ingredient is already saved, so a failing callback must not
           // turn the action result into an error.
@@ -329,7 +340,15 @@ function ImportButton({
     },
     { status: "idle", resetKey: 0 },
   );
-  const done = imported || state.status === "success";
+  // Between the action succeeding and the refreshed library arriving, `imported`
+  // is still false; stay done until the library has shown this import once, so
+  // a second click cannot save a duplicate.
+  const [seenKey, setSeenKey] = useState(0);
+  if (state.status === "success" && imported && seenKey !== state.resetKey) {
+    setSeenKey(state.resetKey);
+  }
+  const done =
+    imported || (state.status === "success" && seenKey !== state.resetKey);
 
   return (
     <form
@@ -381,19 +400,37 @@ function ImportButton({
  * only the selected products are stored, so the user's library is never
  * flooded with the whole database.
  *
- * @param props Optional callback invoked after a product is imported.
+ * @param props The library's ingredient names, used to mark products already
+ * imported, and an optional callback invoked after a product is imported.
  * @returns The trigger button and its import dialog.
  */
-export function FoodfactsImport({ onImported }: FoodfactsImportProps) {
+export function FoodfactsImport({
+  ingredientNames = NO_INGREDIENTS,
+  onImported,
+}: FoodfactsImportProps) {
   const [query, setQuery] = useState("");
   const [search, dispatch] = useReducer(searchReducer, INITIAL_SEARCH_STATE);
   const { results, loading, error, searched, activeQuery, lastPage, hasMore } =
     search;
-  const [importedCodes, setImportedCodes] = useState<Set<string>>(
-    () => new Set(),
+  const libraryNames = useMemo(
+    () => new Set(ingredientNames),
+    [ingredientNames],
   );
   const searchId = useId();
   const controllerRef = useRef<AbortController | null>(null);
+
+  /**
+   * Whether the library already holds the ingredient this result would be
+   * saved as.
+   *
+   * @param result The search result to check.
+   * @returns `true` while that ingredient is in the library.
+   */
+  function isImported(result: FoodfactsSearchResult) {
+    return libraryNames.has(
+      buildIngredientName(result.productName, result.brand),
+    );
+  }
 
   /**
    * Cancels the in-flight search and clears the dialog state when it closes,
@@ -407,18 +444,6 @@ export function FoodfactsImport({ onImported }: FoodfactsImportProps) {
     controllerRef.current = null;
     setQuery("");
     dispatch({ type: "reset" });
-  }
-
-  /**
-   * Remembers an imported product so it stays marked as imported across
-   * searches and dialog reopenings, then notifies the parent.
-   *
-   * @param code OpenFoodFacts code of the imported product.
-   * @param name Saved ingredient name.
-   */
-  function handleImported(code: string, name: string) {
-    setImportedCodes((prev) => new Set(prev).add(code));
-    onImported?.(name);
   }
 
   /**
@@ -554,8 +579,8 @@ export function FoodfactsImport({ onImported }: FoodfactsImportProps) {
                   </div>
                   <ImportButton
                     result={result}
-                    imported={importedCodes.has(result.code)}
-                    onSuccess={handleImported}
+                    imported={isImported(result)}
+                    onSuccess={onImported}
                   />
                 </div>
                 <MacrosPer100g result={result} />

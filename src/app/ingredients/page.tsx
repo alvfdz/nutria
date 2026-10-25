@@ -32,7 +32,9 @@ export default async function IngredientsPage() {
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
           <div className="grid gap-6">
             <NewIngredientForm />
-            <FoodfactsImport />
+            <FoodfactsImport
+              ingredientNames={ingredients.map((ingredient) => ingredient.name)}
+            />
           </div>
           <IngredientLibrary ingredients={ingredients} />
         </div>

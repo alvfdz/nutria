@@ -28,6 +28,9 @@ const macroField = (label: string, max: number) =>
       .max(max, { error: `${label} cannot be more than ${max} per 100 g` }),
   );
 
+/** Longest ingredient name accepted, in characters. */
+export const MAX_INGREDIENT_NAME_LENGTH = 80;
+
 /**
  * Validation for the ingredient form, shared by the create and update actions.
  * Bounds are deliberately wide enough for any real food while still rejecting
@@ -38,7 +41,9 @@ export const ingredientSchema = z.object({
     .string({ error: "Name is required" })
     .trim()
     .min(1, { error: "Name is required" })
-    .max(80, { error: "Keep the name under 80 characters" }),
+    .max(MAX_INGREDIENT_NAME_LENGTH, {
+      error: `Keep the name under ${MAX_INGREDIENT_NAME_LENGTH} characters`,
+    }),
   caloriesPer100g: macroField("Calories", 900),
   proteinPer100g: macroField("Protein", 100),
   carbsPer100g: macroField("Carbohydrates", 100),

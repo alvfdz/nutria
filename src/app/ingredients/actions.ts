@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 
+import { buildIngredientName } from "@/lib/foodfacts/ingredient-name";
 import { IngredientInUseError } from "@/lib/ingredients/errors";
 import type {
   IngredientDeleteState,
@@ -74,29 +75,6 @@ const foodfactsImportSchema = z.object({
 });
 
 /**
- * Builds the ingredient name for an imported product, appending the brand in
- * parentheses when it adds information and is not already part of the name.
- *
- * @param productName Product name from OpenFoodFacts.
- * @param brand Brand from OpenFoodFacts, if any.
- * @returns The name to store, e.g. `Almond Butter (BrandCo)`.
- */
-function buildName(productName: string, brand?: string | null): string {
-  const trimmedName = productName.trim();
-  const trimmedBrand = brand?.trim();
-
-  if (
-    trimmedBrand &&
-    trimmedName.toLowerCase() !== trimmedBrand.toLowerCase() &&
-    !trimmedName.includes(trimmedBrand)
-  ) {
-    return `${trimmedName} (${trimmedBrand})`;
-  }
-
-  return trimmedName;
-}
-
-/**
  * Server action behind the import button of an OpenFoodFacts search result.
  * Validates the hidden fields, stores the ingredient with the macros it has,
  * and refreshes the route so the library shows it.
@@ -128,7 +106,7 @@ export async function createIngredientFromFoodfactsAction(
   }
 
   const data = result.data;
-  const name = buildName(data.productName, data.brand);
+  const name = buildIngredientName(data.productName, data.brand);
 
   try {
     const ingredient = await createIngredient({
