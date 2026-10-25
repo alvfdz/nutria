@@ -25,7 +25,7 @@ const MAX_LIMIT = 50;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** Requests one client may issue per minute before being throttled. */
-const RATE_LIMIT_PER_MIN = 10;
+const RATE_LIMIT_PER_MIN = 30;
 
 /** The fields requested from OpenFoodFacts; anything else is dropped upstream. */
 const OFF_FIELDS = [
@@ -33,6 +33,7 @@ const OFF_FIELDS = [
   "product_name",
   "generic_name",
   "brands",
+  "image_thumb_url",
   "nutriments",
 ].join(",");
 

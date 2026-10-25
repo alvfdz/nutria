@@ -5,6 +5,7 @@ import {
   extractProductName,
   mapProduct,
   mapSearchResponse,
+  normalizeImageUrl,
   normalizeMacros,
   toNumber,
   type OffProduct,
@@ -164,6 +165,50 @@ describe("mapProduct", () => {
     });
   });
 
+  it("maps the thumbnail URL, ignoring blank ones", () => {
+    const thumb = (image_thumb_url?: string) =>
+      mapProduct({ code: "1", image_thumb_url })?.imageUrl;
+
+    expect(thumb(" https://images.openfoodfacts.org/x.jpg ")).toBe(
+      "https://images.openfoodfacts.org/x.jpg",
+    );
+    expect(thumb("  ")).toBeUndefined();
+    expect(thumb()).toBeUndefined();
+    expect(thumb("http://images.openfoodfacts.org/x.jpg")).toBe(
+      "https://images.openfoodfacts.org/x.jpg",
+    );
+    expect(thumb("javascript:alert(1)")).toBeUndefined();
+    expect(thumb("not a url")).toBeUndefined();
+  });
+
+  it("accepts OpenFoodFacts domains and their subdomains", () => {
+    expect(normalizeImageUrl("https://openfoodfacts.org/x.jpg")).toBe(
+      "https://openfoodfacts.org/x.jpg",
+    );
+    expect(normalizeImageUrl("https://static.openfoodfacts.net/x.jpg")).toBe(
+      "https://static.openfoodfacts.net/x.jpg",
+    );
+  });
+
+  it("drops a non-default http port when upgrading to https", () => {
+    expect(
+      normalizeImageUrl("http://images.openfoodfacts.org:8080/x.jpg"),
+    ).toBe("https://images.openfoodfacts.org/x.jpg");
+  });
+
+  it("rejects image hosts outside OpenFoodFacts", () => {
+    expect(normalizeImageUrl("https://img.test/x.jpg")).toBeUndefined();
+    expect(
+      normalizeImageUrl("https://evilopenfoodfacts.org/x.jpg"),
+    ).toBeUndefined();
+    expect(
+      normalizeImageUrl("https://openfoodfacts.org.evil.com/x.jpg"),
+    ).toBeUndefined();
+    expect(
+      normalizeImageUrl("https://evil.com/?h=images.openfoodfacts.org"),
+    ).toBeUndefined();
+  });
+
   it("returns null when the product has no code", () => {
     expect(mapProduct({ product_name: "Test" })).toBeNull();
   });
@@ -205,6 +250,16 @@ describe("mapSearchResponse", () => {
     expect(response.page).toBe(2);
     expect(response.pageSize).toBe(2);
     expect(response.pages).toBe(50);
+  });
+
+  it("derives the page count from the total when the API omits it", () => {
+    const response = mapSearchResponse({ hits: [], count: 101 }, 1, 20);
+
+    expect(response.pages).toBe(6);
+  });
+
+  it("leaves the page count unknown without a total", () => {
+    expect(mapSearchResponse({ hits: [] }, 1, 20).pages).toBeUndefined();
   });
 
   it("drops hits without a code", () => {

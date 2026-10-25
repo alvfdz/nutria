@@ -104,6 +104,18 @@ describe("GET /api/foodfacts/search", () => {
     expect(init.headers["User-Agent"]).toContain("Nutria");
   });
 
+  it("requests the thumbnail and nutriments fields", async () => {
+    mockFetch.mockResolvedValueOnce(okResponse({ hits: [] }));
+
+    await GET(createRequest("http://localhost/api/foodfacts/search?q=fields"));
+
+    const url = new URL(String(mockFetch.mock.calls[0][0]));
+    const fields = url.searchParams.get("fields")?.split(",");
+    expect(fields).toEqual(
+      expect.arrayContaining(["code", "image_thumb_url", "nutriments"]),
+    );
+  });
+
   it("passes the upstream status through when OpenFoodFacts fails", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -143,7 +155,7 @@ describe("GET /api/foodfacts/search", () => {
     mockFetch.mockResolvedValue(okResponse({ hits: [] }));
 
     const responses = await Promise.all(
-      Array.from({ length: 20 }, (_, index) =>
+      Array.from({ length: 40 }, (_, index) =>
         GET(
           createRequest(
             `http://localhost/api/foodfacts/search?q=burst-${index}`,

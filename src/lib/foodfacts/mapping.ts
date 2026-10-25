@@ -14,6 +14,8 @@ export interface OffProduct {
   brands?: string | string[];
   /** Brand slugs, concatenated when `brands` is absent. */
   brands_tags?: string[];
+  /** Thumbnail URL (100 px) of the product picture. */
+  image_thumb_url?: string;
   /** Nutrition object whose keys carry their own per-100 g semantics. */
   nutriments?: Record<string, unknown>;
 }
@@ -44,6 +46,8 @@ export interface FoodfactsSearchResult {
   productName: string;
   /** Brand names, when the product has any. */
   brand?: string;
+  /** Thumbnail URL for recognizing the product; shown in search, never stored. */
+  imageUrl?: string;
   /** Nutrition reported per 100 g of product. */
   macrosPer100g: {
     /** Energy in kcal per 100 g, derived from kJ when kcal is unavailable. */
@@ -187,6 +191,39 @@ export function normalizeMacros(
   };
 }
 
+/** Domains OpenFoodFacts serves product images from, subdomains included. */
+const IMAGE_HOST_SUFFIXES = ["openfoodfacts.org", "openfoodfacts.net"];
+
+/**
+ * Validates a thumbnail URL, upgrading `http:` to `https:` so the browser never
+ * blocks it as mixed content. Only OpenFoodFacts hosts are accepted, so a
+ * user-submitted image URL can never make the browser contact another host.
+ *
+ * @param url Raw thumbnail URL from OpenFoodFacts.
+ * @returns The `https:` URL, or `undefined` when missing, not http(s) or
+ *   hosted outside OpenFoodFacts.
+ */
+export function normalizeImageUrl(url: string | undefined): string | undefined {
+  const trimmed = url?.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+      // An explicit http port (:8080) would not carry over to TLS.
+      parsed.port = "";
+    }
+    if (parsed.protocol !== "https:") return undefined;
+    const host = parsed.hostname;
+    const trusted = IMAGE_HOST_SUFFIXES.some(
+      (suffix) => host === suffix || host.endsWith(`.${suffix}`),
+    );
+    return trusted ? parsed.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Maps one raw OpenFoodFacts product onto a search result.
  *
@@ -200,6 +237,7 @@ export function mapProduct(product: OffProduct): FoodfactsSearchResult | null {
     code: product.code,
     productName: extractProductName(product),
     brand: extractBrand(product),
+    imageUrl: normalizeImageUrl(product.image_thumb_url),
     macrosPer100g: normalizeMacros(product.nutriments),
   };
 }
@@ -223,11 +261,20 @@ export function mapSearchResponse(
     .map(mapProduct)
     .filter((result): result is FoodfactsSearchResult => result !== null);
 
+  const pageSize = offResponse.page_size ?? limit;
+  // Derive the page count from the total when the API omits it, so clients
+  // never have to guess from the (filtered) number of results.
+  const pages =
+    offResponse.page_count ??
+    (offResponse.count !== undefined && pageSize > 0
+      ? Math.ceil(offResponse.count / pageSize)
+      : undefined);
+
   return {
     results,
     count: offResponse.count,
     page: offResponse.page ?? page,
-    pageSize: offResponse.page_size ?? limit,
-    pages: offResponse.page_count,
+    pageSize,
+    pages,
   };
 }
