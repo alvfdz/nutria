@@ -3,6 +3,7 @@ import "server-only";
 import { connection } from "next/server";
 
 import {
+  Prisma,
   type Goals as GoalsDbRow,
   type MealSlot as MealSlotDbRow,
 } from "@/generated/prisma/client";
@@ -27,21 +28,25 @@ const goalsInclude = {
 
 /**
  * Stamps a Prisma row as a {@link Goals}. Prisma returns every timestamp as a
- * `Date`, which the domain types carry as ISO 8601 strings.
+ * `Date`, which the domain types carry as ISO 8601 strings. The owning
+ * `userId` is dropped: callers already know whose goals they asked for, and
+ * components have no use for it.
  *
  * @param row The row as Prisma returns it.
  * @returns The same row in the shape the app uses.
  */
 function toGoals(row: GoalsWithSlots): Goals {
   return {
-    ...row,
+    id: row.id,
+    ...budgetData(row),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    slots: row.slots,
   };
 }
 
 /** The scalar budget fields shared by the create and update write shapes. */
-function budgetData(input: NewGoals) {
+function budgetData(input: Omit<NewGoals, "slots">) {
   return {
     calories: input.calories,
     proteinPct: input.proteinPct,
@@ -81,23 +86,40 @@ function isUpdateOf(
 }
 
 /**
- * Loads the single goals row with its ordered slots, if one exists yet.
+ * Tells whether a Prisma error is a unique-constraint violation (`P2002`).
  *
+ * @param error Whatever a write threw.
+ * @returns `true` for a `P2002` known request error.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+/**
+ * Loads the user's goals row with its ordered slots, if one exists yet.
+ *
+ * @param userId Owner of the goals.
  * @returns The stored goals, or `null` when nothing has been saved.
  */
-export async function getGoals(): Promise<Goals | null> {
+export async function getGoals(userId: string): Promise<Goals | null> {
   // Nothing else in this read touches Request-time APIs, so without this the
   // query would run while prerendering and get frozen into the build output.
   await connection();
 
-  const row = await getPrisma().goals.findFirst({ include: goalsInclude });
+  const row = await getPrisma().goals.findUnique({
+    where: { userId },
+    include: goalsInclude,
+  });
 
   return row ? toGoals(row) : null;
 }
 
 /**
- * Stores the daily goals. Single-tenant as the ingredients/meals stores: the
- * first save creates the row, every later save updates it in place and
+ * Stores the user's daily goals. One row per user: the first save creates
+ * it, every later save updates it in place and
  * reconciles the slots by id rather than replacing them. Keeping slot ids
  * stable is what lets a rename or reorder preserve the meals already planned
  * into them.
@@ -110,26 +132,44 @@ export async function getGoals(): Promise<Goals | null> {
  * negative positions first so a reorder never collides with the
  * `(goalsId, sortOrder)` unique index while the final positions are written.
  *
+ * Two first saves racing each other cannot both create a row: the
+ * `userId` unique index rejects the second insert, which then retries as an
+ * update of the row the first one created.
+ *
+ * @param userId Owner of the goals.
  * @param input Validated budget and meal slots.
  * @returns The stored goals, slots ordered.
  * @throws {SlotInUseError} If a removed slot still has a forward plan.
  */
-export async function saveGoals(input: NewGoals): Promise<Goals> {
+export async function saveGoals(
+  userId: string,
+  input: NewGoals,
+): Promise<Goals> {
   const prisma = getPrisma();
-  const existing = await prisma.goals.findFirst({
+  const existing = await prisma.goals.findUnique({
+    where: { userId },
     include: { slots: true },
   });
 
   if (!existing) {
-    const row = await prisma.goals.create({
-      data: {
-        ...budgetData(input),
-        slots: { create: slotsToCreate(input.slots) },
-      },
-      include: goalsInclude,
-    });
+    try {
+      const row = await prisma.goals.create({
+        data: {
+          userId,
+          ...budgetData(input),
+          slots: { create: slotsToCreate(input.slots) },
+        },
+        include: goalsInclude,
+      });
 
-    return toGoals(row);
+      return toGoals(row);
+    } catch (error) {
+      // A concurrent first save (double submit, two tabs) created the row
+      // between the read and this insert. Retry: the row exists now, so the
+      // retry takes the update path.
+      if (isUniqueViolation(error)) return saveGoals(userId, input);
+      throw error;
+    }
   }
 
   const existingById = new Map(existing.slots.map((slot) => [slot.id, slot]));
@@ -141,7 +181,7 @@ export async function saveGoals(input: NewGoals): Promise<Goals> {
   const removed = existing.slots.filter((slot) => !submittedIds.has(slot.id));
 
   for (const slot of removed) {
-    const dayKeys = await listPlansForSlot(slot.id);
+    const dayKeys = await listPlansForSlot(userId, slot.id);
 
     if (dayKeys.length > 0) {
       throw new SlotInUseError(slot.name, dayKeys);
@@ -190,7 +230,10 @@ export async function saveGoals(input: NewGoals): Promise<Goals> {
     }
   });
 
-  const row = await prisma.goals.findFirstOrThrow({ include: goalsInclude });
+  const row = await prisma.goals.findUniqueOrThrow({
+    where: { userId },
+    include: goalsInclude,
+  });
 
   return toGoals(row);
 }

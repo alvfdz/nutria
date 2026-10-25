@@ -1,5 +1,8 @@
-// Single-tenant by design for now (docs/vision.md, Out-of-Scope for MVP), so
-// `Ingredient` carries no `userId` yet.
+// Single-tenant in the product for now (docs/vision.md, Out-of-Scope for MVP):
+// sign-up closes once the owner account exists. The data is multi-user ready
+// regardless: every root row (`Ingredient`, `Meal`, `Goals`, `PlanMeal`)
+// carries the `userId` that owns it, and child rows inherit it from their
+// parent.
 
 // The `prisma-client` generator emits TypeScript into the repo so the app can
 // typecheck against it without a build step. Prisma 7 has no
@@ -17,27 +20,139 @@ datasource db {
   provider = "postgresql"
 }
 
+/// An account that can sign in. Owned by Better Auth (`src/lib/auth/auth.ts`):
+/// the field names follow its core schema so its Prisma adapter can read and
+/// write the row directly.
+model User {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id            String   @id @default(uuid()) @db.Uuid
+  /// Display name, shown in the app header.
+  name          String
+  /// Sign-in identifier; unique across accounts.
+  email         String   @unique
+  /// Whether the address was confirmed. Nutria sends no email, so it stays
+  /// `false`; Better Auth requires the column.
+  emailVerified Boolean  @default(false)
+  /// Avatar URL. Unused by Nutria; required by the Better Auth schema.
+  image         String?
+  /// Set on insert.
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  /// Rewritten on every update.
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  /// Signed-in browsers of this user.
+  sessions    Session[]
+  /// Credentials the user signs in with (the password lives here).
+  accounts    Account[]
+  /// The user's data; all of it is removed together with the user.
+  ingredients Ingredient[]
+  meals       Meal[]
+  goals       Goals?
+  planMeals   PlanMeal[]
+
+  @@map("users")
+}
+
+/// One signed-in browser. The cookie carries `token`; Better Auth looks the
+/// row up on every request and refreshes `expiresAt` as it is used.
+model Session {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id        String   @id @default(uuid()) @db.Uuid
+  /// When the session stops being valid.
+  expiresAt DateTime @db.Timestamptz(3)
+  /// Opaque secret the session cookie carries.
+  token     String   @unique
+  /// Set on insert.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  /// Rewritten on every update.
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  /// Client address the session was created from, when known.
+  ipAddress String?
+  /// Client user agent the session was created from, when known.
+  userAgent String?
+  /// User the session signs in; removed together with it.
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// A way for a {@link User} to sign in. With email and password the provider
+/// is `credential` and `password` holds the scrypt hash; OAuth/OIDC providers
+/// added later store their tokens in the same row shape.
+model Account {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id                    String    @id @default(uuid()) @db.Uuid
+  /// The user's id at the provider (the user id itself for `credential`).
+  accountId             String
+  /// Provider name, e.g. `credential`.
+  providerId            String
+  /// User the account belongs to; removed together with it.
+  userId                String    @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// OAuth tokens; unused with email and password.
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  /// Password hash for the `credential` provider; never returned by the API.
+  password              String?
+  /// Set on insert.
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  /// Rewritten on every update.
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Short-lived secrets Better Auth issues (e.g. password reset tokens).
+model Verification {
+  /// Server-generated UUID, same convention as {@link Ingredient}.
+  id         String   @id @default(uuid()) @db.Uuid
+  /// What the secret is for, e.g. an email address.
+  identifier String
+  /// The secret itself.
+  value      String
+  /// When the secret stops being valid.
+  expiresAt  DateTime @db.Timestamptz(3)
+  /// Set on insert.
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  /// Rewritten on every update.
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
 /// A raw food the user stores macros for, reported per 100 g of product.
 model Ingredient {
   /// Server-generated UUID, so ids are never guessable or enumerable.
-  id String @id @default(uuid()) @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
   /// Display name of the raw food, e.g. "Chicken breast, raw".
-  name String @db.VarChar(80)
+  name            String   @db.VarChar(80)
   /// Energy density in kilocalories per 100 g.
   caloriesPer100g Float
   /// Protein density in grams per 100 g.
-  proteinPer100g Float
+  proteinPer100g  Float
   /// Carbohydrate density in grams per 100 g.
-  carbsPer100g Float
+  carbsPer100g    Float
   /// Fat density in grams per 100 g.
-  fatPer100g Float
+  fatPer100g      Float
   /// Set by the database on insert; the library is ordered by it.
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  /// User who owns the row; removed together with them.
+  userId          String   @db.Uuid
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// Meal items that reference this ingredient; deletion is blocked while any
   /// of them exist (`onDelete: Restrict` on the `MealItem` side).
   mealItems MealItem[]
 
+  @@index([userId])
   @@map("ingredients")
 }
 
@@ -45,60 +160,67 @@ model Ingredient {
 /// "Meal Template" of the product vision.
 model Meal {
   /// Server-generated UUID, same convention as {@link Ingredient}.
-  id String @id @default(uuid()) @db.Uuid
+  id        String     @id @default(uuid()) @db.Uuid
   /// Display name of the template, e.g. "Oatmeal & Protein Bowl".
-  name String @db.VarChar(80)
+  name      String     @db.VarChar(80)
   /// Set by the database on insert; the library is ordered by it.
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+  /// User who owns the row; removed together with them.
+  userId    String     @db.Uuid
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// The ingredients that make up the meal, in the order they were added.
-  items MealItem[]
+  items     MealItem[]
   /// Calendar entries that planned this template. `Restrict` on the
   /// `PlanMeal` side blocks deleting a meal while it is still planned;
   /// `deleteMeal` clears only past plans first.
   planMeals PlanMeal[]
 
+  @@index([userId])
   @@map("meals")
 }
 
 /// One ingredient of a {@link Meal}, with the quantity the template uses.
 model MealItem {
   /// Server-generated UUID, same convention as {@link Ingredient}.
-  id String @id @default(uuid()) @db.Uuid
+  id           String     @id @default(uuid()) @db.Uuid
   /// Quantity of the ingredient in this meal, in grams.
-  grams Float
+  grams        Float
   /// Position of the row within its meal, preserving the builder's order.
-  sortOrder Int
+  sortOrder    Int
   /// Meal the row belongs to; removed together with it.
-  mealId String @db.Uuid
-  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId       String     @db.Uuid
+  meal         Meal       @relation(fields: [mealId], references: [id], onDelete: Cascade)
   /// Ingredient the row points at; `Restrict` blocks deleting an ingredient
   /// that meals still reference.
-  ingredientId String @db.Uuid
-  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  ingredientId String     @db.Uuid
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
 
   @@index([mealId])
   @@index([ingredientId])
   @@map("meal_items")
 }
 
-/// The user's daily macro budget. Single-tenant like `Ingredient`: one row per
-/// app, replaced rather than versioned. The day's meals ("Meal Slots") hang off
+/// The user's daily macro budget: one row per user, replaced rather than
+/// versioned. The day's meals ("Meal Slots") hang off
 /// this row, so the meals-per-day count derives from the number of slots.
 model Goals {
   /// Server-generated UUID, same convention as {@link Ingredient}.
-  id String @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   /// Total daily energy target in kilocalories.
-  calories Float
+  calories   Float
   /// Share of daily energy coming from protein, 0–100.
   proteinPct Float
   /// Share of daily energy coming from carbohydrates, 0–100.
-  carbsPct Float
+  carbsPct   Float
   /// Share of daily energy coming from fat, 0–100.
-  fatPct Float
+  fatPct     Float
   /// Set by the database on insert.
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
   /// Rewritten by Prisma on every update; the goals form keys on it to re-seed.
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  /// User the budget belongs to; one budget per user.
+  userId     String   @unique @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// The day's meals, in dining order.
   slots MealSlot[]
@@ -110,16 +232,16 @@ model Goals {
 /// the dining order. Owned by its {@link Goals} row and deleted with it.
 model MealSlot {
   /// Server-generated UUID, same convention as {@link Ingredient}.
-  id String @id @default(uuid()) @db.Uuid
+  id        String     @id @default(uuid()) @db.Uuid
   /// Display name, e.g. "Breakfast", "Lunch", or "Meal 1".
-  name String @db.VarChar(40)
+  name      String     @db.VarChar(40)
   /// Share of the daily budget this meal gets, 0–100.
-  percent Float
+  percent   Float
   /// Position in the dining order; also what the slots query orders by.
   sortOrder Int
   /// Goals row the slot belongs to; removed together with it.
-  goalsId String @db.Uuid
-  goals Goals @relation(fields: [goalsId], references: [id], onDelete: Cascade)
+  goalsId   String     @db.Uuid
+  goals     Goals      @relation(fields: [goalsId], references: [id], onDelete: Cascade)
   /// Calendar entries planned into this meal slot. `onDelete: Cascade` on the
   /// `PlanMeal` side removes a slot's future plans when the slot is deleted,
   /// which `saveGoals` guards against first.
@@ -134,23 +256,26 @@ model MealSlot {
 /// order, share and macro targets always come from the current {@link Goals}.
 model PlanMeal {
   /// Server-generated UUID, same convention as {@link Ingredient}.
-  id String @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   /// The calendar day, `YYYY-MM-DD` at UTC midnight.
-  date DateTime @db.Date
+  date       DateTime @db.Date
   /// Position within its slot, preserving the order meals were added in.
-  sortOrder Int
+  sortOrder  Int
   /// The Goals slot this meal fills. Cascade removes a slot's planned meals
   /// when the slot itself is deleted; `saveGoals` guards that removal.
-  mealSlotId String @db.Uuid
-  mealSlot MealSlot @relation(fields: [mealSlotId], references: [id], onDelete: Cascade)
+  mealSlotId String   @db.Uuid
+  mealSlot   MealSlot @relation(fields: [mealSlotId], references: [id], onDelete: Cascade)
   /// The meal template. Restrict is a safety net; the delete flow checks the
   /// plan dates first and clears only past plans.
-  mealId String @db.Uuid
-  meal Meal @relation(fields: [mealId], references: [id], onDelete: Restrict)
+  mealId     String   @db.Uuid
+  meal       Meal     @relation(fields: [mealId], references: [id], onDelete: Restrict)
   /// Set by the database on insert.
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  /// User who owns the row; removed together with them.
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([date])
+  @@index([userId, date])
   @@index([mealSlotId])
   @@index([mealId])
   @@map("plan_meals")

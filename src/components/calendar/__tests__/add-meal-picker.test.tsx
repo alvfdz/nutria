@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { assignMealAction } from "@/app/calendar/actions";
+import { assignMealAction } from "@/app/(app)/calendar/actions";
 import { AddMealPicker } from "@/components/calendar/add-meal-picker";
 import type { SlotBudget } from "@/lib/goals/budget";
 import type { MealTotals } from "@/lib/meals/macros";
@@ -16,7 +16,7 @@ import {
   makeSlotView,
 } from "@test/factories";
 
-vi.mock("@/app/calendar/actions", () => ({ assignMealAction: vi.fn() }));
+vi.mock("@/app/(app)/calendar/actions", () => ({ assignMealAction: vi.fn() }));
 
 const action = vi.mocked(assignMealAction);
 

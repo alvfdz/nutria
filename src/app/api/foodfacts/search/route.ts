@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getCurrentUser } from "@/lib/auth/session";
 import {
   type FoodfactsSearchResponse,
   mapSearchResponse,
@@ -125,15 +126,24 @@ function getClientIp(req: NextRequest): string {
 }
 
 /**
- * Handles `GET /api/foodfacts/search`. Validates the query, enforces the
- * per-client rate limit, and proxies to OpenFoodFacts with caching so repeated
- * searches do not spend the shared quota.
+ * Handles `GET /api/foodfacts/search`. Requires a signed-in user, validates
+ * the query, enforces the per-client rate limit, and proxies to OpenFoodFacts
+ * with caching so repeated searches do not spend the shared quota.
  *
  * @param req Request carrying `q` (required) and optional `page` and `limit`.
- * @returns The mapped results, or a JSON error with `400`, `429`, or the
- * upstream status.
+ * @returns The mapped results, or a JSON error with `401`, `400`, `429`, or
+ * the upstream status.
  */
 export async function GET(req: NextRequest) {
+  // `src/proxy.ts` only checks that a session cookie is present; this is the
+  // check that the session is actually valid.
+  if (!(await getCurrentUser())) {
+    return NextResponse.json(
+      { error: "Sign in to search OpenFoodFacts." },
+      { status: 401 },
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const page = Math.max(

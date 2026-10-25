@@ -4,7 +4,7 @@ import { useActionState, useEffect, useId, useRef } from "react";
 
 import type { DialogRoot } from "@base-ui/react/dialog";
 
-import { updateMealAction } from "@/app/meals/actions";
+import { updateMealAction } from "@/app/(app)/meals/actions";
 import { MealFields } from "@/components/meals/meal-fields";
 import { Button } from "@/components/ui/button";
 import {

@@ -9,7 +9,7 @@ import type { MealTotals } from "@/lib/meals/macros";
 import type { DayColumn } from "@/lib/plan/types";
 import { makeSlotView } from "@test/factories";
 
-vi.mock("@/app/calendar/actions", () => ({
+vi.mock("@/app/(app)/calendar/actions", () => ({
   assignMealAction: vi.fn(),
   removeMealAction: vi.fn(),
 }));

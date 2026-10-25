@@ -5,7 +5,7 @@ import { useActionState, useEffect, useId, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { saveGoalsAction } from "@/app/goals/actions";
+import { saveGoalsAction } from "@/app/(app)/goals/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,

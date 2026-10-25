@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { Search } from "lucide-react";
 
-import { assignMealAction } from "@/app/calendar/actions";
+import { assignMealAction } from "@/app/(app)/calendar/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMacro } from "@/lib/ingredients/format";

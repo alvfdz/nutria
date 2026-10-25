@@ -4,7 +4,7 @@ import { useActionState, useEffect, useId, useRef } from "react";
 
 import type { DialogRoot } from "@base-ui/react/dialog";
 
-import { updateIngredientAction } from "@/app/ingredients/actions";
+import { updateIngredientAction } from "@/app/(app)/ingredients/actions";
 import { IngredientFields } from "@/components/ingredients/ingredient-fields";
 import { Button } from "@/components/ui/button";
 import {

@@ -2,7 +2,7 @@
 
 import { useActionState, useCallback, useMemo, useRef, useState } from "react";
 
-import { removeMealAction } from "@/app/calendar/actions";
+import { removeMealAction } from "@/app/(app)/calendar/actions";
 import { DayColumn } from "@/components/calendar/day-column";
 import { FoodPanel } from "@/components/calendar/food-panel";
 import {

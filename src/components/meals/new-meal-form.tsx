@@ -4,7 +4,7 @@ import { useActionState, useId } from "react";
 
 import Link from "next/link";
 
-import { createMealAction } from "@/app/meals/actions";
+import { createMealAction } from "@/app/(app)/meals/actions";
 import { MealFields } from "@/components/meals/meal-fields";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {

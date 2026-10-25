@@ -77,7 +77,33 @@ source of truth for `DATABASE_URL` and no `.env` copy is needed.
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). A fresh install sends you
+to `/setup` to create the owner account; see [Authentication](#authentication).
+
+## Authentication
+
+Nutria is single-tenant: one account owns the instance, and every page, server
+action and API route requires it to be signed in. Authentication is handled by
+[Better Auth](https://www.better-auth.com/) with email and password, sessions
+stored in PostgreSQL and passwords hashed with scrypt.
+
+- **First run.** While the database has no account, every page redirects to
+  `/setup`, where you create the owner account. Sign-up closes as soon as it
+  exists: both the setup screen and Better Auth's sign-up endpoint refuse a
+  second account, and a database trigger (`users_single_owner`) enforces the
+  same rule against sign-ups racing each other.
+- **Configuration.** Set `BETTER_AUTH_SECRET` (signs the session cookies; keep
+  it stable) and `BETTER_AUTH_URL` (the public origin you open Nutria at) in
+  `.env.local`, as shown in `.env.example`.
+- **Rate limiting.** In production Better Auth allows 3 sign-in attempts per 10
+  seconds per client. Behind a reverse proxy, make sure it forwards the client
+  address in `X-Forwarded-For`; otherwise all clients share one bucket.
+- **Multi-user ready.** Every ingredient, meal, goals row and plan carries the
+  `userId` that owns it, and every query is scoped by it, so opening sign-up
+  to more accounts later needs no data migration.
+
+Upgrading a development database from before authentication existed: the
+migration adds required `userId` columns, so reset it with `npm run db:reset`.
 
 ## Database commands
 

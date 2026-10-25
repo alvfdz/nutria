@@ -2,7 +2,7 @@
 
 import { useActionState, useId } from "react";
 
-import { createIngredientAction } from "@/app/ingredients/actions";
+import { createIngredientAction } from "@/app/(app)/ingredients/actions";
 import { IngredientFields } from "@/components/ingredients/ingredient-fields";
 import { Button } from "@/components/ui/button";
 import {

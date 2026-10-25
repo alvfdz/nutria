@@ -7,10 +7,10 @@ import { IngredientLibrary } from "@/components/ingredients/ingredient-library";
 import {
   deleteIngredientAction,
   updateIngredientAction,
-} from "@/app/ingredients/actions";
+} from "@/app/(app)/ingredients/actions";
 import { initialIngredientFormState } from "@/lib/ingredients/form-state";
 
-vi.mock("@/app/ingredients/actions", () => ({
+vi.mock("@/app/(app)/ingredients/actions", () => ({
   createIngredientAction: vi.fn(),
   updateIngredientAction: vi.fn(),
   deleteIngredientAction: vi.fn(),

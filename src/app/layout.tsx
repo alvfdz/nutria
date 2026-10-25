@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { SiteHeader } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
@@ -30,8 +29,9 @@ export const viewport: Viewport = {
 
 /**
  * Root layout: wires the font variables, injects the pre-paint theme script,
- * frames every page with the site header, and mounts the toast container that
- * success feedback (e.g. saving the goals) pops up in.
+ * and mounts the toast container that success feedback (e.g. saving the
+ * goals) pops up in. The site header lives one level down, in the `(app)`
+ * group layout, so the login and setup screens render without it.
  */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -44,7 +44,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <SiteHeader />
         {children}
         <Toaster />
       </body>

@@ -1,7 +1,14 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getCurrentUser } from "@/lib/auth/session";
+import { testUser } from "@test/factories";
 import { GET } from "../route";
+
+vi.mock("@/lib/auth/session", () => ({
+  requireUser: vi.fn(),
+  getCurrentUser: vi.fn(),
+}));
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -34,10 +41,25 @@ function okResponse(body: unknown) {
 describe("GET /api/foodfacts/search", () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    vi.mocked(getCurrentUser).mockResolvedValue(testUser);
   });
 
   afterEach(() => {
     mockFetch.mockReset();
+  });
+
+  it("refuses a request without a valid session before calling upstream", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(null);
+
+    const res = await GET(
+      createRequest("http://localhost/api/foodfacts/search?q=milk"),
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      error: "Sign in to search OpenFoodFacts.",
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("rejects a missing query", async () => {

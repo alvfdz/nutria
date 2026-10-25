@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createIngredientFromFoodfactsAction } from "@/app/ingredients/actions";
+import { createIngredientFromFoodfactsAction } from "@/app/(app)/ingredients/actions";
 import {
   FoodfactsImport,
   formatMacro,
@@ -14,7 +14,7 @@ import type { FoodfactsSearchResult } from "@/lib/foodfacts/mapping";
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
-vi.mock("@/app/ingredients/actions", () => ({
+vi.mock("@/app/(app)/ingredients/actions", () => ({
   createIngredientFromFoodfactsAction: vi.fn(async (prev: unknown) => prev),
 }));
 

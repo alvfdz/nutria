@@ -11,7 +11,7 @@ import {
   listMeals,
   updateMeal,
 } from "@/lib/meals/repository";
-import { ingredientDefaults, mealDefaults } from "@test/factories";
+import { ingredientDefaults, mealDefaults, testUser } from "@test/factories";
 
 // Same hand-rolled Prisma stub as the ingredients suite: the suite stays fast
 // and needs no PostgreSQL container, and every assertion is on the call shape
@@ -27,6 +27,9 @@ const meal = {
 
 const planMeal = { findMany: vi.fn() };
 
+// The ownership check counts the submitted ingredients the user owns.
+const ingredient = { count: vi.fn() };
+
 /** The clients the delete transaction hands to its callback. */
 const tx = {
   planMeal: { deleteMany: vi.fn() },
@@ -36,10 +39,17 @@ const tx = {
 const prisma = {
   meal,
   planMeal,
+  ingredient,
   $transaction: vi.fn(),
 };
 
 const input = { ...mealDefaults };
+
+/** Owner every call is scoped to. */
+const userId = testUser.id;
+
+/** The distinct ingredient ids {@link input} references. */
+const inputIngredientIds = input.items.map((item) => item.ingredientId);
 
 /** The read shape every meal query embeds: ordered items + their ingredient. */
 const include = {
@@ -57,6 +67,7 @@ function dbRow() {
     id: "meal-1",
     name: input.name,
     createdAt: mealCreatedAt,
+    userId,
     items: [
       {
         id: "item-1",
@@ -68,22 +79,31 @@ function dbRow() {
           id: OATS_ID,
           ...ingredientDefaults,
           createdAt: ingredientCreatedAt,
+          userId,
         },
       },
     ],
   };
 }
 
-/** The same row after `toMeal`: timestamps as ISO 8601 strings. */
+/**
+ * The same row after `toMeal`: timestamps as ISO 8601 strings, and no owning
+ * `userId` on the meal or its ingredients.
+ */
 function mappedRow() {
   const row = dbRow();
 
   return {
-    ...row,
+    id: row.id,
+    name: row.name,
     createdAt: "2026-05-04T10:20:30.000Z",
     items: row.items.map((item) => ({
       ...item,
-      ingredient: { ...item.ingredient, createdAt: "2026-01-02T03:04:05.678Z" },
+      ingredient: {
+        id: item.ingredient.id,
+        ...ingredientDefaults,
+        createdAt: "2026-01-02T03:04:05.678Z",
+      },
     })),
   };
 }
@@ -122,17 +142,20 @@ beforeEach(() => {
     async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
   );
   planMeal.findMany.mockResolvedValue([]);
+  // Every submitted ingredient is the user's unless a test says otherwise.
+  ingredient.count.mockResolvedValue(inputIngredientIds.length);
 });
 
 describe("createMeal", () => {
-  test("writes nested items.create with positional sortOrder and the read include", async () => {
+  test("writes the owner, nested items.create with positional sortOrder and the read include", async () => {
     meal.create.mockResolvedValue(dbRow());
 
-    await createMeal(input);
+    await createMeal(userId, input);
 
     expect(meal.create).toHaveBeenCalledWith({
       data: {
         name: input.name,
+        userId,
         items: {
           create: [
             { ingredientId: OATS_ID, grams: 80, sortOrder: 0 },
@@ -151,11 +174,49 @@ describe("createMeal", () => {
   test("renders the meal and its embedded ingredient timestamps as ISO strings", async () => {
     meal.create.mockResolvedValue(dbRow());
 
-    const created = await createMeal(input);
+    const created = await createMeal(userId, input);
 
     expect(created).toEqual(mappedRow());
     expect(typeof created.createdAt).toBe("string");
     expect(typeof created.items[0]?.ingredient.createdAt).toBe("string");
+  });
+
+  test("checks that the user owns every referenced ingredient", async () => {
+    meal.create.mockResolvedValue(dbRow());
+
+    await createMeal(userId, input);
+
+    expect(ingredient.count).toHaveBeenCalledWith({
+      where: { id: { in: inputIngredientIds }, userId },
+    });
+  });
+
+  test("counts an ingredient listed twice only once", async () => {
+    meal.create.mockResolvedValue(dbRow());
+    ingredient.count.mockResolvedValue(1);
+    const twice = {
+      ...input,
+      items: [
+        { ingredientId: OATS_ID, grams: 80 },
+        { ingredientId: OATS_ID, grams: 40 },
+      ],
+    };
+
+    await createMeal(userId, twice);
+
+    expect(ingredient.count).toHaveBeenCalledWith({
+      where: { id: { in: [OATS_ID] }, userId },
+    });
+    expect(meal.create).toHaveBeenCalledOnce();
+  });
+
+  test("rejects an ingredient the user does not own without writing", async () => {
+    ingredient.count.mockResolvedValue(inputIngredientIds.length - 1);
+
+    await expect(createMeal(userId, input)).rejects.toBeInstanceOf(
+      UnknownIngredientError,
+    );
+    expect(meal.create).not.toHaveBeenCalled();
   });
 
   test("translates a foreign-key violation into an unknown ingredient", async () => {
@@ -163,7 +224,7 @@ describe("createMeal", () => {
       foreignKey("Foreign key constraint failed on the field: ingredientId"),
     );
 
-    await expect(createMeal(input)).rejects.toBeInstanceOf(
+    await expect(createMeal(userId, input)).rejects.toBeInstanceOf(
       UnknownIngredientError,
     );
   });
@@ -172,7 +233,7 @@ describe("createMeal", () => {
     const failure = new Error("connection terminated");
     meal.create.mockRejectedValue(failure);
 
-    await expect(createMeal(input)).rejects.toBe(failure);
+    await expect(createMeal(userId, input)).rejects.toBe(failure);
   });
 });
 
@@ -180,18 +241,19 @@ describe("listMeals", () => {
   test("awaits connection() before querying so the read stays per request", async () => {
     meal.findMany.mockResolvedValue([]);
 
-    await listMeals();
+    await listMeals(userId);
 
     expect(connection).toHaveBeenCalledOnce();
     expect(connection).toHaveBeenCalledBefore(meal.findMany);
   });
 
-  test("asks for the ordered items with their ingredients, newest meal first", async () => {
+  test("asks for the user's meals with ordered items and ingredients, newest first", async () => {
     meal.findMany.mockResolvedValue([]);
 
-    await listMeals();
+    await listMeals(userId);
 
     expect(meal.findMany).toHaveBeenCalledWith({
+      where: { userId },
       include,
       orderBy: { createdAt: "desc" },
     });
@@ -208,7 +270,7 @@ describe("listMeals", () => {
       },
     ]);
 
-    const listed = await listMeals();
+    const listed = await listMeals(userId);
 
     expect(listed).toEqual([
       mappedRow(),
@@ -223,13 +285,13 @@ describe("listMeals", () => {
 });
 
 describe("updateMeal", () => {
-  test("addresses the meal by id and replaces its items with positional sortOrder", async () => {
+  test("addresses the user's meal by id and replaces its items with positional sortOrder", async () => {
     meal.update.mockResolvedValue(dbRow());
 
-    await updateMeal("meal-1", input);
+    await updateMeal(userId, "meal-1", input);
 
     expect(meal.update).toHaveBeenCalledWith({
-      where: { id: "meal-1" },
+      where: { id: "meal-1", userId },
       data: {
         name: input.name,
         items: {
@@ -255,9 +317,34 @@ describe("updateMeal", () => {
       ),
     );
 
-    await expect(updateMeal("missing", input)).rejects.toThrow(
+    await expect(updateMeal(userId, "missing", input)).rejects.toThrow(
       "Unknown meal: missing",
     );
+  });
+
+  test("treats another user's meal as unknown", async () => {
+    meal.update.mockRejectedValue(notFound("No record was found."));
+
+    await expect(updateMeal("someone-else", "theirs", input)).rejects.toThrow(
+      "Unknown meal: theirs",
+    );
+    expect(meal.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "theirs", userId: "someone-else" },
+      }),
+    );
+  });
+
+  test("rejects an ingredient the user does not own without writing", async () => {
+    ingredient.count.mockResolvedValue(0);
+
+    await expect(updateMeal(userId, "meal-1", input)).rejects.toBeInstanceOf(
+      UnknownIngredientError,
+    );
+    expect(ingredient.count).toHaveBeenCalledWith({
+      where: { id: { in: inputIngredientIds }, userId },
+    });
+    expect(meal.update).not.toHaveBeenCalled();
   });
 
   test("translates a foreign-key violation into an unknown ingredient", async () => {
@@ -265,7 +352,7 @@ describe("updateMeal", () => {
       foreignKey("Foreign key constraint failed on the field: ingredientId"),
     );
 
-    await expect(updateMeal("meal-1", input)).rejects.toBeInstanceOf(
+    await expect(updateMeal(userId, "meal-1", input)).rejects.toBeInstanceOf(
       UnknownIngredientError,
     );
   });
@@ -277,27 +364,29 @@ describe("updateMeal", () => {
     });
     meal.update.mockRejectedValue(failure);
 
-    await expect(updateMeal("meal-1", input)).rejects.toBe(failure);
+    await expect(updateMeal(userId, "meal-1", input)).rejects.toBe(failure);
   });
 });
 
 describe("deleteMeal", () => {
-  test("clears only past plans, then removes the meal in one transaction", async () => {
+  test("clears only the user's past plans, then removes the meal in one transaction", async () => {
     tx.meal.delete.mockResolvedValue({ id: "meal-1" });
 
-    await deleteMeal("meal-1");
+    await deleteMeal(userId, "meal-1");
 
     const today = expect.any(Date);
     expect(planMeal.findMany).toHaveBeenCalledWith({
-      where: { mealId: "meal-1", date: { gte: today } },
+      where: { userId, mealId: "meal-1", date: { gte: today } },
       select: { date: true },
       orderBy: { date: "asc" },
     });
     expect(prisma.$transaction).toHaveBeenCalledOnce();
     expect(tx.planMeal.deleteMany).toHaveBeenCalledWith({
-      where: { mealId: "meal-1", date: { lt: today } },
+      where: { userId, mealId: "meal-1", date: { lt: today } },
     });
-    expect(tx.meal.delete).toHaveBeenCalledWith({ where: { id: "meal-1" } });
+    expect(tx.meal.delete).toHaveBeenCalledWith({
+      where: { id: "meal-1", userId },
+    });
   });
 
   test("refuses to delete a meal that is still planned today or later", async () => {
@@ -306,7 +395,9 @@ describe("deleteMeal", () => {
       { date: new Date(Date.UTC(2026, 9, 20)) },
     ]);
 
-    const failure = await deleteMeal("meal-1").catch((error: unknown) => error);
+    const failure = await deleteMeal(userId, "meal-1").catch(
+      (error: unknown) => error,
+    );
 
     expect(failure).toBeInstanceOf(MealInUseError);
     expect((failure as MealInUseError).dayKeys).toEqual([
@@ -321,15 +412,28 @@ describe("deleteMeal", () => {
       notFound("Record to delete does not exist."),
     );
 
-    await expect(deleteMeal("missing")).rejects.toThrow(
+    await expect(deleteMeal(userId, "missing")).rejects.toThrow(
       "Unknown meal: missing",
     );
+  });
+
+  test("treats another user's meal as unknown", async () => {
+    tx.meal.delete.mockRejectedValue(
+      notFound("Record to delete does not exist."),
+    );
+
+    await expect(deleteMeal("someone-else", "theirs")).rejects.toThrow(
+      "Unknown meal: theirs",
+    );
+    expect(tx.meal.delete).toHaveBeenCalledWith({
+      where: { id: "theirs", userId: "someone-else" },
+    });
   });
 
   test("rethrows a non-Prisma error as is", async () => {
     const failure = new Error("connection terminated");
     prisma.$transaction.mockRejectedValue(failure);
 
-    await expect(deleteMeal("meal-1")).rejects.toBe(failure);
+    await expect(deleteMeal(userId, "meal-1")).rejects.toBe(failure);
   });
 });

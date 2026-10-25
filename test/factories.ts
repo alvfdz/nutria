@@ -1,3 +1,4 @@
+import type { AuthUser } from "@/lib/auth/types";
 import type { Ingredient, NewIngredient } from "@/lib/ingredients/types";
 import type { Goals, MealSlot, NewGoals } from "@/lib/goals/types";
 import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
@@ -10,6 +11,26 @@ import type {
   PlannedMealView,
   SlotView,
 } from "@/lib/plan/types";
+
+/**
+ * The signed-in user the suites act as: what a mocked `requireUser()` returns
+ * and the `userId` every repository call is expected to be scoped by.
+ */
+export const testUser: AuthUser = {
+  id: "user-1",
+  email: "owner@example.com",
+  name: "Owner",
+};
+
+/**
+ * Builds a signed-in user, for suites that need a second account to check
+ * that another user's rows stay out of reach.
+ *
+ * @param overrides Fields to change on top of {@link testUser}.
+ */
+export function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return { ...testUser, ...overrides };
+}
 
 /** Sensible defaults for an ingredient, overridable field by field. */
 export const ingredientDefaults: NewIngredient = {

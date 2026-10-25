@@ -2,11 +2,12 @@ import { connection } from "next/server";
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db/prisma";
 import { SlotInUseError } from "@/lib/goals/errors";
 import { getGoals, saveGoals } from "@/lib/goals/repository";
 import type { NewGoals } from "@/lib/goals/types";
-import { goalsDefaults } from "@test/factories";
+import { goalsDefaults, testUser } from "@test/factories";
 
 // Same hand-rolled Prisma stub as the ingredients and meals suites: the suite
 // stays fast and needs no PostgreSQL container, and every assertion is on the
@@ -15,8 +16,8 @@ vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ getPrisma: vi.fn() }));
 
 const goals = {
-  findFirst: vi.fn(),
-  findFirstOrThrow: vi.fn(),
+  findUnique: vi.fn(),
+  findUniqueOrThrow: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
 };
@@ -76,6 +77,7 @@ function dbSlots() {
 function dbRow() {
   return {
     id: "goals-1",
+    userId: testUser.id,
     calories: goalsDefaults.calories,
     proteinPct: goalsDefaults.proteinPct,
     carbsPct: goalsDefaults.carbsPct,
@@ -86,14 +88,19 @@ function dbRow() {
   };
 }
 
-/** The same row after `toGoals`: timestamps as ISO 8601 strings. */
+/**
+ * The same row after `toGoals`: timestamps as ISO 8601 strings, and the
+ * owning `userId` dropped.
+ */
 function mappedRow() {
   const row = dbRow();
 
   return {
-    ...row,
+    id: row.id,
+    ...budgetData(),
     createdAt: goalsCreatedAt.toISOString(),
     updatedAt: goalsUpdatedAt.toISOString(),
+    slots: row.slots,
   };
 }
 
@@ -128,51 +135,58 @@ beforeEach(() => {
   );
   vi.mocked(connection).mockResolvedValue(undefined);
   prisma.$transaction.mockImplementation(async (callback) => callback(tx));
-  goals.findFirstOrThrow.mockResolvedValue(dbRow());
+  goals.findUniqueOrThrow.mockResolvedValue(dbRow());
   planMeal.findMany.mockResolvedValue([]);
 });
 
 describe("getGoals", () => {
   test("awaits connection() before querying so the read stays per request", async () => {
-    goals.findFirst.mockResolvedValue(null);
+    goals.findUnique.mockResolvedValue(null);
 
-    await getGoals();
+    await getGoals(testUser.id);
 
     expect(connection).toHaveBeenCalledOnce();
-    expect(connection).toHaveBeenCalledBefore(goals.findFirst);
+    expect(connection).toHaveBeenCalledBefore(goals.findUnique);
   });
 
   test("asks for the ordered slots", async () => {
-    goals.findFirst.mockResolvedValue(null);
+    goals.findUnique.mockResolvedValue(null);
 
-    await getGoals();
+    await getGoals(testUser.id);
 
-    expect(goals.findFirst).toHaveBeenCalledWith({ include });
+    expect(goals.findUnique).toHaveBeenCalledWith({
+      where: { userId: testUser.id },
+      include,
+    });
   });
 
   test("returns null when nothing has been saved yet", async () => {
-    goals.findFirst.mockResolvedValue(null);
+    goals.findUnique.mockResolvedValue(null);
 
-    await expect(getGoals()).resolves.toBeNull();
+    await expect(getGoals(testUser.id)).resolves.toBeNull();
   });
 
   test("maps the row with ISO timestamps and the database's slot order", async () => {
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
 
-    await expect(getGoals()).resolves.toEqual(mappedRow());
+    await expect(getGoals(testUser.id)).resolves.toEqual(mappedRow());
   });
 });
 
 describe("saveGoals: first save", () => {
   test("creates the row with the slots stamped with positional sortOrder", async () => {
-    goals.findFirst.mockResolvedValue(null);
+    goals.findUnique.mockResolvedValue(null);
     goals.create.mockResolvedValue(dbRow());
 
-    await saveGoals(goalsDefaults);
+    await saveGoals(testUser.id, goalsDefaults);
 
-    expect(goals.findFirst).toHaveBeenCalledWith({ include: { slots: true } });
+    expect(goals.findUnique).toHaveBeenCalledWith({
+      where: { userId: testUser.id },
+      include: { slots: true },
+    });
     expect(goals.create).toHaveBeenCalledWith({
       data: {
+        userId: testUser.id,
         ...budgetData(),
         slots: { create: slotsToCreate() },
       },
@@ -182,18 +196,54 @@ describe("saveGoals: first save", () => {
   });
 
   test("returns the stored row with ISO timestamps", async () => {
-    goals.findFirst.mockResolvedValue(null);
+    goals.findUnique.mockResolvedValue(null);
     goals.create.mockResolvedValue(dbRow());
 
-    await expect(saveGoals(goalsDefaults)).resolves.toEqual(mappedRow());
+    await expect(saveGoals(testUser.id, goalsDefaults)).resolves.toEqual(
+      mappedRow(),
+    );
+  });
+});
+
+describe("saveGoals: racing first saves", () => {
+  test("retries as an update when a concurrent save created the row first", async () => {
+    goals.findUnique.mockResolvedValueOnce(null).mockResolvedValue(dbRow());
+    goals.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "7.10.1",
+      }),
+    );
+    goals.findUniqueOrThrow.mockResolvedValue(dbRow());
+
+    await expect(saveGoals(testUser.id, goalsDefaults)).resolves.toEqual(
+      mappedRow(),
+    );
+    expect(goals.create).toHaveBeenCalledTimes(1);
+    expect(goals.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "goals-1" } }),
+    );
+  });
+
+  test("lets any other create failure through", async () => {
+    const failure = new Prisma.PrismaClientKnownRequestError("too long", {
+      code: "P2000",
+      clientVersion: "7.10.1",
+    });
+    goals.findUnique.mockResolvedValue(null);
+    goals.create.mockRejectedValue(failure);
+
+    await expect(saveGoals(testUser.id, goalsDefaults)).rejects.toBe(failure);
+    expect(goals.findUnique).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("saveGoals: later saves reconcile by id", () => {
   test("updates the budget and reorders existing slots without deleting them", async () => {
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
 
     await saveGoals(
+      testUser.id,
       updateInput([
         { slotId: "meal-slot-2", name: "Lunch", percent: 40 },
         { slotId: "meal-slot-1", name: "Breakfast", percent: 30 },
@@ -234,13 +284,17 @@ describe("saveGoals: later saves reconcile by id", () => {
       data: { name: "Dinner", percent: 30, sortOrder: 2 },
     });
 
-    expect(goals.findFirstOrThrow).toHaveBeenCalledWith({ include });
+    expect(goals.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { userId: testUser.id },
+      include,
+    });
   });
 
   test("creates a slot that arrives without an id", async () => {
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
 
     await saveGoals(
+      testUser.id,
       updateInput([
         { slotId: "meal-slot-1", name: "Breakfast", percent: 30 },
         { slotId: "meal-slot-2", name: "Lunch", percent: 35 },
@@ -260,10 +314,11 @@ describe("saveGoals: later saves reconcile by id", () => {
   });
 
   test("deletes a removed slot once it has no forward plans", async () => {
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
     planMeal.findMany.mockResolvedValue([]);
 
     await saveGoals(
+      testUser.id,
       updateInput([
         { slotId: "meal-slot-1", name: "Breakfast", percent: 50 },
         { slotId: "meal-slot-2", name: "Lunch", percent: 50 },
@@ -272,6 +327,7 @@ describe("saveGoals: later saves reconcile by id", () => {
 
     expect(planMeal.findMany).toHaveBeenCalledWith({
       where: {
+        userId: testUser.id,
         mealSlotId: "meal-slot-3",
         date: { gte: expect.any(Date) },
       },
@@ -284,12 +340,13 @@ describe("saveGoals: later saves reconcile by id", () => {
   });
 
   test("refuses to delete a slot that still has a forward plan", async () => {
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
     planMeal.findMany.mockResolvedValue([
       { date: new Date(Date.UTC(2026, 9, 20)) },
     ]);
 
     const failure = await saveGoals(
+      testUser.id,
       updateInput([
         { slotId: "meal-slot-1", name: "Breakfast", percent: 50 },
         { slotId: "meal-slot-2", name: "Lunch", percent: 50 },
@@ -304,17 +361,18 @@ describe("saveGoals: later saves reconcile by id", () => {
 
   test("lets a database failure through untouched", async () => {
     const failure = new Error("connection terminated");
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
     prisma.$transaction.mockRejectedValue(failure);
 
-    await expect(saveGoals(updateInput([]))).rejects.toBe(failure);
+    await expect(saveGoals(testUser.id, updateInput([]))).rejects.toBe(failure);
   });
 
   test("returns the updated row with ISO timestamps", async () => {
-    goals.findFirst.mockResolvedValue(dbRow());
+    goals.findUnique.mockResolvedValue(dbRow());
 
     await expect(
       saveGoals(
+        testUser.id,
         updateInput([
           { slotId: "meal-slot-1", name: "Breakfast", percent: 30 },
           { slotId: "meal-slot-2", name: "Lunch", percent: 40 },

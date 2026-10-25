@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 
 import type { AlertDialogRoot } from "@base-ui/react/alert-dialog";
 
-import { deleteMealAction } from "@/app/meals/actions";
+import { deleteMealAction } from "@/app/(app)/meals/actions";
 import {
   AlertDialog,
   AlertDialogAction,

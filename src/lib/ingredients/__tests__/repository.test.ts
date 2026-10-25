@@ -11,7 +11,7 @@ import {
   listIngredients,
   updateIngredient,
 } from "@/lib/ingredients/repository";
-import { ingredientDefaults } from "@test/factories";
+import { ingredientDefaults, testUser } from "@test/factories";
 
 // The suite runs against a hand-rolled Prisma stub so it stays fast and needs
 // no PostgreSQL container. Only the model methods the repository touches are
@@ -32,6 +32,9 @@ const mealItem = {
 };
 
 const input = { ...ingredientDefaults };
+
+/** Owner every call is scoped to. */
+const userId = testUser.id;
 
 /**
  * Builds the `P2025` Prisma throws when `where` matches no row.
@@ -57,17 +60,20 @@ beforeEach(() => {
 });
 
 describe("createIngredient", () => {
-  test("writes the input untouched and lets the database stamp the row", async () => {
+  test("writes the input with its owner and lets the database stamp the row", async () => {
     const createdAt = new Date("2026-05-04T10:20:30.000Z");
     ingredient.create.mockResolvedValue({
       id: "9f1c1f9e-0000-4000-8000-000000000001",
       createdAt,
+      userId,
       ...input,
     });
 
-    const created = await createIngredient(input);
+    const created = await createIngredient(userId, input);
 
-    expect(ingredient.create).toHaveBeenCalledWith({ data: input });
+    expect(ingredient.create).toHaveBeenCalledWith({
+      data: { ...input, userId },
+    });
     expect(created).toEqual({
       ...input,
       id: "9f1c1f9e-0000-4000-8000-000000000001",
@@ -82,7 +88,7 @@ describe("createIngredient", () => {
       ...input,
     });
 
-    const created = await createIngredient(input);
+    const created = await createIngredient(userId, input);
 
     expect(typeof created.createdAt).toBe("string");
   });
@@ -91,7 +97,7 @@ describe("createIngredient", () => {
     const failure = notFound("some other code path");
     ingredient.create.mockRejectedValue(failure);
 
-    await expect(createIngredient(input)).rejects.toBe(failure);
+    await expect(createIngredient(userId, input)).rejects.toBe(failure);
   });
 });
 
@@ -99,38 +105,41 @@ describe("listIngredients", () => {
   test("waits for connection() so the route renders per request", async () => {
     ingredient.findMany.mockResolvedValue([]);
 
-    await listIngredients();
+    await listIngredients(userId);
 
     expect(connection).toHaveBeenCalledOnce();
   });
 
-  test("asks for every ingredient newest first", async () => {
+  test("asks for the user's ingredients only, newest first", async () => {
     ingredient.findMany.mockResolvedValue([]);
 
-    await listIngredients();
+    await listIngredients(userId);
 
     expect(ingredient.findMany).toHaveBeenCalledWith({
+      where: { userId },
       orderBy: { createdAt: "desc" },
     });
   });
 
-  test("maps every row and hands back the order the database gave", async () => {
+  test("maps every row, without its owner, in the order the database gave", async () => {
     ingredient.findMany.mockResolvedValue([
       {
         id: "newest",
         createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        userId,
         ...input,
         name: "Oats",
       },
       {
         id: "oldest",
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        userId,
         ...input,
         name: "Cod",
       },
     ]);
 
-    const listed = await listIngredients();
+    const listed = await listIngredients(userId);
 
     expect(listed).toEqual([
       {
@@ -150,7 +159,7 @@ describe("listIngredients", () => {
 });
 
 describe("updateIngredient", () => {
-  test("addresses the row by id and replaces the editable fields", async () => {
+  test("addresses the user's row by id and replaces the editable fields", async () => {
     const edited = { ...input, name: "Cooked chicken" };
     ingredient.update.mockResolvedValue({
       id: "cod",
@@ -158,10 +167,10 @@ describe("updateIngredient", () => {
       ...edited,
     });
 
-    const updated = await updateIngredient("cod", edited);
+    const updated = await updateIngredient(userId, "cod", edited);
 
     expect(ingredient.update).toHaveBeenCalledWith({
-      where: { id: "cod" },
+      where: { id: "cod", userId },
       data: edited,
     });
     expect(updated).toEqual({
@@ -178,9 +187,21 @@ describe("updateIngredient", () => {
       ),
     );
 
-    await expect(updateIngredient("missing", input)).rejects.toThrow(
+    await expect(updateIngredient(userId, "missing", input)).rejects.toThrow(
       "Unknown ingredient: missing",
     );
+  });
+
+  test("treats another user's ingredient as unknown", async () => {
+    ingredient.update.mockRejectedValue(notFound("No record was found."));
+
+    await expect(
+      updateIngredient("someone-else", "theirs", input),
+    ).rejects.toThrow("Unknown ingredient: theirs");
+    expect(ingredient.update).toHaveBeenCalledWith({
+      where: { id: "theirs", userId: "someone-else" },
+      data: input,
+    });
   });
 
   test("rethrows any other Prisma error as is", async () => {
@@ -190,7 +211,7 @@ describe("updateIngredient", () => {
     });
     ingredient.update.mockRejectedValue(failure);
 
-    await expect(updateIngredient("cod", input)).rejects.toBe(failure);
+    await expect(updateIngredient(userId, "cod", input)).rejects.toBe(failure);
   });
 });
 
@@ -198,35 +219,39 @@ describe("deleteIngredient", () => {
   test("removes the row addressed by id", async () => {
     ingredient.delete.mockResolvedValue({ id: "cod", ...input });
 
-    await deleteIngredient("cod");
+    await deleteIngredient(userId, "cod");
 
-    expect(ingredient.delete).toHaveBeenCalledWith({ where: { id: "cod" } });
+    expect(ingredient.delete).toHaveBeenCalledWith({
+      where: { id: "cod", userId },
+    });
   });
 
   test("deletes normally when no meal references the ingredient", async () => {
     mealItem.count.mockResolvedValue(0);
     ingredient.delete.mockResolvedValue({ id: "cod", ...input });
 
-    await deleteIngredient("cod");
+    await deleteIngredient(userId, "cod");
 
     expect(mealItem.count).toHaveBeenCalledWith({
-      where: { ingredientId: "cod" },
+      where: { ingredientId: "cod", ingredient: { userId } },
     });
-    expect(ingredient.delete).toHaveBeenCalledWith({ where: { id: "cod" } });
+    expect(ingredient.delete).toHaveBeenCalledWith({
+      where: { id: "cod", userId },
+    });
   });
 
-  test("counts only the meal rows that reference the given ingredient", async () => {
-    await deleteIngredient("cod");
+  test("counts references through the ingredient's owner, whoever owns the meal", async () => {
+    await deleteIngredient(userId, "cod");
 
     expect(mealItem.count).toHaveBeenCalledWith({
-      where: { ingredientId: "cod" },
+      where: { ingredientId: "cod", ingredient: { userId } },
     });
   });
 
   test("refuses to delete an ingredient meals still reference", async () => {
     mealItem.count.mockResolvedValue(3);
 
-    const deletion = deleteIngredient("cod");
+    const deletion = deleteIngredient(userId, "cod");
 
     await expect(deletion).rejects.toBeInstanceOf(IngredientInUseError);
     await expect(deletion).rejects.toMatchObject({ mealCount: 3 });
@@ -238,15 +263,28 @@ describe("deleteIngredient", () => {
       notFound("Record to delete does not exist."),
     );
 
-    await expect(deleteIngredient("missing")).rejects.toThrow(
+    await expect(deleteIngredient(userId, "missing")).rejects.toThrow(
       "Unknown ingredient: missing",
     );
+  });
+
+  test("treats another user's ingredient as unknown", async () => {
+    ingredient.delete.mockRejectedValue(
+      notFound("Record to delete does not exist."),
+    );
+
+    await expect(deleteIngredient("someone-else", "theirs")).rejects.toThrow(
+      "Unknown ingredient: theirs",
+    );
+    expect(ingredient.delete).toHaveBeenCalledWith({
+      where: { id: "theirs", userId: "someone-else" },
+    });
   });
 
   test("rethrows a non-Prisma error as is", async () => {
     const failure = new Error("connection terminated");
     ingredient.delete.mockRejectedValue(failure);
 
-    await expect(deleteIngredient("cod")).rejects.toBe(failure);
+    await expect(deleteIngredient(userId, "cod")).rejects.toBe(failure);
   });
 });

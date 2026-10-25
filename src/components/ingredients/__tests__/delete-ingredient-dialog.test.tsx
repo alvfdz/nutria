@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { makeIngredient } from "@test/factories";
-import { deleteIngredientAction } from "@/app/ingredients/actions";
+import { deleteIngredientAction } from "@/app/(app)/ingredients/actions";
 import { DeleteIngredientDialog } from "@/components/ingredients/delete-ingredient-dialog";
 import { initialIngredientDeleteState } from "@/lib/ingredients/form-state";
 
-vi.mock("@/app/ingredients/actions", () => ({
+vi.mock("@/app/(app)/ingredients/actions", () => ({
   createIngredientAction: vi.fn(),
   updateIngredientAction: vi.fn(),
   deleteIngredientAction: vi.fn(),

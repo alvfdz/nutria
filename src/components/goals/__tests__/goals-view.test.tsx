@@ -3,13 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "sonner";
 
-import { saveGoalsAction } from "@/app/goals/actions";
+import { saveGoalsAction } from "@/app/(app)/goals/actions";
 import { GoalsView } from "@/components/goals/goals-form";
 import { makeGoals } from "@test/factories";
 
-// `@/app/goals/actions` pulls in the `server-only` repository; the tests stub
+// `@/app/(app)/goals/actions` pulls in the `server-only` repository; the tests stub
 // the action instead, so a fake is enough.
-vi.mock("@/app/goals/actions", () => ({ saveGoalsAction: vi.fn() }));
+vi.mock("@/app/(app)/goals/actions", () => ({ saveGoalsAction: vi.fn() }));
 
 // The real sonner module only feeds the toast container, which these tests do
 // not render; mocking it keeps the calls assertable.

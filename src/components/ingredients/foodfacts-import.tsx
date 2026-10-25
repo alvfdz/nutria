@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 
-import { createIngredientFromFoodfactsAction } from "@/app/ingredients/actions";
+import { createIngredientFromFoodfactsAction } from "@/app/(app)/ingredients/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

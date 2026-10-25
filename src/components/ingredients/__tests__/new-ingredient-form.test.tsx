@@ -3,14 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ingredientDefaults } from "@test/factories";
-import { createIngredientAction } from "@/app/ingredients/actions";
+import { createIngredientAction } from "@/app/(app)/ingredients/actions";
 import { NewIngredientForm } from "@/components/ingredients/new-ingredient-form";
 import {
   initialIngredientFormState,
   type IngredientFormState,
 } from "@/lib/ingredients/form-state";
 
-vi.mock("@/app/ingredients/actions", () => ({
+vi.mock("@/app/(app)/ingredients/actions", () => ({
   createIngredientAction: vi.fn(),
 }));
 
