@@ -1,12 +1,13 @@
-# Nutria and its PostgreSQL database. Engine-agnostic: it runs unchanged under
-# `podman compose` and `docker compose` (see the README for the one-time
-# plugin setup each engine needs).
+# Self-hosting: Nutria and its PostgreSQL database. Engine-agnostic: it runs
+# unchanged under `podman compose` and `docker compose` (see the README for the
+# one-time plugin setup each engine needs).
 #
-# Database settings fall back to development-only defaults through
-# `${VAR:-default}`. `BETTER_AUTH_SECRET` has none: set it in `.env`.
+# Configured through `.env` (copy `.env.example`). `POSTGRES_PASSWORD` and
+# `BETTER_AUTH_SECRET` are required; everything else has a default.
 #
-# `podman compose up -d --wait` runs Nutria and PostgreSQL. While developing,
-# start only the database with `podman compose up -d --wait postgres`.
+#   podman compose up -d --build --wait
+#
+# Development uses `compose.dev.yaml` instead.
 services:
   app:
     build: .
@@ -14,10 +15,10 @@ services:
     environment:
       # Inside the compose network the database is reachable as `postgres`.
       # The user and password are not URL-encoded: avoid `@ / : #` in them.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-nutria}:${POSTGRES_PASSWORD:-nutria}@postgres:5432/${POSTGRES_DB:-nutria}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nutria}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-nutria}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env (openssl rand -base64 32)}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-    ports: ["3000:3000"]
+    ports: ["${APP_PORT:-3000}:3000"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,9 +43,10 @@ services:
     image: docker.io/library/postgres:18-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-nutria}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nutria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-nutria}
-    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    # No published port: only the app, over the compose network, reaches the
+    # database.
     # The named volume is what makes the data survive restarts. It mounts at
     # /var/lib/postgresql rather than .../data because PostgreSQL 18 stores its
     # clusters in major-version subdirectories, and the image refuses to start
@@ -62,6 +64,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    restart: unless-stopped
 
 volumes:
   nutria-postgres:

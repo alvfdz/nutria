@@ -19,8 +19,10 @@ function readDatabaseUrl(): string {
 
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not set. Copy .env.example to .env and start " +
-        "PostgreSQL with `podman compose up -d --wait postgres` (or `docker compose`).",
+      "DATABASE_URL is not set. In development it comes from " +
+        ".env.development; start PostgreSQL with " +
+        "`podman compose -f compose.dev.yaml up -d --wait` (or `docker compose`). " +
+        "When self-hosting, compose.yaml sets it for the app container.",
     );
   }
 

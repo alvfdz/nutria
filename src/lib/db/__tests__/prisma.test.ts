@@ -71,7 +71,9 @@ describe("getPrisma", () => {
     vi.stubEnv("DATABASE_URL", "");
     const getPrismaFresh = await importFreshGetPrisma();
 
-    expect(getPrismaFresh).toThrow(/podman compose up -d --wait postgres/);
+    expect(getPrismaFresh).toThrow(
+      /podman compose -f compose\.dev\.yaml up -d --wait/,
+    );
     expect(getPrismaFresh).toThrow(/docker compose/);
   });
 

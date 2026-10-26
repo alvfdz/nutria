@@ -5,18 +5,18 @@ forward-looking meal planner. See [`docs/vision.md`](docs/vision.md) for the
 product direction.
 
 Built with Next.js (App Router), TypeScript, Tailwind CSS and shadcn/ui on the
-front, PostgreSQL via Prisma on the back. The database runs from a
-Docker Compose–compatible `compose.yaml`, so it works with either Podman or
-Docker.
+front, PostgreSQL via Prisma on the back. Both run from Docker
+Compose–compatible files (`compose.dev.yaml` for development, `compose.yaml`
+for self-hosting), so they work with either Podman or Docker.
 
 ## Prerequisites
 
 - Node.js 22.18 or newer (developed on 24.x)
 - Either [Podman](https://podman.io/) or Docker, plus a Compose provider (below)
 
-## Setup
+## Install a Compose provider
 
-### 1. Install a Compose provider
+Both development and self-hosting need one.
 
 **Podman** needs Compose available as a CLI plugin. Pick whichever option suits
 your machine — the binary is the same either way:
@@ -38,41 +38,41 @@ fallback if you would rather not install the binary.
 **Docker** ships Compose v2 as `docker compose` out of the box, so there is
 nothing to install.
 
-Every command below is written twice. Use whichever pair matches your engine:
+The commands below use Podman; with Docker, replace `podman compose` with
+`docker compose`.
 
-| Podman                        | Docker                        |
-| ----------------------------- | ----------------------------- |
-| `podman compose up -d --wait` | `docker compose up -d --wait` |
-| `podman compose down`         | `docker compose down`         |
-| `podman compose down -v`      | `docker compose down -v`      |
+Development and self-hosting are configured separately:
 
-### 2. Configure
+|               | Development                     | Self-hosting                   |
+| ------------- | ------------------------------- | ------------------------------ |
+| Compose file  | `compose.dev.yaml` (database)   | `compose.yaml` (app, database) |
+| Configuration | `.env.development` (committed)  | `.env` (from `.env.example`)   |
+| Read by       | Next.js, Prisma CLI, `scripts/` | Compose                        |
+| Overrides     | `.env.development.local`        | none                           |
+| To edit       | nothing                         | password, secret, origin       |
 
-```bash
-cp .env.example .env
-```
+## Development
 
-Set `BETTER_AUTH_SECRET` in `.env` (`openssl rand -base64 32`); compose refuses
-to run while it is empty. The Prisma CLI and Next.js load `.env` through
-`@next/env`, so it is the single source of truth for `DATABASE_URL`.
-
-### 3. Start PostgreSQL and create the schema
+### 1. Start PostgreSQL and create the schema
 
 ```bash
-podman compose up -d --wait postgres   # or: docker compose up -d --wait postgres
+podman compose -f compose.dev.yaml up -d --wait
 npm run db:migrate -- --name init
 ```
 
-Naming `postgres` starts only the database, since `npm run dev` serves the app.
 `--wait` blocks until the healthcheck reports ready, so the migration cannot
-race the database. The data lives in the `nutria-postgres` named volume and
-survives restarts; add `-v` to `down` to throw it away.
+race the database. The data lives in the `nutria-dev-postgres` volume and
+survives restarts; `podman compose -f compose.dev.yaml down -v` throws it away.
 
-The database defaults (`nutria` / `nutria` / `nutria` on port 5432) need no
-configuration. To override them, uncomment the `POSTGRES_*` lines in `.env`;
-`compose.yaml` reads the same file through its `${VAR:-default}` fallbacks.
+No configuration is needed: `next dev`, the Prisma CLI and `scripts/` load the
+committed `.env.development`, which holds the development database URL and a
+public development secret. They also load a `.env`, if one exists, but with
+the lowest priority: every value `.env.development` sets wins over it. To
+change a development value, put it in `.env.development.local` (gitignored),
+which wins over both. A `.env.local`, if one exists, also wins over
+`.env.development`, and it applies to production builds too.
 
-### 4. Run it
+### 2. Run it
 
 ```bash
 npm run dev
@@ -81,21 +81,39 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). A fresh install sends you
 to `/setup` to create the owner account; see [Authentication](#authentication).
 
-## Run with containers
+`.env.development` applies to `next dev` only. `npm run build` and `npm start`
+run in production mode and skip it, so a production build run outside the
+container needs `DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`
+from the environment or a gitignored `.env.production.local`.
+
+## Self-hosting
+
+With a [Compose provider](#install-a-compose-provider) installed:
 
 ```bash
-cp .env.example .env     # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
-podman compose up -d --build --wait   # or: docker compose ...
+cp .env.example .env     # then set the values below
+podman compose up -d --build --wait
 ```
 
-Open [http://localhost:3000](http://localhost:3000) (to change the host port, edit `ports` in `compose.yaml` and set `BETTER_AUTH_URL` to match).
-The `app` container applies pending Prisma migrations every time it starts, then
-serves Nutria. Inside the compose network it reaches the database at
-`postgres:5432`, so the `DATABASE_URL` in `.env` is ignored by compose.
-`POSTGRES_USER` and `POSTGRES_PASSWORD` are placed into that URL unescaped, so
-avoid URL-reserved characters (`@ / : #`) in them. Behind a reverse proxy, set
-`BETTER_AUTH_URL` to the public origin. Build the image alone with
-`podman build -t nutria .`.
+Compose reads `.env` to configure the containers. It needs three values:
+
+- `POSTGRES_PASSWORD`: the database password (`openssl rand -hex 24`). It is
+  set when the volume is first created; changing it later does not change it
+  in an existing database. It goes into a connection URL unescaped, so avoid
+  `@ / : #`.
+- `BETTER_AUTH_SECRET`: signs the session cookies (`openssl rand -base64 32`).
+  Keep it stable, or every session is invalidated.
+- `BETTER_AUTH_URL`: the public origin users open Nutria at, e.g.
+  `https://nutria.example.com` behind a reverse proxy.
+
+Compose refuses to start while the password or the secret is empty. `APP_PORT`
+changes the host port (default 3000); `POSTGRES_USER` and `POSTGRES_DB` are
+optional.
+
+The `app` container applies pending Prisma migrations every time it starts,
+then serves Nutria. It reaches the database at `postgres:5432` inside the
+compose network, and the database publishes no port, so nothing outside that
+network can reach it. Build the image alone with `podman build -t nutria .`.
 
 ## Authentication
 
@@ -109,9 +127,9 @@ stored in PostgreSQL and passwords hashed with scrypt.
   exists: both the setup screen and Better Auth's sign-up endpoint refuse a
   second account, and a database trigger (`users_single_owner`) enforces the
   same rule against sign-ups racing each other.
-- **Configuration.** Set `BETTER_AUTH_SECRET` (signs the session cookies; keep
-  it stable) and `BETTER_AUTH_URL` (the public origin you open Nutria at) in
-  `.env`, as shown in `.env.example`.
+- **Configuration.** `BETTER_AUTH_SECRET` signs the session cookies (keep it
+  stable) and `BETTER_AUTH_URL` is the public origin you open Nutria at.
+  Development takes both from `.env.development`, self-hosting from `.env`.
 - **Rate limiting.** In production Better Auth allows 3 sign-in attempts per 10
   seconds per client. Behind a reverse proxy, make sure it forwards the client
   address in `X-Forwarded-For`; otherwise all clients share one bucket.
@@ -119,9 +137,16 @@ stored in PostgreSQL and passwords hashed with scrypt.
   current password is required, and other devices are signed out on success.
 - **Locked out?** Nutria sends no email, so there is no "forgot password"
   link. Anyone with shell access to the deployment can reset the password
-  instead, from a full checkout of the repository (including `scripts/` and `src/`) that
-  can reach the database. The container image ships only the built server, so
-  this is not available inside it:
+  instead. When self-hosting, run the command the image ships, next to
+  `compose.yaml`:
+
+  ```bash
+  podman compose exec app reset-password            # the only account
+  podman compose exec app reset-password owner@example.com
+  ```
+
+  In development, run it from the checkout; it targets the database in
+  `.env.development` unless `DATABASE_URL` is set:
 
   ```bash
   npm run auth:reset-password            # the only account
@@ -129,8 +154,9 @@ stored in PostgreSQL and passwords hashed with scrypt.
   ```
 
   It prompts for the new password without echoing it (or reads
-  `NUTRIA_NEW_PASSWORD` for scripted use) and signs the account out
-  everywhere.
+  `NUTRIA_NEW_PASSWORD` for scripted use, e.g.
+  `podman compose exec -e NUTRIA_NEW_PASSWORD="$PASSWORD" app reset-password`)
+  and signs the account out everywhere.
 
 - **Multi-user ready.** Every ingredient, meal, goals row and plan carries the
   `userId` that owns it, and every query is scoped by it, so opening sign-up

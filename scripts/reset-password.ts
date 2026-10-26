@@ -1,7 +1,10 @@
 /**
  * `npm run auth:reset-password [-- <email>]`: sets a new password for the
- * owner account when they are locked out. Run it where the app's
- * `DATABASE_URL` is reachable (on a deployment: inside the app container).
+ * owner account when they are locked out. From a checkout it uses the
+ * development database from `.env.development` unless `DATABASE_URL` is set.
+ * The container image ships it as `reset-password` (run it with
+ * `podman compose exec app reset-password [email]`), where `DATABASE_URL`
+ * comes from compose.
  *
  * The password is read from the `NUTRIA_NEW_PASSWORD` environment variable
  * when set, otherwise typed at a hidden prompt, so it never lands in shell
@@ -58,10 +61,10 @@ function createPrompter() {
 }
 
 async function main(): Promise<void> {
-  nextEnv.loadEnvConfig(process.cwd());
+  nextEnv.loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
 
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set (see .env.example).");
+  if (!url) throw new Error("DATABASE_URL is not set (see .env.development).");
 
   // An empty variable counts as unset, e.g. a CI secret that was never filled.
   let password = process.env.NUTRIA_NEW_PASSWORD;

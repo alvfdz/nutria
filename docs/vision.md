@@ -67,7 +67,7 @@ Anyone actively managing their diet—whether for health reasons, weight loss, m
 
 ### 4. Deployment & Infrastructure (Self-Hostable)
 
-- **Containerization:** Rootless **Podman**. Services are defined in a `compose.yaml` (Docker Compose–compatible) run with `podman compose`, with a `podman-compose` fallback for machines without the Podman Compose provider.
+- **Containerization:** Rootless **Podman**. Services are defined in a `compose.yaml` (Docker Compose–compatible) run with `podman compose`, plus a database-only `compose.dev.yaml` for development, with a `podman-compose` fallback for machines without the Podman Compose provider.
 - **Runtime:** OCI-compatible images, no Docker daemon or root privileges required.
 - **Services:** Single Next.js app (frontend + backend), PostgreSQL database, Redis cache.
 
