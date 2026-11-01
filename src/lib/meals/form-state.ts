@@ -33,6 +33,59 @@ export type MealFormState = {
   savedName?: string;
 };
 
+/**
+ * Validation messages attached to the rows they were reported on, keyed by
+ * {@link mealRowErrorKey} plus `name` and `items`.
+ */
+export type KeyedMealErrors = Record<string, string[] | undefined>;
+
+/**
+ * The key of one row field's messages in {@link KeyedMealErrors}.
+ *
+ * @param rowKey The builder row's stable key.
+ * @param field The field of the row.
+ * @returns The key.
+ */
+export function mealRowErrorKey(
+  rowKey: string,
+  field: "ingredientId" | "grams",
+): string {
+  return `${rowKey}.${field}`;
+}
+
+/**
+ * Attaches a submit's messages to the builder rows it covered. The validator
+ * reports rows by position, which stops being true as soon as a row is removed;
+ * a row's stable key stays right.
+ *
+ * @param fieldErrors The messages of the submit.
+ * @param rowKeys The rows' keys, in the order they were submitted.
+ * @returns The messages by name, `items` or row field. A message for a row that
+ *   is no longer there is dropped.
+ */
+export function keyMealErrorsByRow(
+  fieldErrors: MealFieldErrors,
+  rowKeys: string[],
+): KeyedMealErrors {
+  const keyed: KeyedMealErrors = {};
+
+  for (const [key, messages] of Object.entries(fieldErrors)) {
+    const match = /^items\.(\d+)\.(ingredientId|grams)$/.exec(key);
+    if (!match) {
+      keyed[key] = messages;
+      continue;
+    }
+
+    const rowKey = rowKeys[Number(match[1])];
+    if (rowKey !== undefined) {
+      keyed[mealRowErrorKey(rowKey, match[2] as "ingredientId" | "grams")] =
+        messages;
+    }
+  }
+
+  return keyed;
+}
+
 /** State a freshly mounted meal form starts from. */
 export const initialMealFormState: MealFormState = {
   status: "idle",

@@ -82,8 +82,8 @@ describe("NewIngredientDialog", () => {
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
     await waitFor(() => expect(action).toHaveBeenCalled());
-    const name = await screen.findByLabelText("Name");
-    expect(name).toHaveAttribute("aria-invalid", "true");
+    const name = screen.getByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveAccessibleDescription("Name is required");
     expect(screen.getByLabelText("Calories (kcal)")).toHaveAttribute(
       "aria-invalid",
@@ -120,8 +120,8 @@ describe("NewIngredientDialog", () => {
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
-    const name = await screen.findByLabelText("Name");
-    expect(name).toHaveAttribute("aria-invalid", "true");
+    const name = screen.getByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveAccessibleDescription("Name is required");
   });
 

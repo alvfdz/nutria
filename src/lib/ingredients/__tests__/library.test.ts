@@ -3,8 +3,6 @@ import { describe, expect, test } from "vitest";
 import {
   filterIngredients,
   formatMealList,
-  macroCalorieShares,
-  nextSort,
   sortIngredients,
 } from "@/lib/ingredients/library";
 import { makeIngredient } from "@test/factories";
@@ -87,62 +85,6 @@ describe("sortIngredients", () => {
     sortIngredients(list, { key: "name", direction: "asc" });
 
     expect(list).toEqual([oats, cod]);
-  });
-});
-
-describe("nextSort", () => {
-  test("cycles a name column A to Z, Z to A, then off", () => {
-    const first = nextSort(null, "name");
-    expect(first).toEqual({ key: "name", direction: "asc" });
-
-    const second = nextSort(first, "name");
-    expect(second).toEqual({ key: "name", direction: "desc" });
-
-    expect(nextSort(second, "name")).toBeNull();
-  });
-
-  test("cycles a number column highest first, lowest first, then off", () => {
-    const first = nextSort(null, "fatPer100g");
-    expect(first).toEqual({ key: "fatPer100g", direction: "desc" });
-
-    const second = nextSort(first, "fatPer100g");
-    expect(second).toEqual({ key: "fatPer100g", direction: "asc" });
-
-    expect(nextSort(second, "fatPer100g")).toBeNull();
-  });
-
-  test("starts over when another column is clicked", () => {
-    expect(
-      nextSort({ key: "name", direction: "desc" }, "carbsPer100g"),
-    ).toEqual({ key: "carbsPer100g", direction: "desc" });
-  });
-});
-
-describe("macroCalorieShares", () => {
-  test("weighs fat at 9 kcal/g against 4 for protein and carbs", () => {
-    expect(
-      macroCalorieShares({
-        proteinPer100g: 9,
-        carbsPer100g: 0,
-        fatPer100g: 4,
-      }),
-    ).toEqual({ proteinPct: 50, carbsPct: 0, fatPct: 50 });
-  });
-
-  test("gives a single-macro food the whole bar", () => {
-    expect(
-      macroCalorieShares({
-        proteinPer100g: 0,
-        carbsPer100g: 0,
-        fatPer100g: 100,
-      }),
-    ).toEqual({ proteinPct: 0, carbsPct: 0, fatPct: 100 });
-  });
-
-  test("returns null when there are no macros", () => {
-    expect(
-      macroCalorieShares({ proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0 }),
-    ).toBeNull();
   });
 });
 

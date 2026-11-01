@@ -61,6 +61,15 @@ beforeEach(() => {
 });
 
 describe("EditMealDialog", () => {
+  test("opts its portaled content into the design-system palette", () => {
+    renderDialog();
+
+    expect(screen.getByRole("dialog")).toHaveClass(
+      "nutria-theme",
+      "tabular-nums",
+    );
+  });
+
   test("opens with the meal's current values", () => {
     renderDialog();
 
@@ -68,11 +77,11 @@ describe("EditMealDialog", () => {
     expect(within(dialog).getByLabelText("Name")).toHaveValue("Porridge");
     expect(
       within(dialog).getByRole("combobox", { name: "Ingredient 1" }),
-    ).toHaveTextContent("Oats");
+    ).toHaveValue("Oats");
     expect(within(dialog).getByLabelText("Grams 1")).toHaveValue(100);
     expect(
       within(dialog).getByRole("combobox", { name: "Ingredient 2" }),
-    ).toHaveTextContent("Milk");
+    ).toHaveValue("Milk");
     expect(within(dialog).getByLabelText("Grams 2")).toHaveValue(200);
     expect(
       within(dialog).getByText("Update the ingredients that make up Porridge."),
@@ -160,8 +169,8 @@ describe("EditMealDialog", () => {
     renderDialog();
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    const name = await screen.findByLabelText("Name");
-    expect(name).toHaveAttribute("aria-invalid", "true");
+    const name = screen.getByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveAccessibleDescription("Name is required");
   });
 
@@ -183,13 +192,13 @@ describe("EditMealDialog", () => {
     const name = await screen.findByLabelText("Name");
     await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveValue("Porridge bowl");
-    expect(
-      screen.getByRole("combobox", { name: "Ingredient 1" }),
-    ).toHaveTextContent("Oats");
+    expect(screen.getByRole("combobox", { name: "Ingredient 1" })).toHaveValue(
+      "Oats",
+    );
     expect(screen.getByLabelText("Grams 1")).toHaveValue(150);
-    expect(
-      screen.getByRole("combobox", { name: "Ingredient 2" }),
-    ).toHaveTextContent("Milk");
+    expect(screen.getByRole("combobox", { name: "Ingredient 2" })).toHaveValue(
+      "Milk",
+    );
     expect(screen.getByLabelText("Grams 2")).toHaveValue(200);
   });
 

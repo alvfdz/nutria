@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { makeIngredient, mealDefaults } from "@test/factories";
 import { createMealAction } from "@/app/(app)/meals/actions";
-import { NewMealForm } from "@/components/meals/new-meal-form";
+import { NewMealDialog } from "@/components/meals/new-meal-dialog";
 import {
   initialMealFormState,
   type MealFormState,
@@ -26,6 +26,18 @@ const respondWith = (state: MealFormState) => {
   action.mockImplementation(async () => state);
 };
 
+/** Renders the dialog over both ingredients. */
+const renderDialog = (
+  overrides: { onClose?: () => void; onSaved?: (name: string) => void } = {},
+) =>
+  render(
+    <NewMealDialog
+      ingredients={[oats, milk]}
+      onClose={overrides.onClose ?? vi.fn()}
+      onSaved={overrides.onSaved ?? vi.fn()}
+    />,
+  );
+
 /** Fills the name and one builder row per ingredient, in builder order. */
 const fillForm = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText("Name"), mealDefaults.name);
@@ -44,25 +56,11 @@ beforeEach(() => {
   action.mockReset();
 });
 
-describe("NewMealForm", () => {
-  test("invites the user to the ingredient library when there is nothing to build from", () => {
-    render(<NewMealForm ingredients={[]} />);
+describe("NewMealDialog", () => {
+  test("renders the name field, one builder row and the submit button", () => {
+    renderDialog();
 
-    expect(
-      screen.getByRole("link", { name: "Add ingredients first" }),
-    ).toHaveAttribute("href", "/ingredients");
-    expect(
-      screen.getByText("A meal is a set of ingredients"),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Add meal" }),
-    ).not.toBeInTheDocument();
-  });
-
-  test("renders the name field and one builder row when ingredients exist", () => {
-    render(<NewMealForm ingredients={[oats, milk]} />);
-
+    expect(screen.getByRole("dialog")).toHaveClass("nutria-theme");
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: "Ingredient 1" }),
@@ -70,9 +68,6 @@ describe("NewMealForm", () => {
     expect(screen.queryByLabelText("Ingredient 2")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Grams 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add meal" })).toBeEnabled();
-    expect(
-      screen.queryByRole("link", { name: "Add ingredients first" }),
-    ).not.toBeInTheDocument();
   });
 
   test("hands the submitted rows to the action", async () => {
@@ -84,7 +79,7 @@ describe("NewMealForm", () => {
       return initialMealFormState;
     });
 
-    render(<NewMealForm ingredients={[oats, milk]} />);
+    renderDialog();
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
@@ -102,7 +97,7 @@ describe("NewMealForm", () => {
       formError: "The meal could not be saved. Please try again.",
     });
 
-    render(<NewMealForm ingredients={[oats, milk]} />);
+    renderDialog();
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
@@ -119,12 +114,12 @@ describe("NewMealForm", () => {
       fieldErrors: { name: ["Name is required"] },
     });
 
-    render(<NewMealForm ingredients={[oats, milk]} />);
+    renderDialog();
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
-    const name = await screen.findByLabelText("Name");
-    expect(name).toHaveAttribute("aria-invalid", "true");
+    const name = screen.getByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveAccessibleDescription("Name is required");
   });
 
@@ -136,60 +131,61 @@ describe("NewMealForm", () => {
       fieldErrors: { name: ["Name is required"] },
     });
 
-    render(<NewMealForm ingredients={[oats, milk]} />);
+    renderDialog();
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
     const name = await screen.findByLabelText("Name");
     await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveValue(mealDefaults.name);
-    expect(
-      screen.getByRole("combobox", { name: "Ingredient 1" }),
-    ).toHaveTextContent("Oats");
+    expect(screen.getByRole("combobox", { name: "Ingredient 1" })).toHaveValue(
+      "Oats",
+    );
     expect(screen.getByLabelText("Grams 1")).toHaveValue(80);
-    expect(
-      screen.getByRole("combobox", { name: "Ingredient 2" }),
-    ).toHaveTextContent("Milk");
+    expect(screen.getByRole("combobox", { name: "Ingredient 2" })).toHaveValue(
+      "Milk",
+    );
     expect(screen.getByLabelText("Grams 2")).toHaveValue(250);
   });
 
-  test("announces the saved name in a live region", async () => {
+  test("reports the saved name and closes once the save succeeds", async () => {
     const user = userEvent.setup();
-    respondWith({
-      status: "success",
-      resetKey: 1,
-      savedName: mealDefaults.name,
-    });
-
-    render(<NewMealForm ingredients={[oats, milk]} />);
-    await fillForm(user);
-    await user.click(screen.getByRole("button", { name: "Add meal" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      `${mealDefaults.name} added to your meal library.`,
-    );
-  });
-
-  test("says nothing in the live region before a successful save", () => {
-    respondWith(initialMealFormState);
-    render(<NewMealForm ingredients={[oats, milk]} />);
-
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
-  });
-
-  test("clears the fields once the reset key moves on", async () => {
-    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
     respondWith({ status: "success", resetKey: 1, savedName: "Porridge" });
+    renderDialog({ onSaved, onClose });
 
-    render(<NewMealForm ingredients={[oats, milk]} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
-    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue(""));
-    expect(screen.getByLabelText("Grams 1")).toHaveValue(null);
-    expect(screen.queryByLabelText("Grams 2")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Ingredient 1" }),
-    ).toHaveTextContent("Select ingredient");
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Porridge"));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  test("does not report a save that failed, and stays open", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    respondWith({ status: "error", resetKey: 0, formError: "Could not save" });
+    renderDialog({ onSaved });
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save",
+    );
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  test("cancelling closes without saving", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderDialog({ onClose });
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(action).not.toHaveBeenCalled();
   });
 });

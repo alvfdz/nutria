@@ -19,4 +19,9 @@ describe("formatMacro", () => {
     expect(formatMacro(12.34)).toBe("12.3");
     expect(formatMacro(12.66)).toBe("12.7");
   });
+
+  test("drops a decimal that rounds away", () => {
+    expect(formatMacro(12.04)).toBe("12");
+    expect(formatMacro(29.999999999999996)).toBe("30");
+  });
 });

@@ -24,6 +24,7 @@ import {
   type MacroName,
 } from "@/components/segmented-bar";
 import { SplitSlider } from "@/components/goals/split-slider";
+import { StatTiles } from "@/components/stat-tile";
 import { FieldError, StatusLine } from "@/components/status-line";
 import { UnitInput } from "@/components/unit-input";
 import { useUnsavedChangesGuard } from "@/components/goals/use-unsaved-changes-guard";
@@ -241,31 +242,6 @@ function submittedSnapshot({ rows, ...budget }: FormValues): string {
  */
 function mealLabel(row: Row, index: number): string {
   return row.name.trim() || `Meal ${index + 1}`;
-}
-
-/** One cell of the summary's grams row: a marked macro name and its grams. */
-function StatTile({
-  macro,
-  label,
-  grams,
-}: {
-  macro: MacroName;
-  label: string;
-  grams: number;
-}) {
-  return (
-    <div className="grid min-w-0 gap-1 p-3">
-      <dt className="text-muted-foreground flex items-center gap-1.5 text-xs">
-        <MacroDot macro={macro} />
-        {label}
-      </dt>
-      <dd className="text-lg font-semibold">
-        {formatWhole(grams)}
-        {THIN_SPACE}
-        <span className="text-muted-foreground text-sm font-normal">g</span>
-      </dd>
-    </div>
-  );
 }
 
 /**
@@ -1066,19 +1042,11 @@ function GoalsForm({
                 </p>
               </div>
 
-              <dl className="divide-border grid grid-cols-3 divide-x rounded-lg border">
-                <StatTile
-                  macro="protein"
-                  label="Protein"
-                  grams={daily.proteinGrams}
-                />
-                <StatTile
-                  macro="carbs"
-                  label="Carbs"
-                  grams={daily.carbsGrams}
-                />
-                <StatTile macro="fat" label="Fat" grams={daily.fatGrams} />
-              </dl>
+              <StatTiles
+                protein={formatWhole(daily.proteinGrams)}
+                carbs={formatWhole(daily.carbsGrams)}
+                fat={formatWhole(daily.fatGrams)}
+              />
 
               <Table className="table-fixed">
                 <TableCaption className="type-caption mt-2 text-left">

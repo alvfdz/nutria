@@ -1,23 +1,8 @@
 "use client";
 
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 
-import {
-  ArrowDown,
-  ArrowUp,
-  EllipsisVertical,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "cn";
 import { toast } from "sonner";
 
@@ -25,7 +10,16 @@ import { DeleteIngredientDialog } from "@/components/ingredients/delete-ingredie
 import { EditIngredientDialog } from "@/components/ingredients/edit-ingredient-dialog";
 import { FoodfactsImportDialog } from "@/components/ingredients/foodfacts-import";
 import { NewIngredientDialog } from "@/components/ingredients/new-ingredient-dialog";
-import { MacroBar, MacroDot, type MacroName } from "@/components/segmented-bar";
+import {
+  AddButton,
+  LIBRARY_HEAD_CLASS,
+  LIBRARY_NUMBER_CELL_CLASS,
+  LibraryRowActions,
+  LibraryRowName,
+  MacroHeadLabel,
+  SortableHead,
+} from "@/components/library-table";
+import { MacroBar, type MacroName } from "@/components/segmented-bar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,13 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -62,23 +49,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  CARD_CLASS,
-  CARD_TITLE_CLASS,
-  ICON_STROKE,
-  OVERLAY_THEME_CLASS,
-} from "@/lib/design-system";
+import { CARD_CLASS, CARD_TITLE_CLASS, ICON_STROKE } from "@/lib/design-system";
 import { formatMacro } from "@/lib/ingredients/format";
 import {
   filterIngredients,
-  macroCalorieShares,
-  nextSort,
   sortIngredients,
   type IngredientUsage,
-  type LibrarySort,
   type SortKey,
 } from "@/lib/ingredients/library";
 import type { Ingredient } from "@/lib/ingredients/types";
+import { macroCalorieShares, nextSort, type LibrarySort } from "@/lib/library";
 
 /** The macro columns, in the fixed protein, carbs, fat order. */
 const MACRO_COLUMNS: { macro: MacroName; label: string; key: SortKey }[] = [
@@ -87,98 +67,8 @@ const MACRO_COLUMNS: { macro: MacroName; label: string; key: SortKey }[] = [
   { macro: "fat", label: "Fat", key: "fatPer100g" },
 ];
 
-/** A column heading: quiet, and aligned with its numbers. */
-const HEAD_CLASS =
-  "text-muted-foreground h-8 px-1 text-right text-xs font-normal sm:px-2";
-
-/** A number cell, right-aligned so the digits line up. */
-const NUMBER_CELL_CLASS = "px-1 text-right sm:px-2";
-
-/** A row action: muted until hovered. */
-const ROW_ACTION_CLASS = "text-muted-foreground";
-
 /** The names to highlight when nothing is being revealed. */
 const NO_NAMES: ReadonlySet<string> = new Set();
-
-/**
- * A table heading that sorts by its column, and tells assistive technology how
- * the column is sorted. The arrow shows the direction of the active sort.
- *
- * @param props.column The column this heading sorts.
- * @param props.sort The current sort.
- * @param props.onSort Called with the column when the heading is clicked.
- * @param props.className Classes for the heading cell.
- * @param props.children The heading's label.
- * @returns The heading cell; never throws.
- */
-function SortableHead({
-  column,
-  sort,
-  onSort,
-  className,
-  children,
-}: {
-  column: SortKey;
-  sort: LibrarySort;
-  onSort: (column: SortKey) => void;
-  className?: string;
-  children: ReactNode;
-}) {
-  const direction = sort?.key === column ? sort.direction : null;
-  const Arrow = direction === "asc" ? ArrowUp : ArrowDown;
-
-  return (
-    <TableHead
-      className={cn(HEAD_CLASS, className)}
-      aria-sort={
-        direction === "asc"
-          ? "ascending"
-          : direction === "desc"
-            ? "descending"
-            : undefined
-      }
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="xs"
-        className={cn(
-          "-mx-1 gap-0.5 px-1 font-normal",
-          direction && "text-foreground",
-        )}
-        onClick={() => onSort(column)}
-      >
-        {children}
-        {direction ? (
-          <Arrow
-            data-icon="inline-end"
-            aria-hidden="true"
-            strokeWidth={ICON_STROKE}
-          />
-        ) : null}
-      </Button>
-    </TableHead>
-  );
-}
-
-/**
- * The "add manually" action: an outline button with the brand plus.
- *
- * @param props.onClick Called when the button is clicked.
- * @returns The button; never throws.
- */
-function AddManuallyButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button type="button" variant="outline" onClick={onClick}>
-      <Plus
-        data-icon="inline-start"
-        strokeWidth={ICON_STROKE}
-        className="text-brand"
-      />
-      Add manually
-    </Button>
-  );
-}
 
 /**
  * What a new library shows: the start of the job rather than a description of
@@ -227,7 +117,7 @@ function EmptyLibrary({
           </InputGroup>
           <Button type="submit">Search</Button>
         </form>
-        <AddManuallyButton onClick={onAdd} />
+        <AddButton onClick={onAdd}>Add manually</AddButton>
       </EmptyContent>
     </Empty>
   );
@@ -256,7 +146,7 @@ export function IngredientLibrary({
   usage?: IngredientUsage;
 }) {
   const [filter, setFilter] = useState("");
-  const [sort, setSort] = useState<LibrarySort>(null);
+  const [sort, setSort] = useState<LibrarySort<SortKey>>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
   const [deleting, setDeleting] = useState<Ingredient | null>(null);
@@ -363,7 +253,9 @@ export function IngredientLibrary({
                 />
               </InputGroup>
               <div className="flex w-full flex-col-reverse gap-2 sm:ml-auto sm:w-auto sm:flex-row">
-                <AddManuallyButton onClick={() => setAdding(true)} />
+                <AddButton onClick={() => setAdding(true)}>
+                  Add manually
+                </AddButton>
                 <Button type="button" onClick={() => openImport("")}>
                   Import from OpenFoodFacts
                 </Button>
@@ -429,15 +321,14 @@ export function IngredientLibrary({
                         onSort={handleSort}
                         className="w-12 sm:w-20"
                       >
-                        <MacroDot macro={macro} />
-                        <span aria-hidden="true" className="ml-0.5">
-                          {label[0]}
-                        </span>
-                        <span className="sr-only">{label}</span>
+                        <MacroHeadLabel macro={macro} label={label} />
                       </SortableHead>
                     ))}
                     <TableHead
-                      className={cn(HEAD_CLASS, "w-9 pr-0 sm:w-20 sm:pr-0")}
+                      className={cn(
+                        LIBRARY_HEAD_CLASS,
+                        "w-9 pr-0 sm:w-20 sm:pr-0",
+                      )}
                     >
                       <span className="sr-only">Actions</span>
                     </TableHead>
@@ -445,7 +336,11 @@ export function IngredientLibrary({
                 </TableHeader>
                 <TableBody>
                   {visible.map((ingredient) => {
-                    const shares = macroCalorieShares(ingredient);
+                    const shares = macroCalorieShares({
+                      protein: ingredient.proteinPer100g,
+                      carbs: ingredient.carbsPer100g,
+                      fat: ingredient.fatPer100g,
+                    });
                     const isNew = highlighted.has(ingredient.name);
 
                     return (
@@ -457,14 +352,7 @@ export function IngredientLibrary({
                       >
                         <TableCell className="min-w-0 pl-0 font-medium whitespace-normal">
                           <div className="grid min-w-0 gap-1.5">
-                            {/* Phones get a second line, because `title` has no
-                                hover to reveal the rest of the name there. */}
-                            <div
-                              className="line-clamp-2 wrap-anywhere sm:line-clamp-1"
-                              title={ingredient.name}
-                            >
-                              {ingredient.name}
-                            </div>
+                            <LibraryRowName name={ingredient.name} />
                             {shares ? (
                               <div className="max-w-48 min-w-0">
                                 <MacroBar {...shares} />
@@ -472,75 +360,24 @@ export function IngredientLibrary({
                             ) : null}
                           </div>
                         </TableCell>
-                        <TableCell className={NUMBER_CELL_CLASS}>
+                        <TableCell className={LIBRARY_NUMBER_CELL_CLASS}>
                           {formatMacro(ingredient.caloriesPer100g)}
                         </TableCell>
-                        <TableCell className={NUMBER_CELL_CLASS}>
+                        <TableCell className={LIBRARY_NUMBER_CELL_CLASS}>
                           {formatMacro(ingredient.proteinPer100g)}
                         </TableCell>
-                        <TableCell className={NUMBER_CELL_CLASS}>
+                        <TableCell className={LIBRARY_NUMBER_CELL_CLASS}>
                           {formatMacro(ingredient.carbsPer100g)}
                         </TableCell>
-                        <TableCell className={NUMBER_CELL_CLASS}>
+                        <TableCell className={LIBRARY_NUMBER_CELL_CLASS}>
                           {formatMacro(ingredient.fatPer100g)}
                         </TableCell>
                         <TableCell className="py-1 pr-0 pl-1 text-right sm:pl-2">
-                          <div className="hidden justify-end gap-1 sm:flex">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={ROW_ACTION_CLASS}
-                              aria-label={`Edit ${ingredient.name}`}
-                              onClick={() => setEditing(ingredient)}
-                            >
-                              <Pencil strokeWidth={ICON_STROKE} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={ROW_ACTION_CLASS}
-                              aria-label={`Delete ${ingredient.name}`}
-                              onClick={() => setDeleting(ingredient)}
-                            >
-                              <Trash2 strokeWidth={ICON_STROKE} />
-                            </Button>
-                          </div>
-
-                          <div className="flex justify-end sm:hidden">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={ROW_ACTION_CLASS}
-                                    aria-label={`Actions for ${ingredient.name}`}
-                                  />
-                                }
-                              >
-                                <EllipsisVertical strokeWidth={ICON_STROKE} />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className={OVERLAY_THEME_CLASS}
-                              >
-                                <DropdownMenuGroup>
-                                  <DropdownMenuItem
-                                    onClick={() => setEditing(ingredient)}
-                                  >
-                                    <Pencil strokeWidth={ICON_STROKE} />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => setDeleting(ingredient)}
-                                  >
-                                    <Trash2 strokeWidth={ICON_STROKE} />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuGroup>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                          <LibraryRowActions
+                            name={ingredient.name}
+                            onEdit={() => setEditing(ingredient)}
+                            onDelete={() => setDeleting(ingredient)}
+                          />
                         </TableCell>
                       </TableRow>
                     );

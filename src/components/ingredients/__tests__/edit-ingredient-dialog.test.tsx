@@ -132,8 +132,8 @@ describe("EditIngredientDialog", () => {
     renderDialog();
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    const name = await screen.findByLabelText("Name");
-    expect(name).toHaveAttribute("aria-invalid", "true");
+    const name = screen.getByLabelText("Name");
+    await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
     expect(name).toHaveAccessibleDescription("Name is required");
   });
 

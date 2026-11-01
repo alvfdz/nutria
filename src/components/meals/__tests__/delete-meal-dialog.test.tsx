@@ -50,6 +50,15 @@ beforeEach(() => {
 });
 
 describe("DeleteMealDialog", () => {
+  test("opts its portaled content into the design-system palette", () => {
+    renderDialog();
+
+    expect(screen.getByRole("alertdialog")).toHaveClass(
+      "nutria-theme",
+      "tabular-nums",
+    );
+  });
+
   test("warns about the meal it is about to remove", () => {
     renderDialog();
 

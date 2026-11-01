@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import MealsPage from "@/app/(app)/meals/page";
@@ -52,7 +53,7 @@ function rowFor(mealName: string): HTMLElement {
 }
 
 describe("MealsPage", () => {
-  test("shows the heading with the meal builder beside the library", async () => {
+  test("shows the heading above the library, on the design-system palette", async () => {
     await renderPage([makeIngredient()], []);
 
     expect(
@@ -63,21 +64,27 @@ describe("MealsPage", () => {
         "The meals you build from your ingredients, ready to plan with.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveClass(
+      "nutria-theme",
+      "tabular-nums",
+    );
 
-    // Builder column: the create form with its name field and submit button.
-    expect(screen.getByText("New meal")).toBeInTheDocument();
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add meal" }),
-    ).toBeInTheDocument();
-
-    // Library column: the card is there, empty until a meal is saved.
     expect(screen.getByText("Meal library")).toBeInTheDocument();
-    expect(screen.getByText("Nothing saved yet")).toBeInTheDocument();
+    expect(screen.getByText("Your library is empty")).toBeInTheDocument();
+  });
+
+  test("builds a meal in a dialog rather than beside the library", async () => {
+    const user = userEvent.setup();
+    await renderPage([makeIngredient()], []);
+
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add meal" });
+    expect(within(dialog).getByLabelText("Name")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Your library is empty. Combine your ingredients into a meal to start planning.",
-      ),
+      within(dialog).getByRole("button", { name: "Add meal" }),
     ).toBeInTheDocument();
   });
 
@@ -170,13 +177,11 @@ describe("MealsPage", () => {
     ).toBeInTheDocument();
 
     // The builder itself must stay out of the way until ingredients exist.
-    expect(screen.queryByText("New meal")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add meal" }),
     ).not.toBeInTheDocument();
 
-    // The library column still renders alongside the invitation.
+    // The invitation sits inside the library card.
     expect(screen.getByText("Meal library")).toBeInTheDocument();
   });
 
