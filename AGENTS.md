@@ -2,6 +2,8 @@
 
 Check the `docs/vision.md`. Make sure that any suggested change is aligned with the product vision and tech stack described there.
 
+For any UI work, on any screen, follow `docs/design-system.md`. When you change an existing view, bring the parts you touch up to it. If the work needs something it doesn't cover, extend the document in the same change.
+
 # Code standards
 
 - Document the code with TSDoc comments. Every exported function, type, and constant gets a TSDoc block explaining its purpose, parameters, return value, and thrown errors.
