@@ -128,4 +128,56 @@ describe("DeleteIngredientDialog", () => {
       "wrap-anywhere",
     );
   });
+
+  describe("when meals use the ingredient", () => {
+    const renderInUse = (usedIn: string[]) =>
+      render(
+        <DeleteIngredientDialog
+          ingredient={makeIngredient({ id: "oats", name: "Oats" })}
+          usedIn={usedIn}
+          onClose={vi.fn()}
+          onDeleted={vi.fn()}
+        />,
+      );
+
+    test("names the meals and offers no delete", () => {
+      renderInUse(["Granola", "Porridge"]);
+
+      expect(
+        screen.getByRole("alertdialog", { name: "Ingredient in use" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Oats is used in Granola and Porridge. Remove it from those meals before deleting it.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Delete" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    });
+
+    test("speaks of one meal in the singular", () => {
+      renderInUse(["Granola"]);
+
+      expect(
+        screen.getByText(
+          "Oats is used in Granola. Remove it from that meal before deleting it.",
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  test("treats an empty list of meals like no meals", () => {
+    render(
+      <DeleteIngredientDialog
+        ingredient={makeIngredient({ id: "oats", name: "Oats" })}
+        usedIn={[]}
+        onClose={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
 });

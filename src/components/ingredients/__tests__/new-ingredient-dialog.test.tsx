@@ -2,9 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ingredientDefaults } from "@test/factories";
 import { createIngredientAction } from "@/app/(app)/ingredients/actions";
-import { NewIngredientForm } from "@/components/ingredients/new-ingredient-form";
+import { NewIngredientDialog } from "@/components/ingredients/new-ingredient-dialog";
 import {
   initialIngredientFormState,
   type IngredientFormState,
@@ -25,7 +24,7 @@ const fillForm = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText("Name"), "Cod");
   await user.type(screen.getByLabelText("Calories (kcal)"), "82");
   await user.type(screen.getByLabelText("Protein (g)"), "17.8");
-  await user.type(screen.getByLabelText("Carbohydrates (g)"), "0");
+  await user.type(screen.getByLabelText("Carbs (g)"), "0");
   await user.type(screen.getByLabelText("Fat (g)"), "0.7");
 };
 
@@ -33,10 +32,10 @@ beforeEach(() => {
   action.mockReset();
 });
 
-describe("NewIngredientForm", () => {
+describe("NewIngredientDialog", () => {
   test("renders the ingredient fields and the submit button", () => {
     respondWith(initialIngredientFormState);
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
 
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
     expect(screen.getByLabelText("Calories (kcal)")).toBeInTheDocument();
@@ -54,7 +53,7 @@ describe("NewIngredientForm", () => {
       return initialIngredientFormState;
     });
 
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
@@ -79,7 +78,7 @@ describe("NewIngredientForm", () => {
       },
     });
 
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
     await waitFor(() => expect(action).toHaveBeenCalled());
@@ -100,7 +99,7 @@ describe("NewIngredientForm", () => {
       formError: "The ingredient could not be saved. Please try again.",
     });
 
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
@@ -117,7 +116,7 @@ describe("NewIngredientForm", () => {
       fieldErrors: { name: ["Name is required"] },
     });
 
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
@@ -134,7 +133,7 @@ describe("NewIngredientForm", () => {
       fieldErrors: { name: ["Name is required"] },
     });
 
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
@@ -143,43 +142,60 @@ describe("NewIngredientForm", () => {
     expect(name).toHaveValue("Cod");
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(82);
     expect(screen.getByLabelText("Protein (g)")).toHaveValue(17.8);
-    expect(screen.getByLabelText("Carbohydrates (g)")).toHaveValue(0);
+    expect(screen.getByLabelText("Carbs (g)")).toHaveValue(0);
     expect(screen.getByLabelText("Fat (g)")).toHaveValue(0.7);
-  });
-
-  test("announces the saved name in a live region", async () => {
-    const user = userEvent.setup();
-    respondWith({
-      status: "success",
-      resetKey: 1,
-      savedName: ingredientDefaults.name,
-    });
-
-    render(<NewIngredientForm />);
-    await fillForm(user);
-    await user.click(screen.getByRole("button", { name: "Add ingredient" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      `${ingredientDefaults.name} added to your ingredient library.`,
-    );
-  });
-
-  test("says nothing in the live region before a successful save", () => {
-    respondWith(initialIngredientFormState);
-    render(<NewIngredientForm />);
-
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 
   test("clears the fields once the reset key moves on", async () => {
     const user = userEvent.setup();
     respondWith({ status: "success", resetKey: 1, savedName: "Cod" });
 
-    render(<NewIngredientForm />);
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={vi.fn()} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Add ingredient" }));
 
     await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue(""));
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(null);
+  });
+
+  test("reports each save and goes back to the name for the next one", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    respondWith({ status: "success", resetKey: 1, savedName: "Cod" });
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={onSaved} />);
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "Add ingredient" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Cod"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveFocus());
+    expect(screen.getByLabelText("Name")).toHaveValue("");
+  });
+
+  test("does not report a save that failed", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    respondWith({ status: "error", resetKey: 0, formError: "Could not save" });
+    render(<NewIngredientDialog onClose={vi.fn()} onSaved={onSaved} />);
+
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "Add ingredient" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save",
+    );
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  test("calls onClose once closed", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    respondWith(initialIngredientFormState);
+    render(<NewIngredientDialog onClose={onClose} onSaved={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });

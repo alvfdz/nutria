@@ -66,7 +66,7 @@ describe("ingredientSchema: macro fields", () => {
   const macros = [
     { field: "caloriesPer100g", label: "Calories", max: 900 },
     { field: "proteinPer100g", label: "Protein", max: 100 },
-    { field: "carbsPer100g", label: "Carbohydrates", max: 100 },
+    { field: "carbsPer100g", label: "Carbs", max: 100 },
     { field: "fatPer100g", label: "Fat", max: 100 },
   ] as const;
 

@@ -3,9 +3,11 @@
 import { useActionState, useEffect, useId, useRef } from "react";
 
 import type { DialogRoot } from "@base-ui/react/dialog";
+import { cn } from "cn";
 
 import { updateIngredientAction } from "@/app/(app)/ingredients/actions";
 import { IngredientFields } from "@/components/ingredients/ingredient-fields";
+import { StatusLine } from "@/components/status-line";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CARD_TITLE_CLASS, OVERLAY_THEME_CLASS } from "@/lib/design-system";
 import {
   initialIngredientFormState,
   type IngredientFieldErrors,
@@ -59,9 +62,11 @@ export function EditIngredientDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={cn(OVERLAY_THEME_CLASS, "sm:max-w-md")}>
         <DialogHeader>
-          <DialogTitle>Edit ingredient</DialogTitle>
+          <DialogTitle className={CARD_TITLE_CLASS}>
+            Edit ingredient
+          </DialogTitle>
           <DialogDescription className="wrap-anywhere">
             Update the macros for {ingredient.name}.
           </DialogDescription>
@@ -76,9 +81,9 @@ export function EditIngredientDialog({
           />
 
           {state.formError ? (
-            <p role="alert" className="text-destructive text-sm">
+            <StatusLine valid={false} role="alert">
               {state.formError}
-            </p>
+            </StatusLine>
           ) : null}
 
           <DialogFooter>

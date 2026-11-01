@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import IngredientsPage from "@/app/(app)/ingredients/page";
 import { requireUser } from "@/lib/auth/session";
-import { listIngredients } from "@/lib/ingredients/repository";
+import {
+  getIngredientUsage,
+  listIngredients,
+} from "@/lib/ingredients/repository";
 import { makeIngredient, testUser } from "@test/factories";
 
 vi.mock("@/lib/auth/session", () => ({
@@ -13,6 +16,7 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/ingredients/repository", () => ({
   createIngredient: vi.fn(),
   listIngredients: vi.fn(),
+  getIngredientUsage: vi.fn(),
   updateIngredient: vi.fn(),
   deleteIngredient: vi.fn(),
 }));
@@ -23,6 +27,7 @@ vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(requireUser).mockResolvedValue(testUser);
+  vi.mocked(getIngredientUsage).mockResolvedValue({});
 });
 
 describe("IngredientsPage", () => {
@@ -34,6 +39,7 @@ describe("IngredientsPage", () => {
     render(await IngredientsPage());
 
     expect(listIngredients).toHaveBeenCalledWith(testUser.id);
+    expect(getIngredientUsage).toHaveBeenCalledWith(testUser.id);
     expect(
       screen.getByRole("heading", { level: 1, name: "Ingredients" }),
     ).toBeInTheDocument();
@@ -46,5 +52,6 @@ describe("IngredientsPage", () => {
 
     await expect(IngredientsPage()).rejects.toBe(redirectToLogin);
     expect(listIngredients).not.toHaveBeenCalled();
+    expect(getIngredientUsage).not.toHaveBeenCalled();
   });
 });

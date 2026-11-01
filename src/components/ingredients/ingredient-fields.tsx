@@ -2,8 +2,17 @@
 
 import { useId, useState } from "react";
 
+import { MacroDot, type MacroName } from "@/components/segmented-bar";
+import { FieldError } from "@/components/status-line";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { UnitInput } from "@/components/unit-input";
 import type { IngredientFieldErrors } from "@/lib/ingredients/form-state";
 import { formatMacro } from "@/lib/ingredients/format";
 import type { Ingredient } from "@/lib/ingredients/types";
@@ -12,41 +21,21 @@ type MacroFieldName =
   "caloriesPer100g" | "proteinPer100g" | "carbsPer100g" | "fatPer100g";
 
 /**
- * The four macro inputs, with the unit shown in their label. Bounds are
- * validated by `ingredientSchema` on submit so the message comes back as a
- * red-bordered field error instead of a native validation popup.
+ * The four macro inputs, with the unit shown inside them. Bounds are validated
+ * by `ingredientSchema` on submit so the message comes back as an inline field
+ * error instead of a native validation popup.
  */
 const macroFields: {
   name: MacroFieldName;
+  macro?: MacroName;
   label: string;
   unit: string;
 }[] = [
   { name: "caloriesPer100g", label: "Calories", unit: "kcal" },
-  { name: "proteinPer100g", label: "Protein", unit: "g" },
-  { name: "carbsPer100g", label: "Carbohydrates", unit: "g" },
-  { name: "fatPer100g", label: "Fat", unit: "g" },
+  { name: "proteinPer100g", macro: "protein", label: "Protein", unit: "g" },
+  { name: "carbsPer100g", macro: "carbs", label: "Carbs", unit: "g" },
+  { name: "fatPer100g", macro: "fat", label: "Fat", unit: "g" },
 ];
-
-/**
- * Renders the first validation message for a field, wired to the input through
- * `aria-describedby`. Renders nothing when the field is valid.
- */
-function FieldError({
-  id,
-  errors,
-}: {
-  id: string;
-  errors: string[] | undefined;
-}) {
-  const message = errors?.[0];
-  if (!message) return null;
-
-  return (
-    <p id={id} className="text-destructive text-xs">
-      {message}
-    </p>
-  );
-}
 
 /**
  * Seeds a macro input from an existing ingredient, formatting numbers the same
@@ -90,9 +79,9 @@ export function IngredientFields({
   }));
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-1.5">
-        <Label htmlFor={nameId}>Name</Label>
+    <FieldGroup className="gap-4">
+      <Field data-invalid={nameErrors ? true : undefined}>
+        <FieldLabel htmlFor={nameId}>Name</FieldLabel>
         <Input
           id={nameId}
           name="name"
@@ -103,12 +92,15 @@ export function IngredientFields({
           aria-describedby={nameErrors ? nameErrorId : undefined}
         />
         <FieldError id={nameErrorId} errors={nameErrors} />
-      </div>
+      </Field>
 
-      <fieldset className="grid gap-2">
-        <legend className="text-muted-foreground mb-1 text-xs font-medium">
+      <FieldSet className="gap-2">
+        <FieldLegend
+          variant="label"
+          className="text-muted-foreground font-normal"
+        >
           Per 100 g of product
-        </legend>
+        </FieldLegend>
         <div className="grid grid-cols-2 gap-3">
           {macroFields.map((field) => {
             const fieldId = `${baseId}-${field.name}`;
@@ -116,14 +108,20 @@ export function IngredientFields({
             const errors = fieldErrors[field.name];
 
             return (
-              <div key={field.name} className="grid gap-1.5">
-                <Label htmlFor={fieldId}>
-                  {field.label}{" "}
-                  <span className="text-muted-foreground font-normal">
-                    ({field.unit})
+              <Field
+                key={field.name}
+                className="min-w-0 content-start"
+                data-invalid={errors ? true : undefined}
+              >
+                <FieldLabel htmlFor={fieldId}>
+                  {field.macro ? <MacroDot macro={field.macro} /> : null}
+                  <span>
+                    {field.label}
+                    <span className="sr-only"> ({field.unit})</span>
                   </span>
-                </Label>
-                <Input
+                </FieldLabel>
+                <UnitInput
+                  unit={field.unit}
                   id={fieldId}
                   name={field.name}
                   type="number"
@@ -141,11 +139,11 @@ export function IngredientFields({
                   aria-describedby={errors ? errorId : undefined}
                 />
                 <FieldError id={errorId} errors={errors} />
-              </div>
+              </Field>
             );
           })}
         </div>
-      </fieldset>
-    </div>
+      </FieldSet>
+    </FieldGroup>
   );
 }

@@ -3,9 +3,6 @@ import type { SlotPlanUsage } from "@/lib/plan/types";
 
 import { PCT_TOLERANCE } from "./schema";
 
-/** The thin space that separates a value from its unit, as in `150 g`. */
-export const THIN_SPACE = " ";
-
 /**
  * Formats a gram, kcal or percentage value as the integer the goals view shows.
  *

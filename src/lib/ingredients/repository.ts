@@ -8,6 +8,7 @@ import {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db/prisma";
 import { IngredientInUseError } from "./errors";
+import type { IngredientUsage } from "./library";
 import type { Ingredient, NewIngredient } from "./types";
 
 /**
@@ -90,6 +91,36 @@ export async function listIngredients(userId: string): Promise<Ingredient[]> {
   });
 
   return rows.map(toIngredient);
+}
+
+/**
+ * Reads which meals use each of the user's ingredients, so the library can say
+ * so before a delete is refused. Ingredients no meal uses are left out.
+ *
+ * @param userId Owner of the ingredients.
+ * @returns Each used ingredient's meal names, A to Z, without repeats.
+ */
+export async function getIngredientUsage(
+  userId: string,
+): Promise<IngredientUsage> {
+  // Nothing else in this read touches Request-time APIs, so without this the
+  // query would run while prerendering and get frozen into the build output.
+  await connection();
+
+  const rows = await getPrisma().mealItem.findMany({
+    where: { ingredient: { userId } },
+    select: { ingredientId: true, meal: { select: { name: true } } },
+    distinct: ["ingredientId", "mealId"],
+    orderBy: { meal: { name: "asc" } },
+  });
+
+  const usage: IngredientUsage = {};
+
+  for (const row of rows) {
+    (usage[row.ingredientId] ??= []).push(row.meal.name);
+  }
+
+  return usage;
 }
 
 /**

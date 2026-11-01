@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 
-import { MacroBar, MacroDot, mealTint } from "@/components/goals/segmented-bar";
+import { MacroBar, MacroDot, mealTint } from "@/components/segmented-bar";
 
 /** The macro bar's segments, left to right. */
 const segments = () =>

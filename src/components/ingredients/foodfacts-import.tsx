@@ -1,10 +1,11 @@
 "use client";
 
-import { ImageOff } from "lucide-react";
+import { Check, ImageOff } from "lucide-react";
 import {
   useActionState,
   useCallback,
   useEffect,
+  useEffectEvent,
   useId,
   useMemo,
   useReducer,
@@ -13,6 +14,8 @@ import {
 } from "react";
 
 import { createIngredientFromFoodfactsAction } from "@/app/(app)/ingredients/actions";
+import { MacroDot, type MacroName } from "@/components/segmented-bar";
+import { StatusLine } from "@/components/status-line";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,11 +23,17 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  CARD_TITLE_CLASS,
+  ICON_STROKE,
+  OVERLAY_THEME_CLASS,
+  THIN_SPACE,
+} from "@/lib/design-system";
 import { buildIngredientName } from "@/lib/foodfacts/ingredient-name";
 import { cn } from "@/lib/utils";
 import type {
@@ -40,6 +49,8 @@ const RESULT_LIMIT = 10;
 
 /** Macros shown for each search result, keyed by their display label. */
 type ResultMacro = {
+  /** The macro's colour, or nothing for calories, which are not one. */
+  macro?: MacroName;
   label: string;
   value: number | null;
   unit: string;
@@ -180,9 +191,15 @@ export function searchReducer(
 }
 
 /**
- * Props for the OpenFoodFacts import component.
+ * Props for the OpenFoodFacts import dialog.
  */
-interface FoodfactsImportProps {
+interface FoodfactsImportDialogProps {
+  /** Whether the dialog is open. */
+  open: boolean;
+  /** Called when the dialog asks to open or close. */
+  onOpenChange: (open: boolean) => void;
+  /** Text to search for as soon as the dialog opens; blank waits for the user. */
+  initialQuery?: string;
   /**
    * Names of the ingredients currently in the library. A product is marked as
    * imported while the name it would be saved under is listed, so deleting
@@ -221,19 +238,23 @@ function ProductImage({ src }: { src?: string }) {
         aria-label="No image available"
         className="bg-muted text-muted-foreground flex size-14 shrink-0 items-center justify-center rounded-md"
       >
-        <ImageOff className="size-5" aria-hidden="true" />
+        <ImageOff
+          className="size-4"
+          strokeWidth={ICON_STROKE}
+          aria-hidden="true"
+        />
       </div>
     );
   }
 
   return (
-    <div
-      data-testid={status === "loading" ? "foodfacts-image-loading" : undefined}
-      className={cn(
-        "bg-muted size-14 shrink-0 overflow-hidden rounded-md",
-        status === "loading" && "animate-pulse",
-      )}
-    >
+    <div className="bg-muted relative size-14 shrink-0 overflow-hidden rounded-md">
+      {status === "loading" ? (
+        <Skeleton
+          data-testid="foodfacts-image-loading"
+          className="absolute inset-0"
+        />
+      ) : null}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imgRef}
@@ -253,9 +274,9 @@ function ProductImage({ src }: { src?: string }) {
 }
 
 /**
- * Formats a macro value for display, rounded to at most two decimals. Halves
- * round away from zero despite binary floating point (1.005 becomes 1.01 and
- * -1.005 becomes -1.01).
+ * Formats a macro value for display, rounded to at most one decimal. Halves
+ * round away from zero despite binary floating point (1.05 becomes 1.1 and
+ * -1.05 becomes -1.1).
  *
  * @param value The macro amount, or `null` when OpenFoodFacts has none.
  * @returns The rounded number as text, or "N/A" when missing or not finite.
@@ -263,21 +284,22 @@ function ProductImage({ src }: { src?: string }) {
 export function formatMacro(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "N/A";
   const abs = Math.abs(value);
-  // Anything below half a hundredth rounds to zero. This also covers tiny
-  // values that JavaScript prints in exponent form (1e-7).
-  if (abs < 0.005) return "0";
+  // Anything below half a tenth rounds to zero. This also covers tiny values
+  // that JavaScript prints in exponent form (1e-7).
+  if (abs < 0.05) return "0";
   // Shifting the decimal point through exponent notation avoids the binary
-  // error of `abs * 100`. Large values already in exponent form (1e+21) have
+  // error of `abs * 10`. Large values already in exponent form (1e+21) have
   // no decimals worth rounding.
   if (String(abs).includes("e")) return String(value);
-  const rounded = Number(`${Math.round(Number(`${abs}e2`))}e-2`);
+  const rounded = Number(`${Math.round(Number(`${abs}e1`))}e-1`);
   return String(value < 0 ? -rounded : rounded);
 }
 
 /**
  * Renders the four macros stored on import (calories, protein, carbs and fat)
- * of one search result as a list, marking missing values as
- * "N/A" so an imported ingredient is never silently misleading.
+ * of one search result as a list, marking missing values as "N/A", with a note
+ * saying what they are saved as, so an imported ingredient is never silently
+ * misleading.
  *
  * @param result The OpenFoodFacts search result to display.
  * @returns The macro list markup.
@@ -289,27 +311,60 @@ function MacrosPer100g({ result }: { result: FoodfactsSearchResult }) {
       value: result.macrosPer100g.caloriesPer100g,
       unit: "kcal",
     },
-    { label: "Protein", value: result.macrosPer100g.proteinPer100g, unit: "g" },
-    { label: "Carbs", value: result.macrosPer100g.carbsPer100g, unit: "g" },
-    { label: "Fat", value: result.macrosPer100g.fatPer100g, unit: "g" },
+    {
+      macro: "protein",
+      label: "Protein",
+      value: result.macrosPer100g.proteinPer100g,
+      unit: "g",
+    },
+    {
+      macro: "carbs",
+      label: "Carbs",
+      value: result.macrosPer100g.carbsPer100g,
+      unit: "g",
+    },
+    {
+      macro: "fat",
+      label: "Fat",
+      value: result.macrosPer100g.fatPer100g,
+      unit: "g",
+    },
   ];
 
+  const hasMissing = macros.some((macro) => macro.value === null);
+
   return (
-    <dl className="grid grid-cols-4 gap-1.5">
-      {macros.map((macro) => (
-        <div
-          key={macro.label}
-          className="bg-muted/60 min-w-0 rounded-md px-2 py-1"
-        >
-          <dt className="text-muted-foreground truncate text-[11px] leading-tight">
-            {macro.label}
-          </dt>
-          <dd className="truncate text-sm leading-tight font-medium tabular-nums">
-            {formatMacro(macro.value)} {macro.unit}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="grid gap-2">
+      <dl className="divide-border-subtle grid grid-cols-4 divide-x rounded-lg border">
+        {macros.map((macro) => (
+          <div
+            key={macro.label}
+            className="grid min-w-0 gap-0.5 px-1.5 py-1.5 sm:px-2"
+          >
+            <dt className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
+              {macro.macro ? <MacroDot macro={macro.macro} /> : null}
+              <span className="truncate">{macro.label}</span>
+            </dt>
+            <dd className="truncate text-xs font-medium sm:text-sm">
+              {formatMacro(macro.value)}
+              {macro.value === null ? null : (
+                <>
+                  {THIN_SPACE}
+                  <span className="text-muted-foreground font-normal">
+                    {macro.unit}
+                  </span>
+                </>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {hasMissing ? (
+        <p className="type-caption text-muted-foreground">
+          Values marked N/A are saved as 0. Edit the ingredient after importing.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -393,37 +448,52 @@ function ImportButton({
         value={result.macrosPer100g.fatPer100g ?? ""}
       />
 
-      <Button type="submit" size="sm" disabled={pending || done}>
+      <Button type="submit" variant="outline" disabled={pending || done}>
+        {pending ? <Spinner data-icon="inline-start" /> : null}
+        {!pending && done ? (
+          <Check
+            data-icon="inline-start"
+            strokeWidth={ICON_STROKE}
+            className="text-brand"
+          />
+        ) : null}
         {pending ? "Importing…" : done ? "Imported" : "Import"}
       </Button>
 
       {state.formError ? (
-        <p
-          role="alert"
-          className="text-destructive max-w-40 text-right text-xs [overflow-wrap:anywhere]"
-        >
+        <StatusLine valid={false} role="alert" className="max-w-40">
           {state.formError}
-        </p>
+        </StatusLine>
       ) : null}
     </form>
   );
 }
 
 /**
- * Button that opens a dialog to search OpenFoodFacts on demand and import a
- * chosen product as an ingredient. The results scroll inside the dialog, and
- * only the selected products are stored, so the user's library is never
- * flooded with the whole database.
+ * Dialog to search OpenFoodFacts on demand and import a chosen product as an
+ * ingredient. The results scroll inside the dialog, and only the selected
+ * products are stored, so the user's library is never flooded with the whole
+ * database. It holds no trigger of its own, so the caller can open it from
+ * anywhere and keep it mounted while what opened it goes away.
  *
- * @param props The library's ingredient names, used to mark products already
+ * @param props Whether it is open and how to change that, the text to search for
+ * on opening, the library's ingredient names, used to mark products already
  * imported, and an optional callback invoked after a product is imported.
- * @returns The trigger button and its import dialog.
+ * @returns The import dialog.
  */
-export function FoodfactsImport({
+export function FoodfactsImportDialog({
+  open,
+  onOpenChange,
+  initialQuery = "",
   ingredientNames = NO_INGREDIENTS,
   onImported,
-}: FoodfactsImportProps) {
-  const [query, setQuery] = useState("");
+}: FoodfactsImportDialogProps) {
+  const [query, setQuery] = useState(open ? initialQuery : "");
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setQuery(initialQuery);
+  }
   const [search, dispatch] = useReducer(searchReducer, INITIAL_SEARCH_STATE);
   const {
     results,
@@ -483,10 +553,11 @@ export function FoodfactsImport({
    * Cancels the in-flight search and clears the dialog state when it closes,
    * so reopening never shows stale results.
    *
-   * @param open Whether the dialog is now open.
+   * @param next Whether the dialog is now open.
    */
-  function handleOpenChange(open: boolean) {
-    if (open) return;
+  function handleOpenChange(next: boolean) {
+    onOpenChange(next);
+    if (next) return;
     controllerRef.current?.abort();
     controllerRef.current = null;
     setQuery("");
@@ -546,6 +617,12 @@ export function FoodfactsImport({
     }
   }
 
+  const searchOnOpen = useEffectEvent((q: string) => void fetchPage(q, 1));
+
+  useEffect(() => {
+    if (open && initialQuery) searchOnOpen(initialQuery);
+  }, [open, initialQuery]);
+
   /**
    * Starts a new search from the first page.
    *
@@ -559,13 +636,12 @@ export function FoodfactsImport({
   }
 
   return (
-    <Dialog onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" />}>
-        Import from OpenFoodFacts
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className={cn(OVERLAY_THEME_CLASS, "sm:max-w-2xl")}>
         <DialogHeader>
-          <DialogTitle>Import from OpenFoodFacts</DialogTitle>
+          <DialogTitle className={CARD_TITLE_CLASS}>
+            Import from OpenFoodFacts
+          </DialogTitle>
           <DialogDescription>
             Search a product and import its name and macros per 100 g.
           </DialogDescription>
@@ -587,20 +663,22 @@ export function FoodfactsImport({
         </form>
 
         {error ? (
-          <p role="alert" className="text-destructive text-sm">
+          <StatusLine valid={false} role="alert">
             {error}
-          </p>
+          </StatusLine>
         ) : null}
 
         {!loading && !error && searched && results.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No results found.</p>
+          <p className="text-muted-foreground text-sm">
+            No results found. Try a different search.
+          </p>
         ) : null}
 
         {results.length > 0 ? (
           <ul
             ref={listRef}
             data-testid="foodfacts-results"
-            className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1"
+            className="divide-border-subtle grid max-h-[50vh] divide-y overflow-y-auto pr-1"
           >
             {results.map((result, index) => (
               <li
@@ -610,7 +688,7 @@ export function FoodfactsImport({
                     ? "true"
                     : undefined
                 }
-                className="data-[new=true]:animate-highlight-fade grid min-w-0 gap-2 rounded-md border p-2.5 motion-reduce:data-[new=true]:animate-none"
+                className="data-[new=true]:animate-highlight-fade grid min-w-0 gap-2 py-3 first:pt-0 last:pb-0 motion-reduce:data-[new=true]:animate-none"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <ProductImage key={result.imageUrl} src={result.imageUrl} />
@@ -645,7 +723,7 @@ export function FoodfactsImport({
         <p
           role="status"
           aria-live="polite"
-          className="text-muted-foreground text-sm empty:hidden"
+          className="type-caption text-muted-foreground empty:hidden"
         >
           {loading
             ? appending

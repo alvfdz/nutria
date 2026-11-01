@@ -1,10 +1,12 @@
+import { useState, type ComponentProps } from "react";
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createIngredientFromFoodfactsAction } from "@/app/(app)/ingredients/actions";
 import {
-  FoodfactsImport,
+  FoodfactsImportDialog,
   formatMacro,
   INITIAL_SEARCH_STATE,
   searchReducer,
@@ -17,6 +19,30 @@ vi.stubGlobal("fetch", mockFetch);
 vi.mock("@/app/(app)/ingredients/actions", () => ({
   createIngredientFromFoodfactsAction: vi.fn(async (prev: unknown) => prev),
 }));
+
+/**
+ * The dialog with a button that opens it, as the library wires it up.
+ *
+ * @param props The dialog's props, apart from what the harness controls.
+ * @returns The button and the dialog.
+ */
+function FoodfactsImport(
+  props: Omit<
+    ComponentProps<typeof FoodfactsImportDialog>,
+    "open" | "onOpenChange"
+  >,
+) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Import from OpenFoodFacts
+      </button>
+      <FoodfactsImportDialog {...props} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
 
 /**
  * Builds a search result with the given overrides, so each test only states
@@ -109,8 +135,10 @@ describe("FoodfactsImport", () => {
       expect(screen.getByText("Almond Butter")).toBeInTheDocument();
     });
     expect(screen.getByText("TestBrand")).toBeInTheDocument();
-    expect(screen.getByText("567 kcal")).toBeInTheDocument();
-    expect(screen.getByText("21.2 g")).toBeInTheDocument();
+    expect(screen.getByTestId("foodfacts-results")).toHaveTextContent(
+      "567 kcal",
+    );
+    expect(screen.getByTestId("foodfacts-results")).toHaveTextContent("21.2 g");
     expect(screen.getByRole("button", { name: "Import" })).toBeInTheDocument();
   });
 
@@ -144,6 +172,22 @@ describe("FoodfactsImport", () => {
     await waitFor(() => {
       expect(screen.getByText(/no results found/i)).toBeInTheDocument();
     });
+  });
+
+  it("says what to do when a search finds nothing", async () => {
+    const user = await openDialog();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [] }),
+    });
+
+    await user.type(screen.getByRole("textbox"), "nothing");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    expect(
+      await screen.findByText("No results found. Try a different search."),
+    ).toBeInTheDocument();
   });
 
   it("marks missing macros as N/A", async () => {
@@ -205,10 +249,12 @@ describe("FoodfactsImport", () => {
     await user.click(screen.getByRole("button", { name: /search/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("21.23 g")).toBeInTheDocument();
+      expect(screen.getByTestId("foodfacts-results")).toHaveTextContent(
+        "21.2 g",
+      );
     });
-    expect(screen.getByText("18.7 g")).toBeInTheDocument();
-    expect(screen.getByText("49 g")).toBeInTheDocument();
+    expect(screen.getByTestId("foodfacts-results")).toHaveTextContent("18.7 g");
+    expect(screen.getByTestId("foodfacts-results")).toHaveTextContent("49 g");
     expect(screen.getByText("Calories")).toBeInTheDocument();
     expect(screen.queryByText("Fiber")).not.toBeInTheDocument();
     expect(screen.queryByText("Sugar")).not.toBeInTheDocument();
@@ -845,20 +891,127 @@ describe("FoodfactsImport", () => {
   });
 });
 
+describe("FoodfactsImportDialog", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("searches straight away when opened with a query", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [makeResult()] }),
+    });
+
+    render(
+      <FoodfactsImportDialog
+        open
+        onOpenChange={vi.fn()}
+        initialQuery="almond"
+      />,
+    );
+
+    expect(await screen.findByText("Almond Butter")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveValue("almond");
+    expect(mockFetch.mock.calls[0][0]).toContain("q=almond");
+  });
+
+  it("waits for the user when opened without a query", () => {
+    render(<FoodfactsImportDialog open onOpenChange={vi.fn()} />);
+
+    expect(screen.getByRole("textbox")).toHaveValue("");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("takes the new query when reopened", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [] }),
+    });
+    const { rerender } = render(
+      <FoodfactsImportDialog
+        open={false}
+        onOpenChange={vi.fn()}
+        initialQuery="oats"
+      />,
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    rerender(
+      <FoodfactsImportDialog open onOpenChange={vi.fn()} initialQuery="oats" />,
+    );
+
+    expect(await screen.findByRole("textbox")).toHaveValue("oats");
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledOnce());
+  });
+
+  it("reports closing to its caller", async () => {
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    render(<FoodfactsImportDialog open onOpenChange={onOpenChange} />);
+
+    await user.keyboard("{Escape}");
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("says what missing macros are saved as, without a unit on them", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        results: [
+          makeResult({
+            macrosPer100g: {
+              ...makeResult().macrosPer100g,
+              fatPer100g: null,
+            },
+          }),
+        ],
+      }),
+    });
+
+    render(
+      <FoodfactsImportDialog open onOpenChange={vi.fn()} initialQuery="x" />,
+    );
+
+    expect(
+      await screen.findByText(/Values marked N\/A are saved as 0/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("N/A")).toBeInTheDocument();
+  });
+
+  it("does not mention missing macros when none are missing", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [makeResult()] }),
+    });
+
+    render(
+      <FoodfactsImportDialog open onOpenChange={vi.fn()} initialQuery="x" />,
+    );
+
+    await screen.findByText("Almond Butter");
+    expect(screen.queryByText(/Values marked N\/A/)).not.toBeInTheDocument();
+  });
+});
+
 describe("formatMacro", () => {
   it("rounds to two decimals and drops trailing zeros", () => {
     expect(formatMacro(1.005 * 1000)).toBe("1005");
-    expect(formatMacro(12.3456)).toBe("12.35");
+    expect(formatMacro(12.3456)).toBe("12.3");
     expect(formatMacro(0)).toBe("0");
   });
 
   it("rounds floating-point halves up", () => {
-    expect(formatMacro(1.005)).toBe("1.01");
-    expect(formatMacro(2.675)).toBe("2.68");
-    expect(formatMacro(-1.005)).toBe("-1.01");
+    expect(formatMacro(1.05)).toBe("1.1");
+    expect(formatMacro(2.25)).toBe("2.3");
+    expect(formatMacro(-1.05)).toBe("-1.1");
     expect(formatMacro(1e-7)).toBe("0");
-    expect(formatMacro(-0.001)).toBe("0");
-    expect(formatMacro(-12.3456)).toBe("-12.35");
+    expect(formatMacro(-0.04)).toBe("0");
+    expect(formatMacro(-12.3456)).toBe("-12.3");
   });
 
   it("returns N/A for non-finite values", () => {

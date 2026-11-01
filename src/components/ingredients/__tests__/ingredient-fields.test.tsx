@@ -8,7 +8,7 @@ const labels = {
   name: "Name",
   calories: "Calories (kcal)",
   protein: "Protein (g)",
-  carbs: "Carbohydrates (g)",
+  carbs: "Carbs (g)",
   fat: "Fat (g)",
 } as const;
 

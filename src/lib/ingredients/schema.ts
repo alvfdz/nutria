@@ -46,7 +46,7 @@ export const ingredientSchema = z.object({
     }),
   caloriesPer100g: macroField("Calories", 900),
   proteinPer100g: macroField("Protein", 100),
-  carbsPer100g: macroField("Carbohydrates", 100),
+  carbsPer100g: macroField("Carbs", 100),
   fatPer100g: macroField("Fat", 100),
 });
 

@@ -51,7 +51,7 @@ describe("EditIngredientDialog", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("Cod");
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(82);
     expect(screen.getByLabelText("Protein (g)")).toHaveValue(17.8);
-    expect(screen.getByLabelText("Carbohydrates (g)")).toHaveValue(0);
+    expect(screen.getByLabelText("Carbs (g)")).toHaveValue(0);
     expect(screen.getByLabelText("Fat (g)")).toHaveValue(0.7);
   });
 

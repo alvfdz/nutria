@@ -84,12 +84,12 @@ Sentence case everywhere ("Save goals", not "Save Goals"), with no uppercase lab
 
 Pick the view shape that fits, and stack columns on narrow screens:
 
-| Shape   | Layout                                                                               | Used by               |
-| ------- | ------------------------------------------------------------------------------------ | --------------------- |
-| Editor  | ≈2/3 editor, ≈1/3 summary sticky under the navbar.                                   | Goals                 |
-| Library | 20rem create/import column beside the list.                                          | Ingredients, Meals    |
-| Canvas  | Full-width board at the wide tier; details open in an anchored panel.                | Calendar              |
-| Form    | One column, `max-w-sm`. Left-aligned in the app; centered under the logo signed out. | Account, login, setup |
+| Shape   | Layout                                                                                         | Used by                         |
+| ------- | ---------------------------------------------------------------------------------------------- | ------------------------------- |
+| Editor  | ≈2/3 editor, ≈1/3 summary sticky under the navbar.                                             | Goals                           |
+| Library | One full-width card: filter and add actions above a sortable table. Adding happens in dialogs. | Ingredients; Meals when adopted |
+| Canvas  | Full-width board at the wide tier; details open in an anchored panel.                          | Calendar                        |
+| Form    | One column, `max-w-sm`. Left-aligned in the app; centered under the logo signed out.           | Account, login, setup           |
 
 A value is visualized where it is edited, so feedback stays in view when the summary stacks below. Unsaved edits on a full-page editor get a sticky bottom action bar: status text left, Reset (outline) + primary action right.
 
@@ -97,12 +97,13 @@ Radii: `rounded-md` ≈6 for small controls, `rounded-lg` 8 for inputs and butto
 
 ## Components
 
-Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Some of these still live in `src/components/goals` (`segmented-bar.tsx`, `split-slider.tsx`, `status-line.tsx`) or inside `goals-form.tsx`. Reuse them, and move a component to a shared location the first time a second view needs it, rather than copying it.
+Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Shared ones sit at the top of `src/components` (`segmented-bar.tsx`, `status-line.tsx`, `unit-input.tsx`), and shared class names and constants in `src/lib/design-system.ts`. Others still live with Goals (`split-slider.tsx`, and `StatTile` inside `goals-form.tsx`): reuse them, and move a component to the shared location the first time a second view needs it, rather than copying it.
 
 - **Button** — primary / outline / ghost / icon, plus the tinted `destructive` for confirming a delete.
 - **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line.
 - **SegmentedToggle** — shadcn ToggleGroup styled as a track; for presets and view switches. Not built yet: add it the first time one is needed.
 - **MacroBar** — the 6px segmented protein/carbs/fat bar with gaps, plus its status line. It shows how a whole divides up. An over-allocated total scales back to fit and shows a `destructive` tick at 100%.
+- **Macro share** — a `MacroBar` under a food's name, showing each macro's share of its calories at a glance. Its proportions complement the grams beside it, so principle 5 isn't broken.
 - **Progress bar** — one 6px bar per macro showing planned against target on a `muted` track, filled in that macro's color, with name, `planned/target g` and a state marker above it. An overshoot fills the track and is reported by the marker (principle 6).
 - **SplitSlider** — thumbs on a segmented bar's dividers, so dragging or arrow keys trade share between neighbours and keep the total. Shown only while the total is valid; typed inputs always stay available.
 - **StatusLine** — ✓ (brand) or alert (destructive) + one sentence.
@@ -126,8 +127,8 @@ Macro series use `protein`, `carbs` and `fat`, in that order; meal series use th
 
 ### States
 
-- **Empty** — keep the surrounding card and show one `muted-foreground` sentence saying what to do next: "Your library is empty. Add an ingredient to start building meals."
-- **Pending** — disable the control and change its label ("Saving…"). Keep the layout still.
+- **Empty** — keep the surrounding card and use shadcn `Empty`, with the action that starts the job right there: the Ingredients library opens with a search field, not a sentence describing one.
+- **Pending** — disable the control and change its label ("Saving…"). Keep the layout still. Use `Spinner` where a label alone is easy to miss, and `Skeleton` for content still loading.
 - **Read-only** — remove the affordance instead of graying it out: a past calendar day is a plain block with nothing focusable.
 - **Field errors** — `destructive` text under the field, tied to the input with `aria-describedby`, and `aria-invalid` on the input.
 - **Form and request errors** — one `destructive` line above the form's actions with `role="alert"`.
@@ -153,11 +154,13 @@ Text ≥ 4.5:1 in both themes (`muted-foreground` is the darkest allowed for sma
 
 ## Adoption
 
-Goals and the site header follow this system; the rest of the app is being brought over view by view.
+Goals, Ingredients and the site header follow this system; the rest of the app is being brought over view by view.
 
 - **Theme scope.** The palette lives in `.nutria-theme`, so a view opts in by putting that class on its `<main>`. Portaled content (dialogs, popovers, menus) renders outside that subtree and needs the class on its own content element. Once every view has adopted it, move the values into `:root` and `.dark` and remove the class.
 - **Default theme.** With no stored choice, `themeScript` follows the OS preference instead of defaulting to dark.
-- **Width.** `PageContainer`'s default tier still steps up to 1280px; Goals forces 1200px with an override.
+- **Width.** `PageContainer`'s default tier still steps up to 1280px; Goals and Ingredients force 1200px with an override.
 - **Page chrome.** Other views still use `text-2xl font-medium` titles and `py-10`, and don't set `tabular-nums` at the view level.
 - **Calendar.** Slot cards and the food panel use text below the 12px floor and uppercase labels; progress bars are 8px with a `primary` fill.
 - **Add actions.** The + icons outside Goals aren't `brand` yet.
+- **Toasts.** `Toaster` is mounted outside `.nutria-theme`, so toasts keep the old palette until the values move to `:root`.
+- **Meals.** Still has the old 20rem create column beside its list.

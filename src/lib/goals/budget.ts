@@ -1,7 +1,8 @@
 import type { NewMealSlot } from "./types";
 
 /** Protein, carbohydrate and fat yields per gram, in kilocalories. */
-const KCAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 } as const;
+/** Calories each macro provides per gram. */
+export const KCAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 } as const;
 
 /** The fields of a daily budget the macro math needs. */
 type BudgetSource = {

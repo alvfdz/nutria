@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentProps,
   type FormEvent,
 } from "react";
 
@@ -23,9 +22,10 @@ import {
   SegmentedBar,
   mealTint,
   type MacroName,
-} from "@/components/goals/segmented-bar";
+} from "@/components/segmented-bar";
 import { SplitSlider } from "@/components/goals/split-slider";
-import { StatusLine } from "@/components/goals/status-line";
+import { FieldError, StatusLine } from "@/components/status-line";
+import { UnitInput } from "@/components/unit-input";
 import { useUnsavedChangesGuard } from "@/components/goals/use-unsaved-changes-guard";
 import {
   AlertDialog,
@@ -61,11 +61,6 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -76,10 +71,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  CARD_CLASS,
+  CARD_TITLE_CLASS,
+  ICON_STROKE,
+  THIN_SPACE,
+} from "@/lib/design-system";
 import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
 import { daySplitSegments, overLimitPosition } from "@/lib/goals/day-split";
 import {
-  THIN_SPACE,
   formatWhole,
   percentTotalStatus,
   removedMealWarning,
@@ -122,20 +122,6 @@ const DEFAULT_SLOTS = [
   { name: "Lunch", percent: "40" },
   { name: "Dinner", percent: "30" },
 ];
-
-/** Lucide stroke width across the view. */
-const ICON_STROKE = 1.8;
-
-/**
- * A design-system card: 1px border, 12px radius, no ring, and 24px padding that
- * tightens to 16px on phones so a meal row keeps room for its name. The radius
- * is forced because `cn` cannot tell a custom token conflicts with the card's own.
- */
-const CARD_CLASS =
-  "rounded-card! border border-border ring-0 [--card-spacing:--spacing(4)] sm:[--card-spacing:--spacing(6)]";
-
-/** Heading weight and rhythm of a card title. */
-const CARD_TITLE_CLASS = "text-base/6 font-semibold";
 
 /** A ghost row action: muted until hovered, and at the 32px icon size. */
 const ROW_ACTION_CLASS = "text-muted-foreground";
@@ -255,61 +241,6 @@ function submittedSnapshot({ rows, ...budget }: FormValues): string {
  */
 function mealLabel(row: Row, index: number): string {
   return row.name.trim() || `Meal ${index + 1}`;
-}
-
-/**
- * Renders the first validation message for a field, wired to the input through
- * `aria-describedby`. Renders nothing when the field is valid.
- */
-function FieldError({
-  id,
-  errors,
-}: {
-  id: string;
-  errors: string[] | undefined;
-}) {
-  const message = errors?.[0];
-  if (!message) return null;
-
-  return (
-    <StatusLine id={id} valid={false}>
-      {message}
-    </StatusLine>
-  );
-}
-
-/**
- * A number input with its unit inside, muted and hidden from assistive
- * technology because the label already states it. The value sits right beside
- * the unit. The browser's number spinners are removed; arrow keys still step.
- */
-function UnitInput({
-  unit,
-  groupClassName,
-  className,
-  ...props
-}: ComponentProps<typeof InputGroupInput> & {
-  unit: string;
-  groupClassName?: string;
-}) {
-  return (
-    <InputGroup className={groupClassName}>
-      <InputGroupInput
-        className={cn(
-          "text-right [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-          className,
-        )}
-        {...props}
-      />
-      <InputGroupAddon
-        align="inline-end"
-        aria-hidden="true"
-        className="font-normal"
-      >
-        {unit}
-      </InputGroupAddon>
-    </InputGroup>
-  );
 }
 
 /** One cell of the summary's grams row: a marked macro name and its grams. */

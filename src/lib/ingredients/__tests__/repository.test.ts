@@ -8,6 +8,7 @@ import { IngredientInUseError } from "@/lib/ingredients/errors";
 import {
   createIngredient,
   deleteIngredient,
+  getIngredientUsage,
   listIngredients,
   updateIngredient,
 } from "@/lib/ingredients/repository";
@@ -29,6 +30,7 @@ const ingredient = {
 // The deletion guard counts a meal's rows before touching the ingredient.
 const mealItem = {
   count: vi.fn(),
+  findMany: vi.fn(),
 };
 
 const input = { ...ingredientDefaults };
@@ -98,6 +100,48 @@ describe("createIngredient", () => {
     ingredient.create.mockRejectedValue(failure);
 
     await expect(createIngredient(userId, input)).rejects.toBe(failure);
+  });
+});
+
+describe("getIngredientUsage", () => {
+  test("waits for connection() so the route renders per request", async () => {
+    mealItem.findMany.mockResolvedValue([]);
+
+    await getIngredientUsage(userId);
+
+    expect(connection).toHaveBeenCalled();
+  });
+
+  test("asks for the user's own ingredients, once per meal, A to Z", async () => {
+    mealItem.findMany.mockResolvedValue([]);
+
+    await getIngredientUsage(userId);
+
+    expect(mealItem.findMany).toHaveBeenCalledWith({
+      where: { ingredient: { userId } },
+      select: { ingredientId: true, meal: { select: { name: true } } },
+      distinct: ["ingredientId", "mealId"],
+      orderBy: { meal: { name: "asc" } },
+    });
+  });
+
+  test("groups the meal names by ingredient", async () => {
+    mealItem.findMany.mockResolvedValue([
+      { ingredientId: "oats", meal: { name: "Granola" } },
+      { ingredientId: "milk", meal: { name: "Latte" } },
+      { ingredientId: "oats", meal: { name: "Porridge" } },
+    ]);
+
+    await expect(getIngredientUsage(userId)).resolves.toEqual({
+      oats: ["Granola", "Porridge"],
+      milk: ["Latte"],
+    });
+  });
+
+  test("returns nothing when no meal uses an ingredient", async () => {
+    mealItem.findMany.mockResolvedValue([]);
+
+    await expect(getIngredientUsage(userId)).resolves.toEqual({});
   });
 });
 
