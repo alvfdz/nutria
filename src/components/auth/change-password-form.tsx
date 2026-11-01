@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { AuthField } from "@/components/auth/auth-field";
+import { useFocusFirstInvalid } from "@/components/auth/use-focus-first-invalid";
+import { StatusLine } from "@/components/status-line";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { FieldGroup } from "@/components/ui/field";
 import { authClient } from "@/lib/auth/client";
 import { authErrorMessage } from "@/lib/auth/errors";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/limits";
@@ -22,15 +24,18 @@ type ChangePasswordField =
  * Form on the account screen that changes the signed-in user's password. The
  * current password is required, and on success every other session is ended
  * so a forgotten or stolen sign-in elsewhere stops working; this browser
- * stays signed in.
+ * stays signed in. A wrong current password is reported on its own field.
  */
 export function ChangePasswordForm() {
-  const formRef = useRef<HTMLFormElement>(null);
   const [fieldErrors, setFieldErrors] = useState<
     AuthFieldErrors<ChangePasswordField>
   >({});
   const [formError, setFormError] = useState<string>();
   const [pending, setPending] = useState(false);
+  // Bumped after a change to remount the inputs, which clears both their values
+  // and any password left revealed.
+  const [fieldsKey, setFieldsKey] = useState(0);
+  const formRef = useFocusFirstInvalid(fieldErrors);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +65,12 @@ export function ChangePasswordForm() {
       });
 
       if (error) {
-        setFormError(authErrorMessage(error, "account"));
+        const message = authErrorMessage(error, "account");
+        if (error.code === "INVALID_PASSWORD") {
+          setFieldErrors({ currentPassword: [message] });
+        } else {
+          setFormError(message);
+        }
         setPending(false);
         return;
       }
@@ -72,51 +82,50 @@ export function ChangePasswordForm() {
       return;
     }
 
-    formRef.current?.reset();
+    setFieldsKey((key) => key + 1);
     setPending(false);
     toast.success("Password changed. Other devices were signed out.");
   }
 
   return (
-    <form
-      ref={formRef}
-      noValidate
-      onSubmit={handleSubmit}
-      className="grid gap-4"
-    >
-      {formError ? (
-        <p role="alert" className="text-destructive text-sm">
-          {formError}
-        </p>
-      ) : null}
-      <AuthField
-        id="account-current-password"
-        name="currentPassword"
-        type="password"
-        label="Current password"
-        autoComplete="current-password"
-        errors={fieldErrors.currentPassword}
-      />
-      <AuthField
-        id="account-new-password"
-        name="newPassword"
-        type="password"
-        label={`New password (at least ${MIN_PASSWORD_LENGTH} characters)`}
-        autoComplete="new-password"
-        errors={fieldErrors.newPassword}
-      />
-      <AuthField
-        id="account-confirm-password"
-        name="confirmPassword"
-        type="password"
-        label="Confirm new password"
-        autoComplete="new-password"
-        errors={fieldErrors.confirmPassword}
-      />
-      <Button type="submit" disabled={pending}>
-        {pending ? <Spinner /> : null}
-        Change password
-      </Button>
+    <form ref={formRef} noValidate onSubmit={handleSubmit}>
+      <FieldGroup className="gap-4">
+        <Fragment key={fieldsKey}>
+          <AuthField
+            id="account-current-password"
+            name="currentPassword"
+            type="password"
+            label="Current password"
+            autoComplete="current-password"
+            errors={fieldErrors.currentPassword}
+          />
+          <AuthField
+            id="account-new-password"
+            name="newPassword"
+            type="password"
+            label="New password"
+            description={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+            autoComplete="new-password"
+            errors={fieldErrors.newPassword}
+          />
+          <AuthField
+            id="account-confirm-password"
+            name="confirmPassword"
+            type="password"
+            label="Confirm new password"
+            autoComplete="new-password"
+            errors={fieldErrors.confirmPassword}
+          />
+        </Fragment>
+        {formError ? (
+          <StatusLine valid={false} role="alert">
+            {formError}
+          </StatusLine>
+        ) : null}
+        <Button type="submit" disabled={pending}>
+          {pending ? "Changing password…" : "Change password"}
+        </Button>
+      </FieldGroup>
     </form>
   );
 }

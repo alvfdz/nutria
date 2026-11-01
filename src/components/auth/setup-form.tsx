@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { AuthField } from "@/components/auth/auth-field";
+import { useFocusFirstInvalid } from "@/components/auth/use-focus-first-invalid";
+import { StatusLine } from "@/components/status-line";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { FieldGroup } from "@/components/ui/field";
 import { authClient } from "@/lib/auth/client";
 import { authErrorMessage } from "@/lib/auth/errors";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/limits";
@@ -30,6 +32,7 @@ export function SetupForm() {
   );
   const [formError, setFormError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const formRef = useFocusFirstInvalid(fieldErrors);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,48 +80,50 @@ export function SetupForm() {
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-4">
-      {formError ? (
-        <p role="alert" className="text-destructive text-sm">
-          {formError}
-        </p>
-      ) : null}
-      <AuthField
-        id="setup-name"
-        name="name"
-        label="Name"
-        autoComplete="name"
-        autoFocus
-        errors={fieldErrors.name}
-      />
-      <AuthField
-        id="setup-email"
-        name="email"
-        type="email"
-        label="Email"
-        autoComplete="email"
-        errors={fieldErrors.email}
-      />
-      <AuthField
-        id="setup-password"
-        name="password"
-        type="password"
-        label={`Password (at least ${MIN_PASSWORD_LENGTH} characters)`}
-        autoComplete="new-password"
-        errors={fieldErrors.password}
-      />
-      <AuthField
-        id="setup-confirm-password"
-        name="confirmPassword"
-        type="password"
-        label="Confirm password"
-        autoComplete="new-password"
-        errors={fieldErrors.confirmPassword}
-      />
-      <Button type="submit" disabled={pending}>
-        {pending ? <Spinner /> : null}
-        Create account
-      </Button>
+    <form ref={formRef} noValidate onSubmit={handleSubmit}>
+      <FieldGroup className="gap-4">
+        <AuthField
+          id="setup-name"
+          name="name"
+          label="Name"
+          autoComplete="name"
+          autoFocus
+          errors={fieldErrors.name}
+        />
+        <AuthField
+          id="setup-email"
+          name="email"
+          type="email"
+          label="Email"
+          autoComplete="email"
+          errors={fieldErrors.email}
+        />
+        <AuthField
+          id="setup-password"
+          name="password"
+          type="password"
+          label="Password"
+          description={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+          autoComplete="new-password"
+          errors={fieldErrors.password}
+        />
+        <AuthField
+          id="setup-confirm-password"
+          name="confirmPassword"
+          type="password"
+          label="Confirm password"
+          autoComplete="new-password"
+          errors={fieldErrors.confirmPassword}
+        />
+        {formError ? (
+          <StatusLine valid={false} role="alert">
+            {formError}
+          </StatusLine>
+        ) : null}
+        <Button type="submit" disabled={pending}>
+          {pending ? "Creating account…" : "Create account"}
+        </Button>
+      </FieldGroup>
     </form>
   );
 }

@@ -100,7 +100,7 @@ Radii: `rounded-md` ≈6 for small controls, `rounded-lg` 8 for inputs and butto
 Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Shared ones sit at the top of `src/components` (`segmented-bar.tsx`, `stat-tile.tsx`, `status-line.tsx`, `unit-input.tsx`, and `library-table.tsx` for the Library shape's headings, row names and row actions), and shared class names and constants in `src/lib/design-system.ts`. Others still live with Goals (`split-slider.tsx`): reuse them, and move a component to the shared location the first time a second view needs it, rather than copying it.
 
 - **Button** — primary / outline / ghost / icon, plus the tinted `destructive` for confirming a delete.
-- **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line.
+- **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line. An error takes the helper line's place. A button inside the field, such as the password reveal, is 24px so it fits the 32px input; `AuthField` is this pattern for the auth forms.
 - **SegmentedToggle** — shadcn ToggleGroup styled as a track; for presets and view switches. Not built yet: add it the first time one is needed.
 - **MacroBar** — the 6px segmented protein/carbs/fat bar with gaps, plus its status line. It shows how a whole divides up. An over-allocated total scales back to fit and shows a `destructive` tick at 100%.
 - **Macro share** — a `MacroBar` under a food's name, showing each macro's share of its calories at a glance. Its proportions complement the grams beside it, so principle 5 isn't broken.
@@ -139,7 +139,7 @@ Macro series use `protein`, `carbs` and `fat`, in that order; meal series use th
 
 ## Iconography
 
-Lucide (shadcn's default), stroke 1.8, 15–16px, `currentColor` in `muted-foreground`; turns `foreground` on hover. Icon-only buttons are 32–36px and always labelled. No emoji, no filled icons, no illustrations in the app chrome.
+Lucide (shadcn's default), stroke 1.8, 15–16px, `currentColor` in `muted-foreground`; turns `foreground` on hover. The logo mark beside the auth wordmark is the one larger icon, at 32px in `brand`. Icon-only buttons are 32–36px, except inside a field (see **Field**), and always labelled. No emoji, no filled icons, no illustrations in the app chrome.
 
 ## Numbers & copy
 
@@ -157,11 +157,11 @@ Text ≥ 4.5:1 in both themes (`muted-foreground` is the darkest allowed for sma
 
 ## Adoption
 
-Goals, Ingredients, Meals and the site header follow this system; the rest of the app is being brought over view by view.
+Goals, Ingredients, Meals, Account, login, setup and the site header follow this system; the rest of the app is being brought over view by view.
 
 - **Theme scope.** The palette lives in `.nutria-theme`, so a view opts in by putting that class on its `<main>`. Portaled content (dialogs, popovers, menus) renders outside that subtree and needs the class on its own content element. Once every view has adopted it, move the values into `:root` and `.dark` and remove the class.
 - **Default theme.** With no stored choice, `themeScript` follows the OS preference instead of defaulting to dark.
-- **Width.** `PageContainer`'s default tier still steps up to 1280px; Goals, Ingredients and Meals force 1200px with an override.
+- **Width.** `PageContainer`'s default tier still steps up to 1280px; views that have adopted this system force 1200px with an override.
 - **Page chrome.** Other views still use `text-2xl font-medium` titles and `py-10`, and don't set `tabular-nums` at the view level.
 - **Calendar.** Slot cards and the food panel use text below the 12px floor and uppercase labels; progress bars are 8px with a `primary` fill.
 - **Add actions.** The + icons outside Goals, Ingredients and Meals aren't `brand` yet.

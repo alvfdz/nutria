@@ -42,6 +42,16 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
+  test("uses the design-system card", async () => {
+    render(await page());
+
+    expect(
+      screen
+        .getByRole("heading", { level: 1, name: "Sign in" })
+        .closest("[data-slot=card]"),
+    ).toHaveClass("rounded-card!");
+  });
+
   test("sends a fresh install to the setup screen", async () => {
     vi.mocked(hasAnyUser).mockResolvedValue(false);
 
@@ -72,5 +82,11 @@ describe("LoginPage", () => {
       "NEXT_REDIRECT",
     );
     expect(redirect).toHaveBeenCalledWith("/meals");
+  });
+
+  test("points a locked-out owner at the reset command", async () => {
+    render(await page());
+
+    expect(screen.getByText("reset-password")).toBeInTheDocument();
   });
 });

@@ -95,4 +95,32 @@ describe("LoginForm", () => {
       "Too many attempts. Wait a few seconds and try again.",
     );
   });
+
+  test("relabels and disables the button while signing in", async () => {
+    signIn.mockReturnValue(new Promise(() => {}) as never);
+    render(<LoginForm next="/" />);
+
+    await submit("owner@example.com", "correct horse");
+
+    expect(screen.getByRole("button", { name: "Signing in…" })).toBeDisabled();
+  });
+
+  test("shows a request error just above the action", async () => {
+    signIn.mockResolvedValue({ data: null, error: { status: 429 } } as never);
+    render(<LoginForm next="/" />);
+
+    await submit("owner@example.com", "guess");
+
+    expect(screen.getByRole("alert").nextElementSibling).toBe(
+      screen.getByRole("button", { name: "Sign in" }),
+    );
+  });
+
+  test("moves focus to the first invalid field", async () => {
+    render(<LoginForm next="/" />);
+
+    await submit("", "");
+
+    expect(screen.getByLabelText("Email")).toHaveFocus();
+  });
 });

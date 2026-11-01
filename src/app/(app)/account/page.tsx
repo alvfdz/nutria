@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { PageContainer } from "@/components/page-container";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
+import { CARD_CLASS, CARD_TITLE_CLASS } from "@/lib/design-system";
 
 export const metadata: Metadata = {
   title: "Account",
@@ -12,33 +20,69 @@ export const metadata: Metadata = {
  * Account route. Requires a signed-in user, names the account and hosts the
  * change-password form. There is no email-based recovery, so a forgotten
  * password is fixed with the `auth:reset-password` command instead (see the
- * README).
+ * README). The page opts into the design-system palette through `nutria-theme`,
+ * and narrows the shared container to the 1200px content width (plus its 24px
+ * gutters); the width is forced because the container's own `lg:`/`xl:` steps
+ * would otherwise win.
  */
 export default async function AccountPage() {
   const user = await requireUser();
+  const details = [
+    { label: "Name", value: user.name },
+    { label: "Email", value: user.email },
+  ];
 
   return (
-    <main className="flex-1">
-      <PageContainer className="py-10">
-        <div className="grid max-w-sm gap-8">
+    <main className="nutria-theme bg-background text-foreground flex-1 tabular-nums">
+      <PageContainer className="max-w-[1248px]! py-12">
+        <div className="max-w-sm">
           <header className="grid gap-1">
-            <h1 className="font-heading text-2xl font-medium tracking-tight">
-              Account
-            </h1>
+            <h1 className="font-heading type-page-title">Account</h1>
             <p className="text-muted-foreground text-sm">
-              Signed in as {user.name} ({user.email}).
+              Who you&apos;re signed in as, and your password.
             </p>
           </header>
 
-          <section className="grid gap-4" aria-labelledby="password-heading">
-            <h2
-              id="password-heading"
-              className="font-heading text-lg font-medium"
-            >
-              Change password
-            </h2>
-            <ChangePasswordForm />
-          </section>
+          <div className="mt-8 grid gap-6">
+            <Card className={CARD_CLASS}>
+              <CardHeader>
+                <CardTitle className={CARD_TITLE_CLASS}>
+                  <h2>Profile</h2>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="divide-border-subtle divide-y text-sm">
+                  {details.map(({ label, value }) => (
+                    <div
+                      key={label}
+                      className="flex justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                    >
+                      <dt className="text-muted-foreground shrink-0">
+                        {label}
+                      </dt>
+                      <dd className="min-w-0 truncate" title={value}>
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card className={CARD_CLASS}>
+              <CardHeader>
+                <CardTitle className={CARD_TITLE_CLASS}>
+                  <h2>Change password</h2>
+                </CardTitle>
+                <CardDescription>
+                  This signs out your other devices.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChangePasswordForm />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </PageContainer>
     </main>

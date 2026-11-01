@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { AuthField } from "@/components/auth/auth-field";
+import { useFocusFirstInvalid } from "@/components/auth/use-focus-first-invalid";
+import { StatusLine } from "@/components/status-line";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { FieldGroup } from "@/components/ui/field";
 import { authClient } from "@/lib/auth/client";
 import { authErrorMessage } from "@/lib/auth/errors";
 import {
@@ -30,6 +32,7 @@ export function LoginForm({ next }: { next: string }) {
   );
   const [formError, setFormError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const formRef = useFocusFirstInvalid(fieldErrors);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,33 +73,34 @@ export function LoginForm({ next }: { next: string }) {
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="grid gap-4">
-      {formError ? (
-        <p role="alert" className="text-destructive text-sm">
-          {formError}
-        </p>
-      ) : null}
-      <AuthField
-        id="login-email"
-        name="email"
-        type="email"
-        label="Email"
-        autoComplete="email"
-        autoFocus
-        errors={fieldErrors.email}
-      />
-      <AuthField
-        id="login-password"
-        name="password"
-        type="password"
-        label="Password"
-        autoComplete="current-password"
-        errors={fieldErrors.password}
-      />
-      <Button type="submit" disabled={pending}>
-        {pending ? <Spinner /> : null}
-        Sign in
-      </Button>
+    <form ref={formRef} noValidate onSubmit={handleSubmit}>
+      <FieldGroup className="gap-4">
+        <AuthField
+          id="login-email"
+          name="email"
+          type="email"
+          label="Email"
+          autoComplete="email"
+          autoFocus
+          errors={fieldErrors.email}
+        />
+        <AuthField
+          id="login-password"
+          name="password"
+          type="password"
+          label="Password"
+          autoComplete="current-password"
+          errors={fieldErrors.password}
+        />
+        {formError ? (
+          <StatusLine valid={false} role="alert">
+            {formError}
+          </StatusLine>
+        ) : null}
+        <Button type="submit" disabled={pending}>
+          {pending ? "Signing in…" : "Sign in"}
+        </Button>
+      </FieldGroup>
     </form>
   );
 }

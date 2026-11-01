@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { hasAnyUser } from "@/lib/auth/session";
+import { CARD_CLASS, CARD_TITLE_CLASS } from "@/lib/design-system";
 
 export const metadata: Metadata = { title: "Set up Nutria" };
 
@@ -21,9 +22,9 @@ export default async function SetupPage() {
   if (await hasAnyUser()) redirect("/login");
 
   return (
-    <Card>
+    <Card className={CARD_CLASS}>
       <CardHeader>
-        <CardTitle>
+        <CardTitle className={CARD_TITLE_CLASS}>
           <h1>Welcome to Nutria</h1>
         </CardTitle>
         <CardDescription>

@@ -19,4 +19,10 @@ describe("AuthBrand", () => {
     expect(screen.getByTestId("auth-logo")).toBeInTheDocument();
     expect(screen.getByText("Nutria")).toBeInTheDocument();
   });
+
+  test("marks the logo with the brand accent", () => {
+    render(<AuthBrand />);
+
+    expect(screen.getByTestId("auth-logo")).toHaveClass("text-brand");
+  });
 });

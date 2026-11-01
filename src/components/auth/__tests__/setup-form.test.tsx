@@ -50,12 +50,12 @@ describe("SetupForm", () => {
     expect(router.refresh).toHaveBeenCalled();
   });
 
-  test("names the minimum password length in the label", () => {
+  test("states the minimum password length as a helper line", () => {
     render(<SetupForm />);
 
-    expect(
-      screen.getByLabelText("Password (at least 12 characters)"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(
+      "At least 12 characters.",
+    );
   });
 
   test("catches a mismatched confirmation before sending anything", async () => {
@@ -65,6 +65,16 @@ describe("SetupForm", () => {
 
     expect(screen.getByText("Passwords do not match")).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
+  });
+
+  test("moves focus to the first invalid field", async () => {
+    render(<SetupForm />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create account" }),
+    );
+
+    expect(screen.getByLabelText("Name")).toHaveFocus();
   });
 
   test("recovers when the request never gets an answer", async () => {
