@@ -103,3 +103,11 @@ export type DayColumn = {
   /** One slot per Goals slot, in dining order. */
   slots: SlotView[];
 };
+
+/** The plans a meal slot holds, as far as removing the slot is concerned. */
+export type SlotPlanUsage = {
+  /** Days from today onwards with a plan, `YYYY-MM-DD`, oldest first. */
+  upcomingDays: string[];
+  /** Whether any plan sits before today; those go away with the slot. */
+  hasPastPlans: boolean;
+};

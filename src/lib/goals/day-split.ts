@@ -1,3 +1,5 @@
+import { PCT_TOLERANCE } from "./schema";
+
 /**
  * Geometry for the goals form's stacked day bar: one segment per meal, in the
  * order the meals are eaten. Pure math with no I/O, so the client form can
@@ -52,4 +54,22 @@ export function daySplitSegments(shares: number[]): SplitSegment[] {
         ? 1
         : MIN_SEGMENT_OPACITY + ((1 - MIN_SEGMENT_OPACITY) * index) / steps,
   }));
+}
+
+/**
+ * Where the 100% mark falls on a bar whose shares run over and were scaled back
+ * to fit. Without this mark an over-allocated bar looks as full as a valid one.
+ *
+ * @param shares The entered shares; each is clamped to 0–100, as in the bar.
+ * @returns The mark's position as a percentage of the track, or `null` when the
+ * total is within the save-time tolerance of 100 or below it.
+ */
+export function overLimitPosition(shares: number[]): number | null {
+  const total = shares.reduce(
+    (sum, share) =>
+      sum + Math.min(100, Math.max(0, Number.isFinite(share) ? share : 0)),
+    0,
+  );
+
+  return total > 100 + PCT_TOLERANCE ? (100 / total) * 100 : null;
 }

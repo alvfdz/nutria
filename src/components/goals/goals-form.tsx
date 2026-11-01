@@ -1,31 +1,103 @@
 "use client";
 
-import { useActionState, useEffect, useId, useMemo, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FormEvent,
+} from "react";
 
-import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, EllipsisVertical, Plus, X } from "lucide-react";
+import { cn } from "cn";
 import { toast } from "sonner";
 
 import { saveGoalsAction } from "@/app/(app)/goals/actions";
+import {
+  Dot,
+  MacroBar,
+  MacroDot,
+  SegmentedBar,
+  mealTint,
+  type MacroName,
+} from "@/components/goals/segmented-bar";
+import { SplitSlider } from "@/components/goals/split-slider";
+import { StatusLine } from "@/components/goals/status-line";
+import { useUnsavedChangesGuard } from "@/components/goals/use-unsaved-changes-guard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
-import { daySplitSegments } from "@/lib/goals/day-split";
+import { daySplitSegments, overLimitPosition } from "@/lib/goals/day-split";
+import {
+  THIN_SPACE,
+  formatWhole,
+  percentTotalStatus,
+  removedMealWarning,
+  saveBlockerMessage,
+} from "@/lib/goals/display";
 import {
   initialGoalsFormState,
+  type GoalsFieldErrorKey,
   type GoalsFieldErrors,
   type GoalsFormState,
 } from "@/lib/goals/form-state";
+import {
+  apportion,
+  sharesAfterAdding,
+  sharesAfterRemoving,
+} from "@/lib/goals/shares";
 import type { Goals } from "@/lib/goals/types";
-import { formatMacro } from "@/lib/ingredients/format";
+import type { SlotPlanUsage } from "@/lib/plan/types";
 
 /** Highest number of daily meals the form offers. */
 const MAX_MEALS = 8;
@@ -51,6 +123,52 @@ const DEFAULT_SLOTS = [
   { name: "Dinner", percent: "30" },
 ];
 
+/** Lucide stroke width across the view. */
+const ICON_STROKE = 1.8;
+
+/**
+ * A design-system card: 1px border, 12px radius, no ring, and 24px padding that
+ * tightens to 16px on phones so a meal row keeps room for its name. The radius
+ * is forced because `cn` cannot tell a custom token conflicts with the card's own.
+ */
+const CARD_CLASS =
+  "rounded-card! border border-border ring-0 [--card-spacing:--spacing(4)] sm:[--card-spacing:--spacing(6)]";
+
+/** Heading weight and rhythm of a card title. */
+const CARD_TITLE_CLASS = "text-base/6 font-semibold";
+
+/** A ghost row action: muted until hovered, and at the 32px icon size. */
+const ROW_ACTION_CLASS = "text-muted-foreground";
+
+/**
+ * A row input with no box of its own: transparent until hovered or focused, or
+ * always filled on touch screens, where no hover would reveal it can be edited.
+ * The `has-` variants cover an input group, whose inner input takes the focus.
+ */
+const INLINE_INPUT_CLASS =
+  "border-transparent bg-transparent hover:bg-muted focus-visible:bg-muted has-[:focus-visible]:bg-muted pointer-coarse:bg-muted dark:bg-transparent dark:hover:bg-muted dark:focus-visible:bg-muted dark:has-[:focus-visible]:bg-muted dark:pointer-coarse:bg-muted";
+
+/** A column heading in the summary table: quiet, and aligned with its numbers. */
+const SUMMARY_HEAD_CLASS =
+  "text-muted-foreground h-8 px-0 text-right text-xs font-normal";
+
+/** A number in the summary table, right-aligned so the digits line up. */
+const SUMMARY_CELL_CLASS = "text-muted-foreground px-0 py-1.5 text-right";
+
+/** A macro's form field. */
+type MacroFieldName = "proteinPct" | "carbsPct" | "fatPct";
+
+/** The macro inputs, in the fixed protein, carbs, fat order. */
+const MACRO_FIELDS: {
+  macro: MacroName;
+  name: MacroFieldName;
+  label: string;
+}[] = [
+  { macro: "protein", name: "proteinPct", label: "Protein" },
+  { macro: "carbs", name: "carbsPct", label: "Carbs" },
+  { macro: "fat", name: "fatPct", label: "Fat" },
+];
+
 /** One meal row: a stable key plus the values its inputs are bound to. */
 type Row = {
   /** React key, stable across add/remove so a row keeps its own values. */
@@ -66,21 +184,77 @@ type Row = {
   percent: string;
 };
 
-/**
- * Splits 100% evenly across `count` meals. Every row gets
- * `100 / count` rounded to two decimals; the remainder lands on the last row
- * so the sum is exactly 100 and rebalancing never trips the schema's sum
- * check (e.g. three meals → 33.33 / 33.33 / 33.34).
- *
- * @param count Number of meals to divide the day into.
- * @returns One percentage string per meal, summing to 100.
- */
-function evenPercents(count: number): string[] {
-  const share = Math.round((100 / count) * 100) / 100;
-  const last = Math.round((100 - share * (count - 1)) * 100) / 100;
-  const percents = Array.from({ length: count - 1 }, () => String(share));
+/** Reads a typed share as a number, treating anything unparsable as 0. */
+const shareOf = (row: Row) => Number(row.percent) || 0;
 
-  return [...percents, String(last)];
+/** Where a row asks for focus after a change, by its `data-row-focus` value. */
+type RowFocusRequest = { key: string; target: string; select?: boolean };
+
+/** The editable values of the form, as bound to its inputs. */
+type FormValues = {
+  calories: string;
+  proteinPct: string;
+  carbsPct: string;
+  fatPct: string;
+  rows: Row[];
+};
+
+/**
+ * Builds the values the form starts from, and returns to on reset.
+ *
+ * @param goals The stored goals, or `null` for the first-visit defaults.
+ * @returns The seed values.
+ */
+function seedValues(goals: Goals | null): FormValues {
+  if (!goals) {
+    return {
+      calories: String(DEFAULT_CALORIES),
+      ...DEFAULT_MACROS,
+      rows: DEFAULT_SLOTS.map((slot, index) => ({
+        key: `row-${index}`,
+        ...slot,
+      })),
+    };
+  }
+
+  return {
+    calories: String(goals.calories),
+    proteinPct: String(goals.proteinPct),
+    carbsPct: String(goals.carbsPct),
+    fatPct: String(goals.fatPct),
+    rows: goals.slots.map((slot, index) => ({
+      key: `row-${index}`,
+      slotId: slot.id,
+      name: slot.name,
+      percent: String(slot.percent),
+    })),
+  };
+}
+
+/**
+ * Serializes what a save would submit, so two sets of values compare equal when
+ * saving would change nothing. Row keys are left out: they identify a row in
+ * React and never reach the server.
+ *
+ * @param values The form values.
+ * @returns A string that is equal exactly when the submitted values are.
+ */
+function submittedSnapshot({ rows, ...budget }: FormValues): string {
+  return JSON.stringify({
+    ...budget,
+    rows: rows.map((row) => [row.slotId, row.name, row.percent]),
+  });
+}
+
+/**
+ * The name a meal goes by in labels and announcements.
+ *
+ * @param row The meal row.
+ * @param index The row's position, used when the name is blank.
+ * @returns The typed name, or `Meal N`.
+ */
+function mealLabel(row: Row, index: number): string {
+  return row.name.trim() || `Meal ${index + 1}`;
 }
 
 /**
@@ -98,28 +272,66 @@ function FieldError({
   if (!message) return null;
 
   return (
-    <p id={id} className="text-destructive text-xs">
+    <StatusLine id={id} valid={false}>
       {message}
-    </p>
+    </StatusLine>
   );
 }
 
-/** One stat of the live summary: a label and a formatted value with a unit. */
-function Stat({
-  label,
-  value,
+/**
+ * A number input with its unit inside, muted and hidden from assistive
+ * technology because the label already states it. The value sits right beside
+ * the unit. The browser's number spinners are removed; arrow keys still step.
+ */
+function UnitInput({
   unit,
-}: {
-  label: string;
-  value: number;
+  groupClassName,
+  className,
+  ...props
+}: ComponentProps<typeof InputGroupInput> & {
   unit: string;
+  groupClassName?: string;
 }) {
   return (
-    <div className="grid gap-0.5 text-center">
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="text-sm font-medium tabular-nums">
-        {formatMacro(value)}{" "}
-        <span className="text-muted-foreground font-normal">{unit}</span>
+    <InputGroup className={groupClassName}>
+      <InputGroupInput
+        className={cn(
+          "text-right [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          className,
+        )}
+        {...props}
+      />
+      <InputGroupAddon
+        align="inline-end"
+        aria-hidden="true"
+        className="font-normal"
+      >
+        {unit}
+      </InputGroupAddon>
+    </InputGroup>
+  );
+}
+
+/** One cell of the summary's grams row: a marked macro name and its grams. */
+function StatTile({
+  macro,
+  label,
+  grams,
+}: {
+  macro: MacroName;
+  label: string;
+  grams: number;
+}) {
+  return (
+    <div className="grid min-w-0 gap-1 p-3">
+      <dt className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        <MacroDot macro={macro} />
+        {label}
+      </dt>
+      <dd className="text-lg font-semibold">
+        {formatWhole(grams)}
+        {THIN_SPACE}
+        <span className="text-muted-foreground text-sm font-normal">g</span>
       </dd>
     </div>
   );
@@ -132,15 +344,28 @@ function Stat({
  * key deliberately sits on the child: the action's `refresh()` re-renders the
  * route but keeps this wrapper mounted, so the success state — and the effect
  * below that fires the toast — survive the remount that would otherwise
- * discard them.
+ * discard them. Resetting the form hides the last submit's errors by dismissing
+ * that action state, since `useActionState` offers no way to clear it.
  *
  * @param props.goals The stored goals, or `null` on a first visit.
+ * @param props.slotUsage Each stored meal's plans, by slot id; meals without
+ * plans can be left out, and it defaults to none.
  * @returns The keyed goals form; never throws.
  */
-export function GoalsView({ goals }: { goals: Goals | null }) {
+export function GoalsView({
+  goals,
+  slotUsage = {},
+}: {
+  goals: Goals | null;
+  slotUsage?: Record<string, SlotPlanUsage>;
+}) {
   const [state, formAction, pending] = useActionState(
     saveGoalsAction,
     initialGoalsFormState,
+  );
+
+  const [dismissedState, setDismissedState] = useState<GoalsFormState | null>(
+    null,
   );
 
   // One toast per completed save: `state` gets a fresh object on every
@@ -155,9 +380,11 @@ export function GoalsView({ goals }: { goals: Goals | null }) {
     <GoalsForm
       key={goals?.updatedAt ?? "first"}
       goals={goals}
-      state={state}
+      slotUsage={slotUsage}
+      state={state === dismissedState ? initialGoalsFormState : state}
       formAction={formAction}
       pending={pending}
+      onReset={() => setDismissedState(state)}
     />
   );
 }
@@ -169,78 +396,168 @@ export function GoalsView({ goals }: { goals: Goals | null }) {
  * parent keys this component on the stored `goals.updatedAt`, so a successful
  * save remounts it seeded from the freshly saved values; the action state,
  * submit handler and pending flag are passed in from {@link GoalsView} so the
- * toast outlives that remount. On large screens the editor and a sticky
- * live-summary card sit side by side; the summary uses `budget.ts` to show the
- * daily grams, and `day-split.ts` to draw one stacked bar that divides the day
- * across the meals — in dining order, tinted light to dark — with each meal's
- * kcal and gram slice listed below it. Each row also carries up/down buttons
- * that reorder the meals; because the summary maps over the same rows, it
- * follows the new dining order.
+ * toast outlives that remount.
+ *
+ * On large screens the budget and meals cards take two thirds of the width beside
+ * a sticky summary of the daily grams and each meal's slice. Both percentage
+ * splits are edited where they are drawn: typed into the inputs, or dragged on
+ * the bar through {@link SplitSlider}. Adding or removing a meal rescales the
+ * other shares in proportion, so a custom split survives.
+ *
+ * A submit whose totals cannot pass the schema stops in the browser and focuses
+ * the first problem; other failures come back from the action. Server errors are
+ * matched to rows by key, because rows can move after the submit, and each one
+ * clears as soon as its field is edited. An action bar closes the form and
+ * sticks to the viewport while there are unsaved edits.
  *
  * @param props.goals The stored goals, or `null` on a first visit; seeds the
  * local field state.
+ * @param props.slotUsage Each stored meal's plans, by slot id.
  * @param props.state State returned by the last save action submit.
  * @param props.formAction Submit handler from the parent's `useActionState`.
  * @param props.pending Whether a save is currently in flight.
+ * @param props.onReset Called when the user discards their edits, so the parent
+ * can drop the last submit's errors.
  * @returns The goals form markup; never throws.
  */
 function GoalsForm({
   goals,
+  slotUsage,
   state,
   formAction,
   pending,
+  onReset,
 }: {
   goals: Goals | null;
+  slotUsage: Record<string, SlotPlanUsage>;
   state: GoalsFormState;
   formAction: (formData: FormData) => void;
   pending: boolean;
+  onReset: () => void;
 }) {
   const baseId = useId();
   const fieldErrors: GoalsFieldErrors = state.fieldErrors ?? {};
 
-  const [calories, setCalories] = useState(
-    goals ? String(goals.calories) : String(DEFAULT_CALORIES),
-  );
-  const [proteinPct, setProteinPct] = useState(
-    goals ? String(goals.proteinPct) : DEFAULT_MACROS.proteinPct,
-  );
-  const [carbsPct, setCarbsPct] = useState(
-    goals ? String(goals.carbsPct) : DEFAULT_MACROS.carbsPct,
-  );
-  const [fatPct, setFatPct] = useState(
-    goals ? String(goals.fatPct) : DEFAULT_MACROS.fatPct,
-  );
-  const [rows, setRows] = useState<Row[]>(() =>
-    goals
-      ? goals.slots.map((slot, index) => ({
-          key: `row-${index}`,
-          slotId: slot.id,
-          name: slot.name,
-          percent: String(slot.percent),
-        }))
-      : DEFAULT_SLOTS.map((slot, index) => ({ key: `row-${index}`, ...slot })),
-  );
+  const [seed] = useState(() => seedValues(goals));
+  const [calories, setCalories] = useState(seed.calories);
+  const [proteinPct, setProteinPct] = useState(seed.proteinPct);
+  const [carbsPct, setCarbsPct] = useState(seed.carbsPct);
+  const [fatPct, setFatPct] = useState(seed.fatPct);
+  const [rows, setRows] = useState(seed.rows);
   const [announcement, setAnnouncement] = useState("");
+  // The rows as they were submitted, to read the action's index-based errors.
+  const [submittedKeys, setSubmittedKeys] = useState<string[]>([]);
+  // Fields edited since the last submit; their errors no longer apply.
+  const [editedFields, setEditedFields] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [lastState, setLastState] = useState(state);
+  const formRef = useRef<HTMLFormElement>(null);
+  const caloriesRef = useRef<HTMLInputElement>(null);
+  const pendingRowFocus = useRef<RowFocusRequest | null>(null);
+
+  // A new submit result applies to the fields as they stand now.
+  if (state !== lastState) {
+    setLastState(state);
+    setEditedFields(new Set());
+  }
+
+  // Moving a focused button in the DOM, disabling it or removing its row would
+  // otherwise drop keyboard focus, so row changes say where it goes next.
+  useEffect(() => {
+    const request = pendingRowFocus.current;
+    if (!request) return;
+    pendingRowFocus.current = null;
+
+    const element = formRef.current?.querySelector<HTMLElement>(
+      `[data-row-key="${request.key}"] [data-row-focus="${request.target}"]`,
+    );
+    element?.focus();
+    if (request.select && element instanceof HTMLInputElement) element.select();
+  }, [rows]);
+
+  const macroFields = {
+    proteinPct: { value: proteinPct, setter: setProteinPct },
+    carbsPct: { value: carbsPct, setter: setCarbsPct },
+    fatPct: { value: fatPct, setter: setFatPct },
+  };
+
+  const dirty =
+    submittedSnapshot({ calories, proteinPct, carbsPct, fatPct, rows }) !==
+    submittedSnapshot(seed);
+  const guard = useUnsavedChangesGuard(dirty);
+
+  /** Drops the errors of the named fields, and the form-level error with them. */
+  const markEdited = (...fields: string[]) => {
+    setEditedFields((current) => new Set([...current, "form", ...fields]));
+  };
+
+  /** The errors still showing for a budget field. */
+  const budgetErrors = (field: "calories" | MacroFieldName) =>
+    editedFields.has(field) ? undefined : fieldErrors[field];
+
+  /** The errors still showing for a row's field, wherever the row is now. */
+  const rowErrors = (key: string, field: "name" | "percent") => {
+    const submittedIndex = submittedKeys.indexOf(key);
+    if (submittedIndex === -1 || editedFields.has(`${key}.${field}`)) {
+      return undefined;
+    }
+
+    const errorKey: GoalsFieldErrorKey = `slots.${submittedIndex}.${field}`;
+    return fieldErrors[errorKey];
+  };
 
   /**
-   * Resizes the day to `count` meals, rebalancing every share to
-   * `100 / count` so changing the count can never break the sum-to-100 check.
-   * Existing rows keep their names; appended ones default to "Meal N" and get
-   * a random key, because a row's original key stops matching its position
-   * after a middle removal and a positional fallback would collide.
+   * Discards the edits and any errors from the last submit. Focus moves to the
+   * first field, because the reset and save buttons both disable themselves once
+   * nothing is left to discard, and a disabled button would drop keyboard focus.
    */
-  const resizeRows = (count: number) => {
-    const clamped = Math.max(1, Math.min(MAX_MEALS, Math.floor(count)));
-    setRows((current) => {
-      const percents = evenPercents(clamped);
+  const resetForm = () => {
+    setCalories(seed.calories);
+    setProteinPct(seed.proteinPct);
+    setCarbsPct(seed.carbsPct);
+    setFatPct(seed.fatPct);
+    setRows(seed.rows);
+    setEditedFields(new Set());
+    setAnnouncement("Changes discarded");
+    onReset();
+    caloriesRef.current?.focus();
+  };
 
-      return Array.from({ length: clamped }, (_, index) => ({
-        key: current[index]?.key ?? crypto.randomUUID(),
-        slotId: current[index]?.slotId,
-        name: current[index]?.name ?? `Meal ${index + 1}`,
-        percent: percents[index],
-      }));
-    });
+  /** Applies new shares to the rows, clearing any errors on the old ones. */
+  const applyShares = (nextRows: Row[], percents: number[]) => {
+    setRows(
+      nextRows.map((row, index) => ({
+        ...row,
+        percent: String(percents[index]),
+      })),
+    );
+    markEdited(...nextRows.map((row) => `${row.key}.percent`));
+  };
+
+  /**
+   * Adds a meal with an even share of the day, shrinking the others in proportion
+   * so their relative sizes survive. Focus lands on the new name, ready to type.
+   * Appended rows get a random key, because a row's original key stops matching
+   * its position after a middle removal and a positional fallback would collide.
+   */
+  const addRow = () => {
+    if (rows.length >= MAX_MEALS) return;
+
+    const row: Row = {
+      key: crypto.randomUUID(),
+      name: `Meal ${rows.length + 1}`,
+      percent: "0",
+    };
+    pendingRowFocus.current = { key: row.key, target: "name", select: true };
+    applyShares([...rows, row], sharesAfterAdding(rows.map(shareOf)));
+    setAnnouncement(`${row.name} added`);
+  };
+
+  /** Gives every meal the same share, for a fresh start after heavy editing. */
+  const splitEvenly = () => {
+    applyShares(rows, apportion(rows.map(() => 1)));
+    setAnnouncement("Meals split evenly");
   };
 
   const updateRow = (key: string, patch: Partial<Omit<Row, "key">>) => {
@@ -254,40 +571,43 @@ function GoalsForm({
    * keeping its key, name and share together so the meal — not the position —
    * carries its values. Out-of-range moves are ignored, so the arrow buttons
    * disabled at the ends stay no-ops. The jump is announced for screen readers,
-   * which cannot see the reordered rows move.
+   * which cannot see the reordered rows move. Focus stays on the control that
+   * was used, or moves to the opposite arrow if this one has reached an end.
    */
-  const moveRow = (index: number, delta: number) => {
+  const moveRow = (index: number, delta: number, from: "buttons" | "menu") => {
     const target = index + delta;
     if (target < 0 || target >= rows.length) return;
 
-    const label = rows[index].name || `Meal ${index + 1}`;
-    setRows((current) => {
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-    setAnnouncement(`${label} moved to position ${target + 1}`);
+    const atEnd = target === 0 || target === rows.length - 1;
+    const direction = delta < 0 === !atEnd ? "up" : "down";
+    pendingRowFocus.current = {
+      key: rows[index].key,
+      target: from === "menu" ? "menu" : direction,
+    };
+
+    const next = [...rows];
+    [next[index], next[target]] = [next[target], next[index]];
+    setRows(next);
+    markEdited();
+    setAnnouncement(
+      `${mealLabel(rows[index], index)} moved to position ${target + 1}`,
+    );
   };
 
   /**
-   * Removes the row at `index`, keeping every surviving row's key, slot id,
-   * name and share, then rebalances the remaining shares to `100 / count` so
-   * the sum-to-100 check always holds. The removal is announced for screen
-   * readers, which cannot see the row disappear.
+   * Removes the row at `index`, handing its share to the others in proportion.
+   * The removal is announced for screen readers, which cannot see the row
+   * disappear, and focus moves to the name of the row that takes its place.
    */
   const removeRow = (index: number) => {
-    setRows((current) => {
-      const remaining = current.filter((_, position) => position !== index);
-      const percents = evenPercents(remaining.length);
+    const remaining = rows.filter((_, position) => position !== index);
+    const neighbour = remaining[Math.min(index, remaining.length - 1)];
+    if (neighbour) {
+      pendingRowFocus.current = { key: neighbour.key, target: "name" };
+    }
 
-      return remaining.map((row, position) => ({
-        ...row,
-        percent: percents[position],
-      }));
-    });
-    const label = rows[index].name || `Meal ${index + 1}`;
-    setAnnouncement(`${label} removed`);
+    applyShares(remaining, sharesAfterRemoving(rows.map(shareOf), index));
+    setAnnouncement(`${mealLabel(rows[index], index)} removed`);
   };
 
   // Live summary inputs: an empty or non-numeric calorie field hides it.
@@ -307,186 +627,321 @@ function GoalsForm({
     () => (source ? computeMacroBudget(source) : null),
     [source],
   );
+
+  // Shares clamped to 0–100, so a stray out-of-range entry cannot stretch the
+  // bar past its track; the bar and every per-meal number read from these.
+  const shares = useMemo(
+    () => rows.map((row) => Math.min(100, Math.max(0, shareOf(row)))),
+    [rows],
+  );
   const slotBudgets = useMemo(
     () =>
       source
         ? computeSlotBudgets(
             source,
-            rows.map((row) => ({ percent: Number(row.percent) || 0 })),
+            shares.map((percent) => ({ percent })),
           )
         : [],
-    [source, rows],
-  );
-
-  // Shares clamped to 0–100, so a stray out-of-range entry cannot stretch the
-  // bar past its track; the day bar and the rows both read from these.
-  const shares = useMemo(
-    () =>
-      rows.map((row) => Math.min(100, Math.max(0, Number(row.percent) || 0))),
-    [rows],
+    [source, shares],
   );
   const segments = useMemo(() => daySplitSegments(shares), [shares]);
 
+  const macroShares = [
+    Number(proteinPct) || 0,
+    Number(carbsPct) || 0,
+    Number(fatPct) || 0,
+  ];
+  const macroStatus = percentTotalStatus(
+    "Macros",
+    macroShares.reduce((sum, share) => sum + share, 0),
+  );
+  const mealStatus = percentTotalStatus(
+    "Meals",
+    rows.reduce((sum, row) => sum + shareOf(row), 0),
+  );
+  const blocker = saveBlockerMessage(macroStatus.valid, mealStatus.valid);
+  const formError = editedFields.has("form") ? undefined : state.formError;
+
+  const evenShares = apportion(rows.map(() => 1));
+  const alreadyEven = rows.every(
+    (row, index) => shareOf(row) === evenShares[index],
+  );
+
+  const keptSlotIds = new Set(rows.map((row) => row.slotId));
+  const removalWarnings = (goals?.slots ?? []).flatMap((slot) => {
+    if (keptSlotIds.has(slot.id)) return [];
+    const message = removedMealWarning(slot.name, slotUsage[slot.id]);
+
+    return message ? [{ id: slot.id, message }] : [];
+  });
+
+  /**
+   * Stops a submit the schema would refuse and takes the user to the first
+   * problem. Otherwise records the row order the action's errors will refer to.
+   */
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (blocker) {
+      event.preventDefault();
+      setAnnouncement(blocker);
+      const firstProblem = !macroStatus.valid
+        ? formRef.current?.querySelector<HTMLElement>(
+            `[name="${MACRO_FIELDS[0].name}"]`,
+          )
+        : formRef.current?.querySelector<HTMLElement>(
+            '[data-row-focus="percent"]',
+          );
+      firstProblem?.focus();
+      return;
+    }
+
+    setSubmittedKeys(rows.map((row) => row.key));
+  };
+
+  const caloriesErrors = budgetErrors("calories");
+
   return (
-    <form action={formAction}>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {goals ? "Daily goals" : "Set your daily goals"}
-            </CardTitle>
-            <CardDescription>
-              Your calorie target, macro split, and the meals that divide the
-              day&apos;s budget.
-            </CardDescription>
-          </CardHeader>
+    <form ref={formRef} action={formAction} onSubmit={handleSubmit}>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid min-w-0 gap-6">
+          <Card className={CARD_CLASS}>
+            <CardHeader>
+              <CardTitle className={CARD_TITLE_CLASS}>
+                {goals ? "Daily goals" : "Set your daily goals"}
+              </CardTitle>
+              {goals ? null : (
+                <CardDescription>
+                  Start from these defaults or change them. The planner uses
+                  what you save here.
+                </CardDescription>
+              )}
+            </CardHeader>
 
-          <CardContent className="grid gap-5">
-            <fieldset className="grid gap-3">
-              <legend className="text-muted-foreground text-xs font-medium">
-                Daily budget
-              </legend>
+            <CardContent>
+              <FieldSet>
+                <FieldLegend className="sr-only">Daily budget</FieldLegend>
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="grid min-w-0 gap-1.5">
-                  <Label htmlFor={`${baseId}-calories`}>Calories (kcal)</Label>
-                  <Input
-                    id={`${baseId}-calories`}
-                    name="calories"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step="any"
-                    value={calories}
-                    onChange={(event) => setCalories(event.target.value)}
-                    placeholder="2000"
-                    aria-invalid={fieldErrors.calories ? true : undefined}
-                    aria-describedby={
-                      fieldErrors.calories
-                        ? `${baseId}-calories-error`
-                        : undefined
-                    }
-                  />
-                  <FieldError
-                    id={`${baseId}-calories-error`}
-                    errors={fieldErrors.calories}
-                  />
-                </div>
+                <FieldGroup className="gap-6">
+                  <Field
+                    className="sm:max-w-48"
+                    data-invalid={caloriesErrors ? true : undefined}
+                  >
+                    <FieldLabel htmlFor={`${baseId}-calories`}>
+                      Calories<span className="sr-only"> (kcal)</span>
+                    </FieldLabel>
+                    <UnitInput
+                      ref={caloriesRef}
+                      unit="kcal"
+                      id={`${baseId}-calories`}
+                      name="calories"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      step="any"
+                      value={calories}
+                      onChange={(event) => {
+                        setCalories(event.target.value);
+                        markEdited("calories");
+                      }}
+                      placeholder="2000"
+                      aria-invalid={caloriesErrors ? true : undefined}
+                      aria-describedby={
+                        caloriesErrors ? `${baseId}-calories-error` : undefined
+                      }
+                    />
+                    <FieldError
+                      id={`${baseId}-calories-error`}
+                      errors={caloriesErrors}
+                    />
+                  </Field>
 
-                {(
-                  [
-                    {
-                      label: "Protein %",
-                      name: "proteinPct",
-                      value: proteinPct,
-                      setter: setProteinPct,
-                      errorKey: "proteinPct" as const,
-                    },
-                    {
-                      label: "Carbs %",
-                      name: "carbsPct",
-                      value: carbsPct,
-                      setter: setCarbsPct,
-                      errorKey: "carbsPct" as const,
-                    },
-                    {
-                      label: "Fat %",
-                      name: "fatPct",
-                      value: fatPct,
-                      setter: setFatPct,
-                      errorKey: "fatPct" as const,
-                    },
-                  ] as const
-                ).map((macro) => {
-                  const id = `${baseId}-${macro.name}`;
-                  const errors = fieldErrors[macro.errorKey];
+                  <div className="flex flex-col gap-3">
+                    <FieldGroup className="grid grid-cols-3 gap-3">
+                      {MACRO_FIELDS.map(({ macro, name, label }) => {
+                        const id = `${baseId}-${name}`;
+                        const errors = budgetErrors(name);
+                        const { value, setter } = macroFields[name];
 
-                  return (
-                    <div key={macro.name} className="grid min-w-0 gap-1.5">
-                      <Label htmlFor={id}>{macro.label}</Label>
-                      <div className="relative">
-                        <Input
-                          id={id}
-                          name={macro.name}
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          max={100}
-                          step="any"
-                          value={macro.value}
-                          onChange={(event) => macro.setter(event.target.value)}
-                          className="pr-7"
-                          aria-invalid={errors ? true : undefined}
-                          aria-describedby={errors ? `${id}-error` : undefined}
-                        />
-                        <span
-                          aria-hidden="true"
-                          className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
-                        >
-                          %
-                        </span>
-                      </div>
-                      <FieldError id={`${id}-error`} errors={errors} />
-                    </div>
-                  );
-                })}
-              </div>
-            </fieldset>
+                        return (
+                          <Field
+                            key={name}
+                            className="min-w-0 content-start"
+                            data-invalid={errors ? true : undefined}
+                          >
+                            <FieldLabel htmlFor={id}>
+                              <MacroDot macro={macro} />
+                              <span>
+                                {label}
+                                <span className="sr-only"> %</span>
+                              </span>
+                            </FieldLabel>
+                            <UnitInput
+                              unit="%"
+                              id={id}
+                              name={name}
+                              type="number"
+                              inputMode="decimal"
+                              min={0}
+                              max={100}
+                              step="any"
+                              value={value}
+                              onChange={(event) => {
+                                setter(event.target.value);
+                                markEdited(name);
+                              }}
+                              aria-invalid={errors ? true : undefined}
+                              aria-describedby={
+                                errors ? `${id}-error` : undefined
+                              }
+                            />
+                            <FieldError id={`${id}-error`} errors={errors} />
+                          </Field>
+                        );
+                      })}
+                    </FieldGroup>
 
-            <fieldset className="grid gap-3">
-              <legend className="sr-only">Meals per day</legend>
-
-              <div className="flex items-center gap-2">
-                <span
-                  id={`${baseId}-meal-count`}
-                  className="text-muted-foreground text-xs font-medium"
-                >
-                  Meals per day
-                </span>
-                <output
-                  aria-labelledby={`${baseId}-meal-count`}
-                  className="text-sm font-medium tabular-nums"
-                >
-                  {rows.length}
-                </output>
-              </div>
-
-              <div className="grid gap-2">
-                {rows.map((row, index) => {
-                  const nameErrorId = `${baseId}-slot-${index}-name-error`;
-                  const percentId = `${baseId}-slot-${index}-percent`;
-                  const percentErrorId = `${percentId}-error`;
-                  const nameErrors = fieldErrors[`slots.${index}.name`];
-                  const percentErrors = fieldErrors[`slots.${index}.percent`];
-
-                  return (
-                    <div key={row.key} className="flex items-start gap-2">
-                      <input
-                        type="hidden"
-                        name="slotId"
-                        value={row.slotId ?? ""}
+                    <SplitSlider
+                      label="Macro split"
+                      names={MACRO_FIELDS.map((field) => field.label)}
+                      shares={macroShares}
+                      onChange={(next) => {
+                        setProteinPct(String(next[0]));
+                        setCarbsPct(String(next[1]));
+                        setFatPct(String(next[2]));
+                        markEdited(...MACRO_FIELDS.map((field) => field.name));
+                      }}
+                    >
+                      <MacroBar
+                        proteinPct={macroShares[0]}
+                        carbsPct={macroShares[1]}
+                        fatPct={macroShares[2]}
                       />
-                      <div className="grid min-w-0 flex-1 gap-1.5">
-                        <Input
-                          id={`${baseId}-slot-${index}-name`}
-                          name="slotName"
-                          value={row.name}
-                          onChange={(event) =>
-                            updateRow(row.key, { name: event.target.value })
-                          }
-                          placeholder={`Meal ${index + 1}`}
-                          aria-label={`Meal ${index + 1} name`}
-                          aria-invalid={nameErrors ? true : undefined}
-                          aria-describedby={
-                            nameErrors ? nameErrorId : undefined
-                          }
-                        />
-                        <FieldError id={nameErrorId} errors={nameErrors} />
-                      </div>
+                    </SplitSlider>
+                    <StatusLine valid={macroStatus.valid}>
+                      {macroStatus.message}
+                    </StatusLine>
+                  </div>
+                </FieldGroup>
+              </FieldSet>
+            </CardContent>
+          </Card>
 
-                      <div className="grid w-24 gap-1.5">
-                        <div className="relative">
+          <Card className={CARD_CLASS}>
+            <CardHeader>
+              <CardTitle className={CARD_TITLE_CLASS}>Meals</CardTitle>
+              <CardDescription>
+                How your day&apos;s calories are shared.
+                {rows.length >= MAX_MEALS
+                  ? ` You can have up to ${MAX_MEALS} meals.`
+                  : null}
+              </CardDescription>
+              <CardAction>
+                <Button
+                  type="button"
+                  variant="outline"
+                  {...NO_STATE_RESTORE}
+                  disabled={rows.length >= MAX_MEALS}
+                  onClick={addRow}
+                >
+                  <Plus
+                    data-icon="inline-start"
+                    strokeWidth={ICON_STROKE}
+                    className="text-brand"
+                  />
+                  Add meal
+                </Button>
+              </CardAction>
+            </CardHeader>
+
+            <CardContent>
+              <FieldSet>
+                <FieldLegend className="sr-only">Meal shares</FieldLegend>
+
+                <SplitSlider
+                  label="Meal split"
+                  names={rows.map(mealLabel)}
+                  shares={shares}
+                  onChange={(next) => applyShares(rows, next)}
+                >
+                  {/* The bar is decorative: every row below spells out its own
+                      share, so a screen reader loses nothing. */}
+                  <SegmentedBar
+                    slot="day-split-bar"
+                    segmentSlot="day-split-segment"
+                    limitPercent={overLimitPosition(shares)}
+                    segments={segments.flatMap((segment, index) => {
+                      const row = rows[index];
+                      if (!row) return [];
+
+                      return {
+                        key: row.key,
+                        widthPercent: segment.widthPercent,
+                        ...mealTint(index, rows.length, segment.opacity),
+                      };
+                    })}
+                  />
+                </SplitSlider>
+
+                <div className="divide-border-subtle flex flex-col divide-y">
+                  {rows.map((row, index) => {
+                    const label = mealLabel(row, index);
+                    const nameErrorId = `${baseId}-${row.key}-name-error`;
+                    const percentId = `${baseId}-${row.key}-percent`;
+                    const percentErrorId = `${percentId}-error`;
+                    const nameErrors = rowErrors(row.key, "name");
+                    const percentErrors = rowErrors(row.key, "percent");
+                    const budget = slotBudgets[index];
+                    const isFirst = index === 0;
+                    const isLast = index === rows.length - 1;
+
+                    return (
+                      <div
+                        key={row.key}
+                        data-slot="meal-row"
+                        data-row-key={row.key}
+                        className="grid gap-1 py-2 first:pt-0 last:pb-0"
+                      >
+                        <input
+                          type="hidden"
+                          name="slotId"
+                          value={row.slotId ?? ""}
+                        />
+
+                        <div className="flex items-center gap-1">
+                          <Dot
+                            data-slot="day-split-swatch"
+                            {...mealTint(
+                              index,
+                              rows.length,
+                              segments[index]?.opacity,
+                            )}
+                          />
                           <Input
+                            data-row-focus="name"
+                            id={`${baseId}-${row.key}-name`}
+                            name="slotName"
+                            value={row.name}
+                            onChange={(event) => {
+                              updateRow(row.key, { name: event.target.value });
+                              markEdited(`${row.key}.name`);
+                            }}
+                            placeholder={`Meal ${index + 1}`}
+                            className={cn(INLINE_INPUT_CLASS, "min-w-0 flex-1")}
+                            aria-label={`Meal ${index + 1} name`}
+                            aria-invalid={nameErrors ? true : undefined}
+                            aria-describedby={
+                              nameErrors ? nameErrorId : undefined
+                            }
+                          />
+
+                          <span className="type-caption text-muted-foreground w-15 shrink-0 text-right whitespace-nowrap">
+                            {budget
+                              ? `${formatWhole(budget.calories)}${THIN_SPACE}kcal`
+                              : null}
+                          </span>
+
+                          <UnitInput
+                            data-row-focus="percent"
+                            unit="%"
                             id={percentId}
                             name="slotPercent"
                             type="number"
@@ -495,198 +950,344 @@ function GoalsForm({
                             max={100}
                             step="any"
                             value={row.percent}
-                            onChange={(event) =>
+                            onChange={(event) => {
                               updateRow(row.key, {
                                 percent: event.target.value,
-                              })
-                            }
-                            className="pr-7"
+                              });
+                              markEdited(`${row.key}.percent`);
+                            }}
+                            groupClassName={cn(
+                              INLINE_INPUT_CLASS,
+                              "w-16 shrink-0",
+                            )}
                             aria-label={`Meal ${index + 1} share (%)`}
                             aria-invalid={percentErrors ? true : undefined}
                             aria-describedby={
                               percentErrors ? percentErrorId : undefined
                             }
                           />
-                          <span
-                            aria-hidden="true"
-                            className="text-muted-foreground pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm"
-                          >
-                            %
-                          </span>
+
+                          {/* See {@link NO_STATE_RESTORE}: it keeps Firefox's
+                              button-state restore from resurrecting a stale
+                              disabled state that no longer matches the rows. */}
+                          <div className="hidden shrink-0 items-center gap-1 sm:flex">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={ROW_ACTION_CLASS}
+                              {...NO_STATE_RESTORE}
+                              data-row-focus="up"
+                              aria-label={`Move ${label} up`}
+                              disabled={isFirst}
+                              onClick={() => moveRow(index, -1, "buttons")}
+                            >
+                              <ArrowUp strokeWidth={ICON_STROKE} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={ROW_ACTION_CLASS}
+                              {...NO_STATE_RESTORE}
+                              data-row-focus="down"
+                              aria-label={`Move ${label} down`}
+                              disabled={isLast}
+                              onClick={() => moveRow(index, 1, "buttons")}
+                            >
+                              <ArrowDown strokeWidth={ICON_STROKE} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={ROW_ACTION_CLASS}
+                              {...NO_STATE_RESTORE}
+                              aria-label={`Remove ${label}`}
+                              disabled={rows.length === 1}
+                              onClick={() => removeRow(index)}
+                            >
+                              <X strokeWidth={ICON_STROKE} />
+                            </Button>
+                          </div>
+
+                          {/* Phones keep the name legible by folding the three
+                              row actions into one menu. */}
+                          <div className="shrink-0 sm:hidden">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className={ROW_ACTION_CLASS}
+                                    {...NO_STATE_RESTORE}
+                                    data-row-focus="menu"
+                                    aria-label={`Actions for ${label}`}
+                                  />
+                                }
+                              >
+                                <EllipsisVertical strokeWidth={ICON_STROKE} />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="nutria-theme"
+                              >
+                                <DropdownMenuGroup>
+                                  <DropdownMenuItem
+                                    disabled={isFirst}
+                                    onClick={() => moveRow(index, -1, "menu")}
+                                  >
+                                    <ArrowUp strokeWidth={ICON_STROKE} />
+                                    Move up
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={isLast}
+                                    onClick={() => moveRow(index, 1, "menu")}
+                                  >
+                                    <ArrowDown strokeWidth={ICON_STROKE} />
+                                    Move down
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={rows.length === 1}
+                                    onClick={() => removeRow(index)}
+                                  >
+                                    <X strokeWidth={ICON_STROKE} />
+                                    Remove
+                                  </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
+
+                        <FieldError id={nameErrorId} errors={nameErrors} />
                         <FieldError
                           id={percentErrorId}
                           errors={percentErrors}
                         />
                       </div>
-
-                      {/* See {@link NO_STATE_RESTORE}: it keeps Firefox's
-                          button-state restore from resurrecting a stale
-                          disabled state that no longer matches the rows. */}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        {...NO_STATE_RESTORE}
-                        aria-label={`Move meal ${index + 1} up`}
-                        disabled={index === 0}
-                        onClick={() => moveRow(index, -1)}
-                      >
-                        <ArrowUp />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        {...NO_STATE_RESTORE}
-                        aria-label={`Move meal ${index + 1} down`}
-                        disabled={index === rows.length - 1}
-                        onClick={() => moveRow(index, 1)}
-                      >
-                        <ArrowDown />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        {...NO_STATE_RESTORE}
-                        aria-label={`Remove meal ${index + 1}`}
-                        disabled={rows.length === 1}
-                        onClick={() => removeRow(index)}
-                      >
-                        <X />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => resizeRows(rows.length + 1)}
-                >
-                  <Plus /> Add meal
-                </Button>
-              </div>
-
-              {fieldErrors.slots ? (
-                <p className="text-destructive text-xs">
-                  {fieldErrors.slots[0]}
-                </p>
-              ) : null}
-            </fieldset>
-
-            {state.formError ? (
-              <p role="alert" className="text-destructive text-sm">
-                {state.formError}
-              </p>
-            ) : null}
-          </CardContent>
-
-          <CardFooter className="justify-end">
-            <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : goals ? "Save goals" : "Set goals"}
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <Card className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-auto">
-          <CardHeader>
-            <CardTitle>Live summary</CardTitle>
-            <CardDescription>
-              {daily
-                ? "Daily targets and each meal's slice, recalculated as you edit."
-                : "Enter a calorie target to see the numbers."}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            {daily ? (
-              <div className="grid gap-4">
-                <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
-                  <Stat label="Calories" value={daily.calories} unit="kcal" />
-                  <Stat label="Protein" value={daily.proteinGrams} unit="g" />
-                  <Stat label="Carbs" value={daily.carbsGrams} unit="g" />
-                  <Stat label="Fat" value={daily.fatGrams} unit="g" />
-                </dl>
-
-                {/* The bar is decorative: every row below spells out its own
-                    share and grams, so a screen reader loses nothing. */}
-                <div
-                  aria-hidden="true"
-                  data-slot="day-split-bar"
-                  className="bg-muted flex h-9 overflow-hidden rounded-full"
-                >
-                  {segments.map((segment, index) => {
-                    const row = rows[index];
-                    if (!row) return null;
-
-                    return (
-                      <div
-                        key={row.key}
-                        data-slot="day-split-segment"
-                        className="bg-primary h-full shrink-0"
-                        style={{
-                          width: `${segment.widthPercent}%`,
-                          opacity: segment.opacity,
-                        }}
-                      />
                     );
                   })}
                 </div>
 
-                <ul className="grid min-w-0 gap-4">
+                <div className="flex items-start justify-between gap-3">
+                  <StatusLine valid={mealStatus.valid}>
+                    {mealStatus.message}
+                  </StatusLine>
+                  {rows.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="-mt-1 text-muted-foreground"
+                      {...NO_STATE_RESTORE}
+                      disabled={alreadyEven}
+                      onClick={splitEvenly}
+                    >
+                      Split evenly
+                    </Button>
+                  ) : null}
+                </div>
+
+                {removalWarnings.map((warning) => (
+                  <StatusLine key={warning.id} valid={false}>
+                    {warning.message}
+                  </StatusLine>
+                ))}
+
+                {fieldErrors.slots ? (
+                  <StatusLine valid={false}>{fieldErrors.slots[0]}</StatusLine>
+                ) : null}
+              </FieldSet>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card
+          className={cn(
+            CARD_CLASS,
+            "lg:sticky lg:top-20 lg:max-h-[calc(100vh-11rem)] lg:overflow-auto",
+          )}
+        >
+          <CardHeader>
+            <CardTitle className={CARD_TITLE_CLASS}>Your day</CardTitle>
+            {daily ? null : (
+              <CardDescription>
+                Enter a calorie target to see the numbers.
+              </CardDescription>
+            )}
+          </CardHeader>
+
+          {daily ? (
+            <CardContent className="grid gap-6">
+              <div className="grid gap-1">
+                <span className="type-caption text-muted-foreground">
+                  Daily target
+                </span>
+                <p className="type-stat-lg">
+                  {formatWhole(daily.calories)}
+                  {THIN_SPACE}
+                  <span className="text-muted-foreground text-sm font-normal">
+                    kcal
+                  </span>
+                </p>
+              </div>
+
+              <dl className="divide-border grid grid-cols-3 divide-x rounded-lg border">
+                <StatTile
+                  macro="protein"
+                  label="Protein"
+                  grams={daily.proteinGrams}
+                />
+                <StatTile
+                  macro="carbs"
+                  label="Carbs"
+                  grams={daily.carbsGrams}
+                />
+                <StatTile macro="fat" label="Fat" grams={daily.fatGrams} />
+              </dl>
+
+              <Table className="table-fixed">
+                <TableCaption className="type-caption mt-2 text-left">
+                  Protein, carbs and fat in grams.
+                </TableCaption>
+                <TableHeader className="[&_tr]:border-border-subtle">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className={cn(SUMMARY_HEAD_CLASS, "text-left")}>
+                      Meal
+                    </TableHead>
+                    <TableHead className={cn(SUMMARY_HEAD_CLASS, "w-13")}>
+                      kcal
+                    </TableHead>
+                    {MACRO_FIELDS.map(({ macro, label }) => (
+                      <TableHead
+                        key={macro}
+                        className={cn(SUMMARY_HEAD_CLASS, "w-11")}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <MacroDot macro={macro} />
+                          <span aria-hidden="true">{label[0]}</span>
+                          <span className="sr-only">{label}</span>
+                        </span>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {slotBudgets.map((budget, index) => {
                     const row = rows[index];
                     if (!row) return null;
-                    const segment = segments[index];
-                    const share = shares[index] ?? 0;
-                    const label = row.name || `Meal ${index + 1}`;
+                    const label = mealLabel(row, index);
 
                     return (
-                      <li key={row.key} className="grid min-w-0 gap-1">
-                        <div className="flex min-w-0 items-baseline justify-between gap-3">
-                          <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                            <span
-                              aria-hidden="true"
-                              data-slot="day-split-swatch"
-                              className="bg-primary size-2.5 shrink-0 rounded-[0.2rem]"
-                              style={{ opacity: segment?.opacity }}
-                            />
-                            <span className="truncate" title={label}>
-                              {label}
-                            </span>
-                          </span>
-                          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                            {formatMacro(share)}%
-                          </span>
-                        </div>
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {formatMacro(budget.calories)} kcal · P{" "}
-                          {formatMacro(budget.proteinGrams)} g · C{" "}
-                          {formatMacro(budget.carbsGrams)} g · F{" "}
-                          {formatMacro(budget.fatGrams)} g
-                        </span>
-                      </li>
+                      <TableRow
+                        key={row.key}
+                        className="border-border-subtle hover:bg-transparent"
+                      >
+                        <TableCell
+                          className="truncate px-0 py-1.5 font-medium"
+                          title={label}
+                        >
+                          {label}
+                        </TableCell>
+                        <TableCell className={SUMMARY_CELL_CLASS}>
+                          {formatWhole(budget.calories)}
+                        </TableCell>
+                        <TableCell className={SUMMARY_CELL_CLASS}>
+                          {formatWhole(budget.proteinGrams)}
+                        </TableCell>
+                        <TableCell className={SUMMARY_CELL_CLASS}>
+                          {formatWhole(budget.carbsGrams)}
+                        </TableCell>
+                        <TableCell className={SUMMARY_CELL_CLASS}>
+                          {formatWhole(budget.fatGrams)}
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                Enter your daily calories to see the gram targets.
-              </p>
-            )}
-          </CardContent>
+                </TableBody>
+              </Table>
+            </CardContent>
+          ) : null}
         </Card>
+      </div>
+
+      <div
+        data-slot="goals-action-bar"
+        className={cn(
+          "bg-background mt-6 flex flex-wrap items-center justify-between gap-3 border-t py-4",
+          dirty && "sticky bottom-0 z-10",
+        )}
+      >
+        <div className="min-w-0">
+          {formError ? (
+            <div role="alert">
+              <StatusLine valid={false}>{formError}</StatusLine>
+            </div>
+          ) : blocker ? (
+            <StatusLine valid={false}>{blocker}</StatusLine>
+          ) : (
+            <p className="type-caption text-muted-foreground flex items-center gap-2">
+              {dirty ? (
+                <Dot data-slot="unsaved-dot" className="bg-brand" />
+              ) : null}
+              {dirty
+                ? "Unsaved changes"
+                : goals
+                  ? "All changes saved"
+                  : "Not saved yet"}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            {...NO_STATE_RESTORE}
+            disabled={!dirty || pending}
+            onClick={resetForm}
+          >
+            Reset
+          </Button>
+          <Button
+            type="submit"
+            {...NO_STATE_RESTORE}
+            disabled={pending || (goals !== null && !dirty)}
+          >
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            {pending ? "Saving…" : goals ? "Save goals" : "Set goals"}
+          </Button>
+        </div>
       </div>
 
       <p role="status" className="sr-only">
         {announcement || (state.status === "success" ? state.savedMessage : "")}
       </p>
+
+      <AlertDialog
+        open={guard.pendingHref !== null}
+        onOpenChange={(open) => {
+          if (!open) guard.stay();
+        }}
+      >
+        <AlertDialogContent className="nutria-theme">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your edits to these goals have not been saved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction type="button" onClick={guard.leave}>
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }

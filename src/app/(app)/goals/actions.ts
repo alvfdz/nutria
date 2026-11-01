@@ -55,7 +55,7 @@ export async function saveGoalsAction(
       return {
         ...previousState,
         status: "error",
-        formError: `"${error.slotName}" still has planned meals on ${days}. Remove those plans before deleting the slot.`,
+        formError: `"${error.slotName}" still has planned meals on ${days}. Remove those plans before removing this meal.`,
       };
     }
 

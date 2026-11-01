@@ -81,7 +81,7 @@ describe("parseGoalsFormData: scalar fields", () => {
   test.each([
     ["calories", "Calories"],
     ["proteinPct", "Protein"],
-    ["carbsPct", "Carbohydrates"],
+    ["carbsPct", "Carbs"],
     ["fatPct", "Fat"],
   ])("reports a missing or blank %s as required", (field, label) => {
     expect(errorsFor(makeValidGoalsFormData({ [field]: null }), field)).toEqual(

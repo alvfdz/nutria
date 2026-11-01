@@ -156,7 +156,7 @@ describe("saveGoalsAction", () => {
     expect(state).toMatchObject({
       status: "error",
       formError:
-        '"Dinner" still has planned meals on Tue 20. Remove those plans before deleting the slot.',
+        '"Dinner" still has planned meals on Tue 20. Remove those plans before removing this meal.',
     });
     expect(refresh).not.toHaveBeenCalled();
   });

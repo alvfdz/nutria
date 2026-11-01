@@ -11,7 +11,7 @@ import {
   type MealWithItems,
 } from "@/lib/meals/repository";
 import { PlanTargetNotFoundError } from "./errors";
-import type { PlannedMeal } from "./types";
+import type { PlannedMeal, SlotPlanUsage } from "./types";
 
 /** A plan row as reads ask for it: the meal with its ordered items embedded. */
 type PlanMealWithMeal = PlanMealDbRow & { meal: MealWithItems };
@@ -170,4 +170,46 @@ export async function listPlansForSlot(
   });
 
   return rows.map((row) => keyFromDbDate(row.date));
+}
+
+/**
+ * Summarizes the plans of each of a user's meal slots, so the Goals form can warn
+ * about a removal before the user saves it. Slots without plans are left out.
+ *
+ * @param userId Owner of the plans.
+ * @param today First day that counts as upcoming, `YYYY-MM-DD`; defaults to today.
+ * @returns Each planned slot's usage, keyed by slot id.
+ */
+export async function getSlotPlanUsage(
+  userId: string,
+  today: string = todayKey(),
+): Promise<Record<string, SlotPlanUsage>> {
+  // Nothing else in this read touches Request-time APIs, so without this the
+  // query would run while prerendering and get frozen into the build output.
+  await connection();
+
+  const rows = await getPrisma().planMeal.findMany({
+    where: { userId },
+    select: { mealSlotId: true, date: true },
+    distinct: ["mealSlotId", "date"],
+    orderBy: { date: "asc" },
+  });
+
+  const usage: Record<string, SlotPlanUsage> = {};
+
+  for (const row of rows) {
+    const slot = (usage[row.mealSlotId] ??= {
+      upcomingDays: [],
+      hasPastPlans: false,
+    });
+    const day = keyFromDbDate(row.date);
+
+    if (day >= today) {
+      slot.upcomingDays.push(day);
+    } else {
+      slot.hasPastPlans = true;
+    }
+  }
+
+  return usage;
 }

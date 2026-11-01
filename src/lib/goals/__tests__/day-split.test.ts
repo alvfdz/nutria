@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { daySplitSegments, MIN_SEGMENT_OPACITY } from "@/lib/goals/day-split";
+import {
+  daySplitSegments,
+  overLimitPosition,
+  MIN_SEGMENT_OPACITY,
+} from "@/lib/goals/day-split";
 
 /** The segment widths of a share list, for terse assertions. */
 const widths = (shares: number[]) =>
@@ -78,5 +82,25 @@ describe("daySplitSegments", () => {
 
   test("draws nothing for a day with no meals", () => {
     expect(daySplitSegments([])).toEqual([]);
+  });
+});
+
+describe("overLimitPosition", () => {
+  test("is empty for totals that fit or fall short", () => {
+    expect(overLimitPosition([30, 40, 30])).toBeNull();
+    expect(overLimitPosition([10, 10])).toBeNull();
+  });
+
+  test("allows the same tolerance as the save-time check", () => {
+    expect(overLimitPosition([50, 50.4])).toBeNull();
+  });
+
+  test("places 100% along a scaled-back track", () => {
+    expect(overLimitPosition([100, 25])).toBe(80);
+  });
+
+  test("clamps each share as the bar does", () => {
+    expect(overLimitPosition([150, 25])).toBe(80);
+    expect(overLimitPosition([Number.NaN, -5, 100])).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import {
   assignMeal,
   getPlannedMeal,
   getPlansForRange,
+  getSlotPlanUsage,
   listPlansForSlot,
   removePlannedMeal,
 } from "@/lib/plan/repository";
@@ -303,5 +304,37 @@ describe("listPlansForSlot", () => {
       select: { date: true },
       orderBy: { date: "asc" },
     });
+  });
+});
+
+describe("getSlotPlanUsage", () => {
+  test("splits each slot's days around today and skips unplanned slots", async () => {
+    planMeal.findMany.mockResolvedValue([
+      { mealSlotId: "lunch", date: new Date(Date.UTC(2026, 9, 12)) },
+      { mealSlotId: "lunch", date: new Date(Date.UTC(2026, 9, 13)) },
+      { mealSlotId: "lunch", date: new Date(Date.UTC(2026, 9, 14)) },
+      { mealSlotId: "dinner", date: new Date(Date.UTC(2026, 9, 1)) },
+    ]);
+
+    await expect(getSlotPlanUsage(testUser.id, "2026-10-13")).resolves.toEqual({
+      lunch: {
+        upcomingDays: ["2026-10-13", "2026-10-14"],
+        hasPastPlans: true,
+      },
+      dinner: { upcomingDays: [], hasPastPlans: true },
+    });
+    expect(planMeal.findMany).toHaveBeenCalledWith({
+      where: { userId: testUser.id },
+      select: { mealSlotId: true, date: true },
+      distinct: ["mealSlotId", "date"],
+      orderBy: { date: "asc" },
+    });
+    expect(connection).toHaveBeenCalled();
+  });
+
+  test("returns nothing when no plan exists", async () => {
+    planMeal.findMany.mockResolvedValue([]);
+
+    await expect(getSlotPlanUsage(testUser.id)).resolves.toEqual({});
   });
 });

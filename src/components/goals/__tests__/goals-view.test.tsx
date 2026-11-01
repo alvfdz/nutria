@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "sonner";
@@ -18,11 +24,15 @@ vi.mock("sonner", () => ({
   Toaster: () => null,
 }));
 
+const push = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 const action = vi.mocked(saveGoalsAction);
 
 beforeEach(() => {
   action.mockReset();
   vi.mocked(toast.success).mockClear();
+  push.mockClear();
 });
 
 /** The share inputs of every meal row, as numbers. */
@@ -31,11 +41,15 @@ const shares = () =>
     .getAllByLabelText(/share \(%\)/)
     .map((input) => Number((input as HTMLInputElement).value));
 
-/** The meal names the live summary lists, top to bottom. */
+/** The summary table's body rows, top to bottom. */
+const summaryRows = () => screen.getAllByRole("row").slice(1);
+
+/** The meal names the summary lists, top to bottom. */
 const summaryMeals = () =>
-  screen
-    .getAllByRole("listitem")
-    .map((item) => item.querySelector("span")?.textContent);
+  summaryRows().map((row) => row.querySelector("td")?.textContent);
+
+/** How many meal rows the form shows. */
+const mealCount = () => screen.getAllByLabelText(/^Meal \d+ name$/).length;
 
 /** The stacked day bar's segments, left to right. */
 const segments = () =>
@@ -50,6 +64,12 @@ const segmentWidths = () => segments().map((segment) => segment.style.width);
 const segmentOpacities = () =>
   segments().map((segment) => Number(segment.style.opacity));
 
+/** The bar's segment colour utilities, left to right. */
+const segmentColors = () =>
+  segments().map((segment) =>
+    Array.from(segment.classList).find((name) => name.startsWith("bg-")),
+  );
+
 /** The bar's total drawn width, as a percentage of the track. */
 const drawnWidth = () =>
   segmentWidths().reduce((sum, width) => sum + Number.parseFloat(width), 0);
@@ -58,7 +78,7 @@ describe("GoalsView", () => {
   test("starts with three default meals when no goals are stored", () => {
     render(<GoalsView goals={null} />);
 
-    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
+    expect(mealCount()).toBe(3);
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(2000);
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
     expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
@@ -82,28 +102,44 @@ describe("GoalsView", () => {
     ).toBeInTheDocument();
   });
 
-  test("shows the meal count as read-only text derived from the rows", () => {
-    render(<GoalsView goals={null} />);
-
-    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
-    // No number input offers a second way to change the count.
-    expect(
-      screen.queryByRole("spinbutton", { name: "Meals per day" }),
-    ).not.toBeInTheDocument();
-  });
-
-  test("rebalances every share to 100 / count as meals are added", async () => {
+  test("makes room for added meals and keeps the others' proportions", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
-    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("5");
+    expect(mealCount()).toBe(5);
     expect(screen.getByLabelText("Meal 4 name")).toHaveValue("Meal 4");
     expect(screen.getByLabelText("Meal 5 name")).toHaveValue("Meal 5");
-    // 100 / 5 = 20% each.
-    expect(shares()).toEqual([20, 20, 20, 20, 20]);
+    expect(shares()).toEqual([18, 24, 18, 20, 20]);
+  });
+
+  test("stops at eight meals without touching the shares", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+    const add = screen.getByRole("button", { name: "Add meal" });
+
+    for (let count = 3; count < 8; count += 1) await user.click(add);
+    expect(mealCount()).toBe(8);
+    expect(add).toBeDisabled();
+    expect(screen.getByText(/You can have up to 8 meals/)).toBeInTheDocument();
+
+    const before = shares();
+    await user.click(add);
+
+    expect(shares()).toEqual(before);
+  });
+
+  test("focuses and selects a new meal's name", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    const name = screen.getByLabelText<HTMLInputElement>("Meal 4 name");
+    expect(name).toHaveFocus();
+    expect(name.selectionEnd! - name.selectionStart!).toBe(6);
   });
 
   test("appends a row named Meal N and keeps the shares summing to 100", async () => {
@@ -125,7 +161,7 @@ describe("GoalsView", () => {
 
       // Removing the middle row leaves keys like row-0, row-2 — no longer
       // positional — so an append must not reuse a positional fallback key.
-      await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+      await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
       await user.click(screen.getByRole("button", { name: "Add meal" }));
 
       expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
@@ -141,23 +177,34 @@ describe("GoalsView", () => {
     }
   });
 
-  test("removes a meal and rebalances the rows that stay", async () => {
+  test("removes a meal and hands its share to the others in proportion", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    expect(screen.getByRole("button", { name: "Remove meal 3" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Remove meal 3" }));
+    await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
 
     expect(screen.queryByLabelText("Meal 3 name")).not.toBeInTheDocument();
-    expect(shares()).toEqual([50, 50]);
+    expect(shares()).toEqual([43, 57]);
+  });
+
+  test("moves focus to the next meal's name after a removal", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    expect(screen.getByLabelText("Meal 2 name")).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
+    expect(screen.getByLabelText("Meal 1 name")).toHaveFocus();
   });
 
   test("removes the middle meal, not the last one", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+    await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
 
     expect(screen.queryByLabelText("Meal 3 name")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
@@ -171,8 +218,8 @@ describe("GoalsView", () => {
     render(<GoalsView goals={makeGoals()} />);
 
     // Move Dinner (slot 3) into the middle before removing that position.
-    await user.click(screen.getByRole("button", { name: "Move meal 3 up" }));
-    await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+    await user.click(screen.getByRole("button", { name: "Move Dinner up" }));
+    await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
 
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
     expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
@@ -189,11 +236,11 @@ describe("GoalsView", () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    await user.click(screen.getByRole("button", { name: "Remove meal 3" }));
-    await user.click(screen.getByRole("button", { name: "Remove meal 2" }));
+    await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
+    await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
 
     expect(
-      screen.getByRole("button", { name: "Remove meal 1" }),
+      screen.getByRole("button", { name: "Remove Breakfast" }),
     ).toBeDisabled();
     expect(shares()).toEqual([100]);
   });
@@ -211,7 +258,7 @@ describe("GoalsView", () => {
     expect(screen.getByLabelText("Meal 1 share (%)")).toHaveValue(50);
   });
 
-  test("updates the live summary as the calorie target changes", async () => {
+  test("updates the summary as the calorie target changes", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
@@ -221,8 +268,8 @@ describe("GoalsView", () => {
     await user.clear(screen.getByLabelText("Calories (kcal)"));
     await user.type(screen.getByLabelText("Calories (kcal)"), "2500");
 
-    // 2500 × 30% / 4 = 187.5 g.
-    expect(screen.getByText("187.5")).toBeInTheDocument();
+    // 2500 × 30% / 4 = 187.5 g, shown as a whole number.
+    expect(screen.getByText("188")).toBeInTheDocument();
     expect(screen.getByText("2500")).toBeInTheDocument();
   });
 
@@ -230,7 +277,7 @@ describe("GoalsView", () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    await user.click(screen.getByRole("button", { name: "Move meal 2 up" }));
+    await user.click(screen.getByRole("button", { name: "Move Lunch up" }));
 
     // Lunch swaps into first place, taking its 40% share along.
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Lunch");
@@ -245,7 +292,9 @@ describe("GoalsView", () => {
 
     expect(summaryMeals()).toEqual(["Breakfast", "Lunch", "Dinner"]);
 
-    await user.click(screen.getByRole("button", { name: "Move meal 1 down" }));
+    await user.click(
+      screen.getByRole("button", { name: "Move Breakfast down" }),
+    );
 
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Lunch");
     expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Breakfast");
@@ -256,16 +305,16 @@ describe("GoalsView", () => {
     render(<GoalsView goals={null} />);
 
     expect(
-      screen.getByRole("button", { name: "Move meal 1 up" }),
+      screen.getByRole("button", { name: "Move Breakfast up" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Move meal 3 down" }),
+      screen.getByRole("button", { name: "Move Dinner down" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Move meal 1 down" }),
+      screen.getByRole("button", { name: "Move Breakfast down" }),
     ).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Move meal 3 up" }),
+      screen.getByRole("button", { name: "Move Dinner up" }),
     ).toBeEnabled();
   });
 
@@ -276,10 +325,10 @@ describe("GoalsView", () => {
     // reload after an unsaved edit (e.g. adding a meal) can restore a state
     // that disagrees with the server HTML. `autocomplete="off"` opts out.
     for (const name of [
-      "Move meal 1 up",
-      "Move meal 1 down",
-      "Remove meal 1",
-      "Move meal 3 down",
+      "Move Breakfast up",
+      "Move Breakfast down",
+      "Remove Breakfast",
+      "Move Dinner down",
     ]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute(
         "autocomplete",
@@ -292,9 +341,141 @@ describe("GoalsView", () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    await user.click(screen.getByRole("button", { name: "Move meal 2 up" }));
+    await user.click(screen.getByRole("button", { name: "Move Lunch up" }));
 
     expect(screen.getByText("Lunch moved to position 1")).toBeInTheDocument();
+  });
+
+  test("keeps keyboard focus on a moving row, even at the end of the list", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    // Lunch reaches the top, so "Move up" disables and "Move down" takes focus.
+    await user.click(screen.getByRole("button", { name: "Move Lunch up" }));
+    expect(
+      screen.getByRole("button", { name: "Move Lunch down" }),
+    ).toHaveFocus();
+
+    // In the middle of the list, the arrow that was used keeps it.
+    await user.click(screen.getByRole("button", { name: "Move Lunch down" }));
+    expect(screen.getByRole("button", { name: "Move Lunch up" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Move Lunch down" }),
+    ).toHaveFocus();
+  });
+
+  test("offers the row actions in a menu that names the meal", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Lunch" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Dinner");
+    expect(shares()).toEqual([50, 50]);
+  });
+
+  test("splits the day evenly on request", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+    const split = screen.getByRole("button", { name: "Split evenly" });
+
+    await user.click(split);
+
+    expect(shares()).toEqual([34, 33, 33]);
+    expect(split).toBeDisabled();
+    expect(screen.getByText("Meals split evenly")).toBeInTheDocument();
+  });
+
+  test("offers no even split for a single meal", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
+    await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Split evenly" }),
+    ).not.toBeInTheDocument();
+  });
+
+  describe("draggable bars", () => {
+    test("moves a meal divider with the arrow keys, trading between neighbours", () => {
+      render(<GoalsView goals={null} />);
+
+      fireEvent.keyDown(
+        screen.getByRole("slider", {
+          name: "Divider between Breakfast and Lunch",
+        }),
+        { key: "ArrowRight" },
+      );
+
+      expect(shares()).toEqual([31, 39, 30]);
+      expect(screen.getByText("Meals total 100%")).toBeInTheDocument();
+    });
+
+    test("moves a macro divider", () => {
+      render(<GoalsView goals={null} />);
+
+      fireEvent.keyDown(
+        screen.getByRole("slider", { name: "Divider between Carbs and Fat" }),
+        { key: "ArrowLeft" },
+      );
+
+      expect(screen.getByLabelText("Carbs %")).toHaveValue(39);
+      expect(screen.getByLabelText("Fat %")).toHaveValue(31);
+      expect(screen.getByLabelText("Protein %")).toHaveValue(30);
+    });
+
+    test("describes both neighbours to screen readers", () => {
+      render(<GoalsView goals={null} />);
+
+      expect(
+        screen.getByRole("slider", {
+          name: "Divider between Protein and Carbs",
+        }),
+      ).toHaveAttribute("aria-valuetext", "Protein 30%, Carbs 40%");
+    });
+
+    test("removes the thumbs while the total does not add up", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={null} />);
+
+      await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+      await user.type(screen.getByLabelText("Meal 1 share (%)"), "10");
+
+      expect(
+        screen.queryByRole("slider", {
+          name: "Divider between Breakfast and Lunch",
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("slider", {
+          name: "Divider between Protein and Carbs",
+        }),
+      ).toBeInTheDocument();
+    });
+
+    test("does not submit the sliders with the form", () => {
+      render(<GoalsView goals={null} />);
+
+      const form = document.querySelector("form") as HTMLFormElement;
+      expect([...new FormData(form).keys()].sort()).toEqual([
+        "calories",
+        "carbsPct",
+        "fatPct",
+        "proteinPct",
+        "slotId",
+        "slotId",
+        "slotId",
+        "slotName",
+        "slotName",
+        "slotName",
+        "slotPercent",
+        "slotPercent",
+        "slotPercent",
+      ]);
+    });
   });
 
   test("toasts the saved message once a save succeeds", async () => {
@@ -306,6 +487,7 @@ describe("GoalsView", () => {
     }));
 
     render(<GoalsView goals={makeGoals()} />);
+    await user.type(screen.getByLabelText("Calories (kcal)"), "5");
     await user.click(screen.getByRole("button", { name: "Save goals" }));
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
@@ -323,12 +505,76 @@ describe("GoalsView", () => {
     }));
 
     render(<GoalsView goals={makeGoals()} />);
+    await user.type(screen.getByLabelText("Calories (kcal)"), "5");
     await user.click(screen.getByRole("button", { name: "Save goals" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The goals could not be saved. Please try again.",
     );
     expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  describe("errors from a failed save", () => {
+    /** Fails the next save with the given per-field errors. */
+    const failWith = (
+      fieldErrors: Record<string, string[]>,
+      formError?: string,
+    ) =>
+      action.mockImplementation(async () => ({
+        status: "error",
+        resetKey: 0,
+        fieldErrors,
+        formError,
+      }));
+
+    test("clear a field's error as soon as it is edited", async () => {
+      const user = userEvent.setup();
+      failWith({ calories: ["Calories cannot be more than 10000"] });
+      render(<GoalsView goals={null} />);
+
+      await user.click(screen.getByRole("button", { name: "Set goals" }));
+      await screen.findByText("Calories cannot be more than 10000");
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "0");
+
+      expect(
+        screen.queryByText("Calories cannot be more than 10000"),
+      ).not.toBeInTheDocument();
+    });
+
+    test("stay on their meal when the rows are reordered", async () => {
+      const user = userEvent.setup();
+      failWith({ "slots.0.name": ["Name is required"] });
+      render(<GoalsView goals={null} />);
+
+      await user.click(screen.getByRole("button", { name: "Set goals" }));
+      const message = await screen.findByText("Name is required");
+      expect(message.closest('[data-slot="meal-row"]')).toContainElement(
+        screen.getByLabelText("Meal 1 name"),
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Move Breakfast down" }),
+      );
+
+      // Breakfast is now the second row, and its error went with it.
+      expect(
+        screen.getByText("Name is required").closest('[data-slot="meal-row"]'),
+      ).toContainElement(screen.getByLabelText("Meal 2 name"));
+    });
+
+    test("clear a form-level error on any edit", async () => {
+      const user = userEvent.setup();
+      failWith({}, "The goals could not be saved. Please try again.");
+      render(<GoalsView goals={null} />);
+
+      await user.click(screen.getByRole("button", { name: "Set goals" }));
+      await screen.findByRole("alert");
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "0");
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
   });
 
   test("divides the day into one bar segment per meal, in dining order", () => {
@@ -338,13 +584,13 @@ describe("GoalsView", () => {
     expect(segmentWidths()).toEqual(["30%", "40%", "30%"]);
   });
 
-  test("tints the segments night-to-day so the dining order survives a grey palette", () => {
+  test("paints the meals with the meal tokens, in dining order", () => {
     render(<GoalsView goals={null} />);
 
-    expect(segmentOpacities()).toEqual([0.25, 0.625, 1]);
+    expect(segmentColors()).toEqual(["bg-meal-1", "bg-meal-2", "bg-meal-3"]);
   });
 
-  test("marks each meal row with its own segment's tint", () => {
+  test("marks each meal row with its own segment's colour", () => {
     render(<GoalsView goals={null} />);
 
     const swatches = Array.from(
@@ -352,9 +598,9 @@ describe("GoalsView", () => {
     );
 
     expect(swatches).toHaveLength(3);
-    expect(swatches.map((swatch) => Number(swatch.style.opacity))).toEqual(
-      segmentOpacities(),
-    );
+    swatches.forEach((swatch, index) => {
+      expect(swatch).toHaveClass(`bg-meal-${index + 1}`);
+    });
   });
 
   test("redraws the bar as a share is edited", async () => {
@@ -397,36 +643,409 @@ describe("GoalsView", () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    await user.click(screen.getByRole("button", { name: "Move meal 2 down" }));
+    await user.click(screen.getByRole("button", { name: "Move Lunch down" }));
 
-    // Lunch's 40% takes the last place, so it also takes the darkest step.
+    // Lunch's 40% takes the last place, so it also takes that place's colour.
     expect(summaryMeals()).toEqual(["Breakfast", "Dinner", "Lunch"]);
     expect(segmentWidths()).toEqual(["30%", "30%", "40%"]);
-    expect(segmentOpacities()).toEqual([0.25, 0.625, 1]);
+    expect(segmentColors()).toEqual(["bg-meal-1", "bg-meal-2", "bg-meal-3"]);
   });
 
-  test("gives every meal its own tint past the five greys in the theme", async () => {
+  test("gives every meal its own tint past the four meal tokens", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
-    expect(segmentWidths()).toEqual(["20%", "20%", "20%", "20%", "20%"]);
+    expect(segmentWidths()).toEqual(["18%", "24%", "18%", "20%", "20%"]);
     expect(new Set(segmentOpacities()).size).toBe(5);
     expect(segmentOpacities()[4]).toBe(1);
   });
 
-  test("draws no bar until a calorie target is entered", async () => {
+  test("keeps the bar but hides per-meal numbers without a calorie target", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
     await user.clear(screen.getByLabelText("Calories (kcal)"));
 
-    expect(segments()).toHaveLength(0);
+    expect(segments()).toHaveLength(3);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText(/600\s*kcal/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Enter a calorie target to see the numbers."),
+    ).toBeInTheDocument();
   });
 
-  test("clips a long meal name in the day-split summary", async () => {
+  test("shows each meal's calories on its row", () => {
+    render(<GoalsView goals={null} />);
+
+    const row = screen
+      .getByLabelText("Meal 2 name")
+      .closest<HTMLElement>('[data-slot="meal-row"]');
+
+    expect(within(row!).getByText(/800\s*kcal/)).toBeInTheDocument();
+  });
+
+  test("lists each meal's slice as aligned table columns", () => {
+    render(<GoalsView goals={null} />);
+
+    const cells = within(summaryRows()[1])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent);
+
+    expect(cells).toEqual(["Lunch", "800", "60", "80", "27"]);
+    expect(
+      screen.getByRole("columnheader", { name: "Protein" }),
+    ).toBeInTheDocument();
+  });
+
+  test("uses the clamped share for a meal's numbers, as the bar does", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+    await user.type(screen.getByLabelText("Meal 1 share (%)"), "150");
+
+    // 150% draws as 100% of the day, so it must also read as 2000 kcal.
+    expect(within(summaryRows()[0]).getAllByRole("cell")[1]).toHaveTextContent(
+      "2000",
+    );
+  });
+
+  test("marks 100% on an over-allocated bar", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+    const limit = () =>
+      document.querySelector<HTMLElement>('[data-slot="day-split-bar-limit"]');
+
+    expect(limit()).toBeNull();
+
+    await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+    await user.type(screen.getByLabelText("Meal 1 share (%)"), "55");
+
+    // 55 + 40 + 30 = 125, so 100% sits 80% of the way along the track.
+    expect(limit()?.style.left).toBe("80%");
+  });
+
+  test("keeps whole percentages when a rescale does not divide evenly", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
+    await user.click(screen.getByRole("button", { name: "Add meal" }));
+
+    expect(shares()).toEqual([29, 38, 33]);
+  });
+
+  test("names each row action after the meal, falling back when it is blank", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 2 name"));
+
+    expect(
+      screen.getByRole("button", { name: "Move Meal 2 up" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove Breakfast" }),
+    ).toBeInTheDocument();
+  });
+
+  test("states a valid macro and meal total", () => {
+    render(<GoalsView goals={null} />);
+
+    expect(screen.getByText("Macros total 100%")).toBeInTheDocument();
+    expect(screen.getByText("Meals total 100%")).toBeInTheDocument();
+  });
+
+  test("says how to fix a macro total that falls short", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Protein %"));
+    await user.type(screen.getByLabelText("Protein %"), "25");
+
+    expect(
+      screen.getByText("Macros total 95% — add 5% to reach 100%"),
+    ).toBeInTheDocument();
+  });
+
+  test("says how to fix a meal total that runs over", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+    await user.type(screen.getByLabelText("Meal 1 share (%)"), "40");
+
+    expect(
+      screen.getByText("Meals total 110% — remove 10% to reach 100%"),
+    ).toBeInTheDocument();
+  });
+
+  test("marks the Add meal plus with the brand accent", () => {
+    render(<GoalsView goals={null} />);
+
+    expect(
+      screen.getByRole("button", { name: "Add meal" }).querySelector("svg"),
+    ).toHaveClass("text-brand");
+  });
+
+  describe("action bar", () => {
+    const bar = () =>
+      document.querySelector<HTMLElement>('[data-slot="goals-action-bar"]');
+    const reset = () => screen.getByRole("button", { name: "Reset" });
+    const save = () => screen.getByRole("button", { name: "Save goals" });
+
+    test("rests in the flow with nothing to discard on saved goals", () => {
+      render(<GoalsView goals={makeGoals()} />);
+
+      expect(screen.getByText("All changes saved")).toBeInTheDocument();
+      expect(reset()).toBeDisabled();
+      expect(save()).toBeDisabled();
+      expect(bar()).not.toHaveClass("sticky");
+    });
+
+    test("lets a first-time visitor save the untouched defaults", () => {
+      render(<GoalsView goals={null} />);
+
+      expect(screen.getByRole("button", { name: "Set goals" })).toBeEnabled();
+    });
+
+    test("enables saving once a field changes", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+
+      expect(save()).toBeEnabled();
+    });
+
+    test("names a broken total and stops the save at the first problem", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.clear(screen.getByLabelText("Fat %"));
+      await user.type(screen.getByLabelText("Fat %"), "20");
+      expect(
+        screen.getByText("Fix the macro total to save"),
+      ).toBeInTheDocument();
+
+      await user.click(save());
+
+      expect(action).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Protein %")).toHaveFocus();
+    });
+
+    test("takes a broken meal total to the first share", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.clear(screen.getByLabelText("Meal 3 share (%)"));
+      await user.type(screen.getByLabelText("Meal 3 share (%)"), "20");
+      expect(
+        screen.getByText("Fix the meal total to save"),
+      ).toBeInTheDocument();
+
+      await user.click(save());
+
+      expect(action).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Meal 1 share (%)")).toHaveFocus();
+    });
+
+    test("tells a first-time visitor the defaults are not saved", () => {
+      render(<GoalsView goals={null} />);
+
+      expect(screen.getByText("Not saved yet")).toBeInTheDocument();
+      expect(reset()).toBeDisabled();
+    });
+
+    test("sticks and shows the unsaved dot once a field changes", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+
+      expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+      expect(bar()).toHaveClass("sticky");
+      expect(document.querySelector('[data-slot="unsaved-dot"]')).toHaveClass(
+        "bg-brand",
+      );
+      expect(reset()).toBeEnabled();
+    });
+
+    test("counts a reorder as an edit, and undoing it as clean", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.click(screen.getByRole("button", { name: "Move Lunch up" }));
+      expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Move Lunch down" }));
+      expect(screen.getByText("All changes saved")).toBeInTheDocument();
+    });
+
+    test("reset restores every field and row, and moves focus to the first field", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.clear(screen.getByLabelText("Calories (kcal)"));
+      await user.type(screen.getByLabelText("Calories (kcal)"), "1500");
+      await user.clear(screen.getByLabelText("Protein %"));
+      await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      await user.click(reset());
+
+      expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(2000);
+      expect(screen.getByLabelText("Protein %")).toHaveValue(30);
+      expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
+      expect(shares()).toEqual([30, 40, 30]);
+      expect(screen.getByText("All changes saved")).toBeInTheDocument();
+      expect(screen.getByText("Changes discarded")).toBeInTheDocument();
+      expect(screen.getByLabelText("Calories (kcal)")).toHaveFocus();
+    });
+
+    test("reset clears the errors of a failed save", async () => {
+      const user = userEvent.setup();
+      action.mockImplementation(async () => ({
+        status: "error",
+        resetKey: 0,
+        formError: "The goals could not be saved. Please try again.",
+      }));
+
+      render(<GoalsView goals={makeGoals()} />);
+      await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+      await user.click(screen.getByRole("button", { name: "Save goals" }));
+      await screen.findByRole("alert");
+
+      await user.click(reset());
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("removing a stored meal", () => {
+    const remove = (user: ReturnType<typeof userEvent.setup>) =>
+      user.click(screen.getByRole("button", { name: "Remove Lunch" }));
+
+    test("warns about upcoming plans before saving", async () => {
+      const user = userEvent.setup();
+      render(
+        <GoalsView
+          goals={makeGoals()}
+          slotUsage={{
+            "meal-slot-2": {
+              upcomingDays: ["2026-10-13"],
+              hasPastPlans: false,
+            },
+          }}
+        />,
+      );
+
+      expect(screen.queryByText(/has planned meals/)).not.toBeInTheDocument();
+
+      await remove(user);
+
+      expect(
+        screen.getByText(/Lunch has planned meals on Tue 13/),
+      ).toBeInTheDocument();
+    });
+
+    test("warns that past plans go with it", async () => {
+      const user = userEvent.setup();
+      render(
+        <GoalsView
+          goals={makeGoals()}
+          slotUsage={{
+            "meal-slot-2": { upcomingDays: [], hasPastPlans: true },
+          }}
+        />,
+      );
+
+      await remove(user);
+
+      expect(
+        screen.getByText("Saving also deletes the past plans for Lunch."),
+      ).toBeInTheDocument();
+    });
+
+    test("stays quiet for a meal with no plans", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await remove(user);
+
+      expect(screen.queryByText(/plans/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("leaving with unsaved edits", () => {
+    const renderWithLink = () =>
+      render(
+        <>
+          <a href="/meals">Meals</a>
+          <GoalsView goals={makeGoals()} />
+        </>,
+      );
+
+    test("asks first, and stays when told to keep editing", async () => {
+      const user = userEvent.setup();
+      renderWithLink();
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+      await user.click(screen.getByRole("link", { name: "Meals" }));
+
+      expect(
+        await screen.findByRole("alertdialog", {
+          name: "Discard unsaved changes?",
+        }),
+      ).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+
+      expect(push).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(20005);
+    });
+
+    test("follows the link once the edits are discarded", async () => {
+      const user = userEvent.setup();
+      renderWithLink();
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+      await user.click(screen.getByRole("link", { name: "Meals" }));
+      await user.click(
+        await screen.findByRole("button", { name: "Discard changes" }),
+      );
+
+      expect(push).toHaveBeenCalledWith("/meals");
+    });
+
+    test("does not ask when there is nothing to lose", async () => {
+      const user = userEvent.setup();
+      renderWithLink();
+
+      await user.click(screen.getByRole("link", { name: "Meals" }));
+
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    test("raises the browser's prompt only while dirty", async () => {
+      const user = userEvent.setup();
+      renderWithLink();
+      const unload = () => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+
+      expect(unload()).toBe(false);
+
+      await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+
+      expect(unload()).toBe(true);
+    });
+  });
+
+  test("clips a long meal name in the summary", async () => {
     const user = userEvent.setup();
     const longName = "a".repeat(60);
     render(<GoalsView goals={null} />);
@@ -434,16 +1053,11 @@ describe("GoalsView", () => {
     await user.clear(screen.getByLabelText("Meal 1 name"));
     await user.type(screen.getByLabelText("Meal 1 name"), longName);
 
-    const [firstRow] = screen.getAllByRole("listitem");
-    const name = within(firstRow).getByText(longName);
+    const name = within(summaryRows()[0]).getByText(longName);
 
     expect(name).toHaveClass("truncate");
     expect(name).toHaveAttribute("title", longName);
-    // The name sits in a flex row inside a grid inside the list. Each grid
-    // track must be allowed to shrink, or it widens past the card.
-    const row = name.parentElement;
-    expect(row).toHaveClass("min-w-0");
-    expect(row?.parentElement).toHaveClass("min-w-0");
-    expect(row?.parentElement?.parentElement).toHaveClass("min-w-0");
+    // A fixed table layout stops the cell from growing with its content.
+    expect(screen.getByRole("table")).toHaveClass("table-fixed");
   });
 });

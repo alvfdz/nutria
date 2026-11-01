@@ -21,7 +21,7 @@ import type { AuthUser } from "@/lib/auth/types";
  */
 export function SiteHeader({ user }: { user: AuthUser }) {
   return (
-    <header className="bg-background sticky top-0 z-10 border-b">
+    <header className="nutria-theme bg-background sticky top-0 z-10 border-b">
       <PageContainer width="wide" className="flex h-14 items-center gap-6">
         <Link href="/" className="font-heading text-sm font-medium">
           Nutria

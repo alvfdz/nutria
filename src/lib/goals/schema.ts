@@ -89,7 +89,7 @@ export const goalsSchema = z
   .object({
     calories: caloriesField,
     proteinPct: percentField("Protein"),
-    carbsPct: percentField("Carbohydrates"),
+    carbsPct: percentField("Carbs"),
     fatPct: percentField("Fat"),
     slots: z
       .array(

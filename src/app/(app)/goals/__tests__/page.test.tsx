@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import GoalsPage from "@/app/(app)/goals/page";
 import { requireUser } from "@/lib/auth/session";
 import { getGoals } from "@/lib/goals/repository";
+import { getSlotPlanUsage } from "@/lib/plan/repository";
 import type { Goals } from "@/lib/goals/types";
 import { makeGoals, testUser } from "@test/factories";
 
@@ -15,10 +16,13 @@ vi.mock("@/lib/goals/repository", () => ({
 // pulled in transitively by the form, never called here.
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ requireUser: vi.fn() }));
+vi.mock("@/lib/plan/repository", () => ({ getSlotPlanUsage: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(requireUser).mockResolvedValue(testUser);
+  vi.mocked(getSlotPlanUsage).mockResolvedValue({});
 });
 
 /** Answers the repository, then resolves the page element to render. */
@@ -33,6 +37,7 @@ describe("GoalsPage", () => {
     await renderPage(null);
 
     expect(getGoals).toHaveBeenCalledWith(testUser.id);
+    expect(getSlotPlanUsage).toHaveBeenCalledWith(testUser.id);
   });
 
   test("stops at the sign-in redirect before reading any goals", async () => {
@@ -51,7 +56,7 @@ describe("GoalsPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Your daily macro budget: calories, protein, carbs and fat.",
+        "Your daily calorie budget, split across macros and meals.",
       ),
     ).toBeInTheDocument();
   });
@@ -65,7 +70,8 @@ describe("GoalsPage", () => {
     ).toBeInTheDocument();
 
     // The default seed: 3 meals, balanced shares.
-    expect(screen.getByLabelText("Meals per day")).toHaveTextContent("3");
+    expect(screen.getAllByLabelText(/^Meal \d+ name$/)).toHaveLength(3);
+    expect(screen.getByText(/Start from these defaults/)).toBeInTheDocument();
     const calories = screen.getByLabelText(
       "Calories (kcal)",
     ) as HTMLInputElement;
@@ -79,10 +85,13 @@ describe("GoalsPage", () => {
     expect(screen.getByLabelText("Meal 3 name")).toHaveValue("Dinner");
   });
 
-  test("prefills the form from the stored goals and shows the live summary", async () => {
+  test("prefills the form from the stored goals and shows the summary", async () => {
     await renderPage(makeGoals());
 
     expect(screen.getByText("Daily goals")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Start from these defaults/),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Save goals" }),
     ).toBeInTheDocument();
@@ -102,19 +111,19 @@ describe("GoalsPage", () => {
     expect(screen.getByLabelText("Meal 1 share (%)")).toHaveValue(30);
 
     // Daily grams via the 4/4/9 rule: 2000 kcal at 30/40/30.
-    expect(screen.getByText("Live summary")).toBeInTheDocument();
+    expect(screen.getByText("Your day")).toBeInTheDocument();
     expect(screen.getByText("2000")).toBeInTheDocument();
     expect(screen.getByText("150")).toBeInTheDocument();
     expect(screen.getByText("200")).toBeInTheDocument();
-    expect(screen.getByText("66.7")).toBeInTheDocument();
+    expect(screen.getByText("67")).toBeInTheDocument();
 
     // Per-meal slices: Breakfast and Dinner 600 kcal, Lunch 800 kcal.
-    expect(
-      screen.getAllByText(/600\s*kcal · P 45 g · C 60 g · F 20 g/),
-    ).toHaveLength(2);
-    expect(
-      screen.getByText(/800\s*kcal · P 60 g · C 80 g · F 26\.7 g/),
-    ).toBeInTheDocument();
+    const cells = (name: string) =>
+      Array.from(
+        screen.getByRole("cell", { name }).closest("tr")?.cells ?? [],
+      ).map((cell) => cell.textContent);
+    expect(cells("Breakfast")).toEqual(["Breakfast", "600", "45", "60", "20"]);
+    expect(cells("Lunch")).toEqual(["Lunch", "800", "60", "80", "27"]);
   });
 
   test("loads the goals from the repository once", async () => {

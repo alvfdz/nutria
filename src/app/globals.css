@@ -48,6 +48,16 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-border-subtle: var(--border-subtle);
+  --color-brand: var(--brand);
+  --color-protein: var(--protein);
+  --color-carbs: var(--carbs);
+  --color-fat: var(--fat);
+  --color-meal-1: var(--meal-1);
+  --color-meal-2: var(--meal-2);
+  --color-meal-3: var(--meal-3);
+  --color-meal-4: var(--meal-4);
+  --radius-card: 12px;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -126,6 +136,97 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * The docs/design-system.md palette, scoped to a subtree so views can adopt it
+ * one at a time without restyling the rest of the app. The `@theme inline`
+ * mappings above resolve at the element, so shadcn utilities pick these up.
+ */
+.nutria-theme {
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --secondary: #e4e4e7;
+  --secondary-foreground: #18181b;
+  --accent: #e4e4e7;
+  --accent-foreground: #18181b;
+  --border: #e4e4e7;
+  --border-subtle: #f4f4f5;
+  --input: #e4e4e7;
+  --ring: #a1a1aa;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --destructive: #dc2626;
+  --radius: 0.5rem;
+  --brand: #059669;
+  --protein: #d14d5a;
+  --carbs: #c89b3c;
+  --fat: #6d58d1;
+  --foreground-soft: #27272a;
+  --meal-1: #a1a1aa;
+  --meal-2: #52525b;
+  --meal-3: #18181b;
+  --meal-4: #71717a;
+}
+
+.dark .nutria-theme {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #0c0c0e;
+  --card-foreground: #fafafa;
+  --popover: #0c0c0e;
+  --popover-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --border: #27272a;
+  --border-subtle: #1f1f23;
+  --input: #27272a;
+  --ring: #71717a;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --destructive: #fca5a5;
+  --brand: #34d399;
+  --protein: #e8858c;
+  --carbs: #e5c07b;
+  --fat: #8f7fe0;
+  --foreground-soft: #e4e4e7;
+  --meal-1: #52525b;
+  --meal-2: #a1a1aa;
+  --meal-3: #e4e4e7;
+  --meal-4: #71717a;
+}
+
+/*
+ * The docs/design-system.md type scale. These are `type-*` rather than `text-*`
+ * because `cn` reads an unknown `text-*` class as a colour, and would drop it
+ * when it meets a real colour utility such as `text-muted-foreground`.
+ */
+@utility type-page-title {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+@utility type-stat-lg {
+  font-size: 2rem;
+  line-height: 2.375rem;
+  font-weight: 600;
+}
+
+@utility type-caption {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
 }
 
 @layer base {
