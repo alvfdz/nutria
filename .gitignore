@@ -25,9 +25,6 @@
 .DS_Store
 *.pem
 
-# brainstorming companion sessions
-/.superpowers/
-
 # debug
 npm-debug.log*
 yarn-debug.log*
