@@ -18,6 +18,7 @@ import { ICON_STROKE, OVERLAY_THEME_CLASS } from "@/lib/design-system";
 
 /** The top-level sections of the app, in the order they appear in the nav. */
 const sections = [
+  { href: "/", label: "Today" },
   { href: "/goals", label: "Goals" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/meals", label: "Meals" },

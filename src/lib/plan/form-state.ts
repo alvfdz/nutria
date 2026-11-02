@@ -33,3 +33,34 @@ export type RemoveMealState = {
 export const initialRemoveMealState: RemoveMealState = {
   status: "idle",
 };
+
+/** State returned by {@link setMealEatenAction} for one tick. */
+export type SetMealEatenState = {
+  /** Outcome of the last submit. */
+  status: "idle" | "error" | "success";
+  /** Message for a failure such as a day that isn't today. */
+  formError?: string;
+};
+
+/** State a tick starts from. */
+export const initialSetMealEatenState: SetMealEatenState = {
+  status: "idle",
+};
+
+/**
+ * State returned by {@link swapMealAction} on every submit, consumed by the
+ * swap picker's `useActionState`.
+ */
+export type SwapMealState = {
+  /** Outcome of the last submit. */
+  status: "idle" | "error" | "success";
+  /** Message for a failure such as a meal that has already been ticked. */
+  formError?: string;
+  /** Name echoed back on success so it can be announced to screen readers. */
+  swappedName?: string;
+};
+
+/** State a freshly mounted swap picker starts from. */
+export const initialSwapMealState: SwapMealState = {
+  status: "idle",
+};

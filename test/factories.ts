@@ -244,6 +244,7 @@ export function makePlannedMeal(
     mealSlotId: "meal-slot-1",
     mealId: meal.id,
     sortOrder: 0,
+    eaten: false,
     ...overrides,
     meal,
   };
@@ -273,6 +274,7 @@ export const plannedMealViewDefaults: PlannedMealView = {
   id: "plan-meal-1",
   mealId: "meal-1",
   name: "Oatmeal & Protein Bowl",
+  eaten: false,
   totals: { calories: 462, protein: 88.2, carbs: 0, fat: 10.08 },
   items: [makePlannedMealItem()],
 };
@@ -360,6 +362,28 @@ export function makeAssignMealFormData(
  * @param values Fields to set; `null` leaves the field out of the submission.
  */
 export function makeRemoveMealFormData(
+  values: Record<string, string | null> = {},
+): FormData {
+  return makeIngredientFormData(values);
+}
+
+/**
+ * Builds the form submission a tick on the Today page would send.
+ *
+ * @param values Fields to set; `null` leaves the field out of the submission.
+ */
+export function makeSetMealEatenFormData(
+  values: Record<string, string | null> = {},
+): FormData {
+  return makeIngredientFormData(values);
+}
+
+/**
+ * Builds the form submission the swap picker would send.
+ *
+ * @param values Fields to set; `null` leaves the field out of the submission.
+ */
+export function makeSwapMealFormData(
   values: Record<string, string | null> = {},
 ): FormData {
   return makeIngredientFormData(values);

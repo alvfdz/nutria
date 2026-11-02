@@ -18,6 +18,8 @@ export type PlannedMeal = {
   mealId: string;
   /** Position within its slot, preserving the order meals were added in. */
   sortOrder: number;
+  /** Whether the owner ticked this meal off as eaten. */
+  eaten: boolean;
   /** The template itself, items and ingredients embedded. */
   meal: Meal;
 };
@@ -43,6 +45,8 @@ export type PlannedMealView = {
   mealId: string;
   /** Display name of the template. */
   name: string;
+  /** Whether the owner ticked this meal off as eaten. */
+  eaten: boolean;
   /** The template's macros, computed from the current ingredient values. */
   totals: MealTotals;
   /** The meal's ingredients, in the order the template stores them. */

@@ -11,6 +11,8 @@ import {
   getSlotPlanUsage,
   listPlansForSlot,
   removePlannedMeal,
+  setPlanMealEaten,
+  swapPlannedMeal,
 } from "@/lib/plan/repository";
 import { testUser } from "@test/factories";
 
@@ -25,6 +27,7 @@ const planMeal = {
   count: vi.fn(),
   create: vi.fn(),
   deleteMany: vi.fn(),
+  updateMany: vi.fn(),
 };
 
 /** Ownership checks `assignMeal` runs before it writes. */
@@ -336,5 +339,62 @@ describe("getSlotPlanUsage", () => {
     planMeal.findMany.mockResolvedValue([]);
 
     await expect(getSlotPlanUsage(testUser.id)).resolves.toEqual({});
+  });
+});
+
+describe("setPlanMealEaten", () => {
+  test("writes the tick scoped to the owner", async () => {
+    planMeal.updateMany.mockResolvedValue({ count: 1 });
+
+    await setPlanMealEaten(testUser.id, "plan-1", true);
+
+    expect(planMeal.updateMany).toHaveBeenCalledWith({
+      where: { id: "plan-1", userId: testUser.id },
+      data: { eaten: true },
+    });
+  });
+
+  test("throws when the user has no such plan", async () => {
+    planMeal.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      setPlanMealEaten(testUser.id, "foreign", false),
+    ).rejects.toThrow("Unknown plan meal: foreign");
+  });
+});
+
+describe("swapPlannedMeal", () => {
+  test("replaces the template of an uneaten row in place", async () => {
+    meal.count.mockResolvedValue(1);
+    planMeal.updateMany.mockResolvedValue({ count: 1 });
+
+    await swapPlannedMeal(testUser.id, "plan-1", "meal-2");
+
+    expect(meal.count).toHaveBeenCalledWith({
+      where: { id: "meal-2", userId: testUser.id },
+    });
+    expect(planMeal.updateMany).toHaveBeenCalledWith({
+      where: { id: "plan-1", userId: testUser.id, eaten: false },
+      data: { mealId: "meal-2" },
+    });
+  });
+
+  test("refuses a template the user doesn't own, before writing", async () => {
+    meal.count.mockResolvedValue(0);
+    planMeal.updateMany.mockClear();
+
+    await expect(
+      swapPlannedMeal(testUser.id, "plan-1", "foreign"),
+    ).rejects.toBeInstanceOf(PlanTargetNotFoundError);
+    expect(planMeal.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("throws when the row is ticked or isn't the user's", async () => {
+    meal.count.mockResolvedValue(1);
+    planMeal.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      swapPlannedMeal(testUser.id, "plan-1", "meal-2"),
+    ).rejects.toThrow("No uneaten plan meal: plan-1");
   });
 });

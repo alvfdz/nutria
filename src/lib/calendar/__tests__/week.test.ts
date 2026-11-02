@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  formatLongDate,
   addDays,
   addWeeks,
   clampWeekToCurrent,
@@ -196,5 +197,16 @@ describe("clampWeekToCurrent", () => {
 
   test("leaves a future week alone", () => {
     expect(clampWeekToCurrent("2030-01-07")).toBe("2030-01-07");
+  });
+});
+
+describe("formatLongDate", () => {
+  test("spells out the weekday and month", () => {
+    expect(formatLongDate("2026-11-02")).toBe("Monday, 2 November");
+  });
+
+  test("doesn't pad the day, and handles a year boundary", () => {
+    expect(formatLongDate("2027-01-01")).toBe("Friday, 1 January");
+    expect(formatLongDate("2026-12-31")).toBe("Thursday, 31 December");
   });
 });

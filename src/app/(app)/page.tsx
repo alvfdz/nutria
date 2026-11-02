@@ -1,94 +1,75 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
+import { cn } from "cn";
+
 import { PageContainer } from "@/components/page-container";
+import { SetBudgetCard } from "@/components/set-budget-card";
+import { TodayBoard } from "@/components/today/today-board";
 import { buttonVariants } from "@/components/ui/button";
+import { WelcomeTutorial } from "@/components/welcome-tutorial";
 import { requireUser } from "@/lib/auth/session";
+import { dbDateFromKey, formatLongDate, todayKey } from "@/lib/calendar/week";
+import { getGoals } from "@/lib/goals/repository";
+import { listMeals } from "@/lib/meals/repository";
+import { getPlansForRange } from "@/lib/plan/repository";
+import { buildDay } from "@/lib/plan/views";
+import { hasSeenTutorial } from "@/lib/tutorial/repository";
 
-// `href` is omitted for the steps that have no route yet, which is what makes
-// their call to action render as plain text instead of a link.
-type Step = {
-  title: string;
-  description: string;
-  cta: { label: string; href?: "/ingredients" | "/meals" | "/calendar" };
-};
-
-const steps: Step[] = [
-  {
-    title: "Ingredients",
-    description:
-      "Save the raw foods you cook with, with their macros per 100 g.",
-    cta: { label: "Open the library", href: "/ingredients" },
-  },
-  {
-    title: "Meal templates",
-    description:
-      "Group ingredients into reusable meals you can plan ahead with.",
-    cta: { label: "Preview", href: "/meals" },
-  },
-  {
-    title: "Daily planner",
-    description: "Assign meals to days and meal slots against a macro budget.",
-    cta: { label: "Open the calendar", href: "/calendar" },
-  },
-];
+export const metadata: Metadata = { title: "Today" };
 
 /**
- * Landing page: introduces the three-step workflow and links into the app.
- * Signed-in only, like every page under `(app)`.
+ * Home: the current day. Shows today's planned meals to tick off and what's left
+ * of the budget; planning ahead stays on the calendar. Without goals yet it
+ * points at `/goals`. The welcome tutorial opens over it until the owner has
+ * seen it, and again on `?tutorial=replay`.
  */
-export default async function Home() {
-  await requireUser();
+export default async function TodayPage(props: PageProps<"/">) {
+  const user = await requireUser();
+  const today = todayKey();
+  const date = dbDateFromKey(today);
+  const { tutorial } = await props.searchParams;
+  const [goals, meals, plans, tutorialSeen] = await Promise.all([
+    getGoals(user.id),
+    listMeals(user.id),
+    getPlansForRange(user.id, date, date),
+    hasSeenTutorial(user.id),
+  ]);
 
   return (
-    <main className="flex-1">
-      <PageContainer className="py-16">
-        <div className="grid max-w-2xl gap-6">
-          <h1 className="font-heading text-4xl leading-tight font-medium tracking-tight">
-            Design your days of eating before you eat them.
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Nutria is an open-source nutrition planner. It pairs a macro tracker
-            with a forward-looking meal scheduler, so you see your remaining
-            budget for a meal before you sit down to it.
-          </p>
-          <div>
-            <Link
-              href="/ingredients"
-              className={buttonVariants({ size: "lg" })}
-            >
-              Start with your ingredients
-            </Link>
+    <main className="nutria-theme bg-background text-foreground flex-1 tabular-nums">
+      <PageContainer className="max-w-[1248px]! py-12">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="grid gap-1">
+            <h1 className="font-heading type-page-title">
+              {formatLongDate(today)}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Mark meals as you eat them.
+            </p>
           </div>
-        </div>
+          <Link
+            href="/calendar"
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Plan this week
+          </Link>
+        </header>
 
-        <ol className="mt-16 grid gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-3">
-          {steps.map((step, index) => (
-            <li key={step.title} className="grid gap-2 bg-card p-6">
-              <span className="text-muted-foreground text-xs tabular-nums">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <h2 className="font-heading text-base font-medium">
-                {step.title}
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                {step.description}
-              </p>
-              {step.cta.href ? (
-                <Link
-                  href={step.cta.href}
-                  className="text-sm underline-offset-4 hover:underline"
-                >
-                  {step.cta.label}
-                </Link>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  {step.cta.label}
-                </p>
-              )}
-            </li>
-          ))}
-        </ol>
+        <div className="mt-8">
+          {goals ? (
+            <TodayBoard
+              day={buildDay(goals, plans, today, today)}
+              meals={meals}
+            />
+          ) : (
+            <SetBudgetCard />
+          )}
+        </div>
       </PageContainer>
+      {tutorial === "replay" || !tutorialSeen ? (
+        <WelcomeTutorial hasGoals={goals !== null} />
+      ) : null}
     </main>
   );
 }

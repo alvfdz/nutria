@@ -27,6 +27,7 @@ A user can plan an entire day of eating—matching their target calories and mac
 1. **The Budget:** Users define a daily calorie target and its protein/carbs/fat split, and divide it into "Meal Slots" that each take a share of the day (e.g., Breakfast 25%, Lunch 35%, Dinner 40%).
 2. **The Library:** Users build a personal database of ingredients and "Meal Templates" (combinations of ingredients with quantities).
 3. **The Planner:** When filling out a day, the user looks at a slot (e.g., Lunch), sees their remaining calorie/macro budget for that slot, and picks templates from their Library that fit.
+4. **The Day:** The home page shows today only. Users tick meals as they eat them, swap a meal if they ate something else, and see what's left of the budget. Only ticked meals count as eaten.
 
 ### Product Constraints
 
@@ -52,7 +53,7 @@ A user can plan an entire day of eating—matching their target calories and mac
   - _Goals:_ Daily calorie target, macro split, and meal slot shares.
   - _Ingredients:_ Custom ingredients and items saved from external search.
   - _Meals:_ CRUD for meal templates built from ingredients.
-  - _Calendar:_ Maps meal templates to dates and slots.
+  - _Calendar:_ Maps meal templates to dates and slots, and records which of today's meals have been eaten.
   - _External Search Proxy:_ A Route Handler proxies Open Food Facts: it requires a session, rate-limits per client, sends the identifying User-Agent, normalizes the payload, and caches results in memory for a few minutes.
 
 ### 3. Data Persistence Layer

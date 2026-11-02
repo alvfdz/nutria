@@ -31,6 +31,23 @@ describe("AccountPage", () => {
     ).toBeInTheDocument();
   });
 
+  test("links to the tutorial replay", async () => {
+    vi.mocked(requireUser).mockResolvedValue({
+      id: "user-1",
+      name: "Owner",
+      email: "owner@example.com",
+    });
+
+    render(await AccountPage());
+
+    expect(
+      screen.getByRole("link", { name: "Replay the tutorial" }),
+    ).toHaveAttribute("href", "/?tutorial=replay");
+    expect(
+      screen.getByRole("link", { name: "Replay the tutorial" }),
+    ).not.toHaveClass("border-transparent");
+  });
+
   test("opts into the design-system palette", async () => {
     vi.mocked(requireUser).mockResolvedValue({
       id: "user-1",

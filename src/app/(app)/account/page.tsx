@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+
+import { cn } from "cn";
 
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { PageContainer } from "@/components/page-container";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -17,8 +21,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Account route. Requires a signed-in user, names the account and hosts the
- * change-password form. There is no email-based recovery, so a forgotten
+ * Account route. Requires a signed-in user, names the account, hosts the
+ * change-password form and offers the welcome tutorial again. There is no email-based recovery, so a forgotten
  * password is fixed with the `auth:reset-password` command instead (see the
  * README). The page opts into the design-system palette through `nutria-theme`,
  * and narrows the shared container to the 1200px content width (plus its 24px
@@ -39,7 +43,7 @@ export default async function AccountPage() {
           <header className="grid gap-1">
             <h1 className="font-heading type-page-title">Account</h1>
             <p className="text-muted-foreground text-sm">
-              Who you&apos;re signed in as, and your password.
+              Who you&apos;re signed in as, your password and the tutorial.
             </p>
           </header>
 
@@ -80,6 +84,25 @@ export default async function AccountPage() {
               </CardHeader>
               <CardContent>
                 <ChangePasswordForm />
+              </CardContent>
+            </Card>
+
+            <Card className={CARD_CLASS}>
+              <CardHeader>
+                <CardTitle className={CARD_TITLE_CLASS}>
+                  <h2>Tutorial</h2>
+                </CardTitle>
+                <CardDescription>
+                  A short reminder of how Nutria works.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href="/?tutorial=replay"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  Replay the tutorial
+                </Link>
               </CardContent>
             </Card>
           </div>

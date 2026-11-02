@@ -108,7 +108,8 @@ Compose reads `.env` to configure the containers. It needs three values:
 
 Compose refuses to start while the password or the secret is empty. `APP_PORT`
 changes the host port (default 3000); `POSTGRES_USER` and `POSTGRES_DB` are
-optional.
+optional. `TZ` sets your time zone (e.g. `Europe/Madrid`, default UTC), which
+decides when "today" starts on the Today page and the calendar.
 
 The `app` container applies pending Prisma migrations every time it starts,
 then serves Nutria. It reaches the database at `postgres:5432` inside the
@@ -126,7 +127,8 @@ stored in PostgreSQL and passwords hashed with scrypt.
   `/setup`, where you create the owner account. Sign-up closes as soon as it
   exists: both the setup screen and Better Auth's sign-up endpoint refuse a
   second account, and a database trigger (`users_single_owner`) enforces the
-  same rule against sign-ups racing each other.
+  same rule against sign-ups racing each other. A short tutorial then opens on
+  the Today page; replay it any time from the Account page.
 - **Configuration.** `BETTER_AUTH_SECRET` signs the session cookies (keep it
   stable) and `BETTER_AUTH_URL` is the public origin you open Nutria at.
   Development takes both from `.env.development`, self-hosting from `.env`.

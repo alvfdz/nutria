@@ -99,8 +99,31 @@ describe("AppNav", () => {
     );
   });
 
-  test("leaves every link inactive on a route outside the sections", () => {
+  test("marks only Today on the home page", () => {
     pathname.mockReturnValue("/");
+
+    render(<AppNav />);
+
+    const today = screen.getByRole("link", { name: "Today" });
+    expect(today).toHaveAttribute("href", "/");
+    expect(today).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Goals" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  test("doesn't mark Today on another section", () => {
+    pathname.mockReturnValue("/goals");
+
+    render(<AppNav />);
+
+    expect(screen.getByRole("link", { name: "Today" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  test("leaves every link inactive on a route outside the sections", () => {
+    pathname.mockReturnValue("/account");
 
     render(<AppNav />);
 
@@ -174,7 +197,7 @@ describe("AppNav", () => {
       "href",
       "/goals",
     );
-    expect(screen.getAllByRole("menuitem")).toHaveLength(4);
+    expect(screen.getAllByRole("menuitem")).toHaveLength(5);
   });
 });
 

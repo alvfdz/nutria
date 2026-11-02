@@ -25,6 +25,33 @@ const MONTHS = [
   "Dec",
 ] as const;
 
+/** Full English weekday names, indexed by `Date#getUTCDay()` (Sunday first). */
+const WEEKDAYS_LONG = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/** Full English month names, indexed by zero-based month. */
+const MONTHS_LONG = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
 /** Zero-pads a number to two digits, as calendar keys require. */
 function pad(value: number): string {
   return String(value).padStart(2, "0");
@@ -49,8 +76,8 @@ function partsOf(dateKey: string): [number, number, number] {
 }
 
 /**
- * Reads the local calendar day of a `Date` as a key. Local getters are used
- * deliberately: the user's "today" is the day where they are, not in UTC.
+ * Reads the local calendar day of a `Date` as a key. Local means the server's
+ * zone, which self-hosters set through `TZ` so that it matches where they are.
  *
  * @param date Any point in time.
  * @returns That instant's local date as `YYYY-MM-DD`.
@@ -182,6 +209,20 @@ export function formatDayLabel(dateKey: string): string {
     WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
 
   return day === 1 ? `${weekday} 1 ${MONTHS[month - 1]}` : `${weekday} ${day}`;
+}
+
+/**
+ * Spells a day out in full, for the title of the Today page.
+ *
+ * @param dateKey Any valid `YYYY-MM-DD` key.
+ * @returns A label such as `Monday, 2 November`.
+ */
+export function formatLongDate(dateKey: string): string {
+  const [year, month, day] = partsOf(dateKey);
+  const weekday =
+    WEEKDAYS_LONG[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+
+  return `${weekday}, ${day} ${MONTHS_LONG[month - 1]}`;
 }
 
 /**

@@ -5,8 +5,8 @@ import { useState } from "react";
 import { cn } from "cn";
 import { ChevronRight, Plus, Trash2, X } from "lucide-react";
 
-import { AddMealPicker } from "@/components/calendar/add-meal-picker";
-import { MacroBars } from "@/components/calendar/macro-bars";
+import { AddMealPicker } from "@/components/add-meal-picker";
+import { MacroBars } from "@/components/macro-bars";
 import { Button } from "@/components/ui/button";
 import {
   PopoverClose,

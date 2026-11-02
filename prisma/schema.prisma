@@ -25,20 +25,22 @@ datasource db {
 /// write the row directly.
 model User {
   /// Server-generated UUID, same convention as {@link Ingredient}.
-  id            String   @id @default(uuid()) @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
   /// Display name, shown in the app header.
-  name          String
+  name           String
   /// Sign-in identifier; unique across accounts.
-  email         String   @unique
+  email          String    @unique
   /// Whether the address was confirmed. Nutria sends no email, so it stays
   /// `false`; Better Auth requires the column.
-  emailVerified Boolean  @default(false)
+  emailVerified  Boolean   @default(false)
   /// Avatar URL. Unused by Nutria; required by the Better Auth schema.
-  image         String?
+  image          String?
+  /// When the owner first closed the welcome tutorial; null until then.
+  tutorialSeenAt DateTime? @db.Timestamptz(3)
   /// Set on insert.
-  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
   /// Rewritten on every update.
-  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
   /// Signed-in browsers of this user.
   sessions    Session[]
@@ -261,6 +263,8 @@ model PlanMeal {
   date       DateTime @db.Date
   /// Position within its slot, preserving the order meals were added in.
   sortOrder  Int
+  /// Whether the owner ticked this meal off as eaten on the Today page.
+  eaten      Boolean  @default(false)
   /// The Goals slot this meal fills. Cascade removes a slot's planned meals
   /// when the slot itself is deleted; `saveGoals` guards that removal.
   mealSlotId String   @db.Uuid

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { assignMealAction } from "@/app/(app)/calendar/actions";
-import { AddMealPicker } from "@/components/calendar/add-meal-picker";
+import { AddMealPicker } from "@/components/add-meal-picker";
 import type { SlotBudget } from "@/lib/goals/budget";
 import type { MealTotals } from "@/lib/meals/macros";
 import type { Meal } from "@/lib/meals/types";

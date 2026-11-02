@@ -36,6 +36,7 @@ function toPlannedMeal(row: PlanMealWithMeal): PlannedMeal {
     mealSlotId: row.mealSlotId,
     mealId: row.mealId,
     sortOrder: row.sortOrder,
+    eaten: row.eaten,
     meal: toMeal(row.meal),
   };
 }
@@ -145,6 +146,61 @@ export async function removePlannedMeal(
 
   if (count === 0) {
     throw new Error(`Unknown plan meal: ${planMealId}`);
+  }
+}
+
+/**
+ * Records whether a plan row of the user has been eaten.
+ *
+ * @param userId Owner of the plan.
+ * @param planMealId Identifier of the plan row.
+ * @param eaten Whether the meal counts as eaten.
+ * @throws {Error} If the user has no plan with that id.
+ */
+export async function setPlanMealEaten(
+  userId: string,
+  planMealId: string,
+  eaten: boolean,
+): Promise<void> {
+  const { count } = await getPrisma().planMeal.updateMany({
+    where: { id: planMealId, userId },
+    data: { eaten },
+  });
+
+  if (count === 0) {
+    throw new Error(`Unknown plan meal: ${planMealId}`);
+  }
+}
+
+/**
+ * Replaces the template of an uneaten plan row in place, so the row keeps its
+ * id, slot and position. The eaten filter sits in the write itself, so a tick
+ * landing just before the swap can't be overwritten.
+ *
+ * @param userId Owner of the plan.
+ * @param planMealId Identifier of the plan row.
+ * @param mealId The template to plan instead.
+ * @throws {PlanTargetNotFoundError} If the user owns no such template.
+ * @throws {Error} If the user has no uneaten plan with that id.
+ */
+export async function swapPlannedMeal(
+  userId: string,
+  planMealId: string,
+  mealId: string,
+): Promise<void> {
+  const prisma = getPrisma();
+
+  if ((await prisma.meal.count({ where: { id: mealId, userId } })) === 0) {
+    throw new PlanTargetNotFoundError("meal", mealId);
+  }
+
+  const { count } = await prisma.planMeal.updateMany({
+    where: { id: planMealId, userId, eaten: false },
+    data: { mealId },
+  });
+
+  if (count === 0) {
+    throw new Error(`No uneaten plan meal: ${planMealId}`);
   }
 }
 

@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 
-import { MacroBars } from "@/components/calendar/macro-bars";
+import { MacroBars } from "@/components/macro-bars";
 import type { SlotBudget } from "@/lib/goals/budget";
 import type { MealTotals } from "@/lib/meals/macros";
 

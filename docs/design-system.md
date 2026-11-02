@@ -2,7 +2,7 @@
 
 Calm, monochrome nutrition UI built on shadcn/ui — color only where it carries meaning.
 
-These are the style guidelines for every screen and all UI work in Nutria: auth, home, Goals, Ingredients, Meals, Calendar and Account, plus anything added later. The interface stays out of the way: zinc neutrals, borders instead of shadows, one quiet green accent, and three soft macro colors that always mean the same thing. If a screen starts to feel colorful, something is wrong.
+These are the style guidelines for every screen and all UI work in Nutria: auth, Today, Goals, Ingredients, Meals, Calendar and Account, plus anything added later. The interface stays out of the way: zinc neutrals, borders instead of shadows, one quiet green accent, and three soft macro colors that always mean the same thing. If a screen starts to feel colorful, something is wrong.
 
 New UI follows this document. When you change an existing view, bring the parts you touch up to it (see [Adoption](#adoption)). If a screen needs something not covered here, extend this document in the same change rather than inventing a one-off.
 
@@ -68,7 +68,7 @@ Geist (Google Fonts) for everything; Geist Mono only for code or IDs. All number
 - `card-title` 16/24 semibold — card headings (`text-base/6 font-semibold`).
 - `stat-lg` 32 semibold — at most one hero number per view (daily kcal; `type-stat-lg`); `stat` 18 semibold in stat tiles.
 - `label` 14 medium, `body` 14 regular, `caption` 13 (`type-caption`), `micro` 12 (the floor, including dense views like the calendar).
-- Brand moments only — the home hero and the auth wordmark — may go larger, up to 36.
+- Brand moments only — the auth wordmark — may go larger, up to 36.
 
 Custom sizes are `type-*` utilities, not `text-*`: `cn` reads an unknown `text-*` class as a color and drops it next to a real one.
 
@@ -89,6 +89,7 @@ Pick the view shape that fits, and stack columns on narrow screens:
 | Editor  | ≈2/3 editor, ≈1/3 summary sticky under the navbar.                                             | Goals                 |
 | Library | One full-width card: filter and add actions above a sortable table. Adding happens in dialogs. | Ingredients, Meals    |
 | Canvas  | Full-width board at the wide tier; details open in an anchored panel.                          | Calendar              |
+| Day     | ≈2/3 meal list, ≈1/3 budget sticky under the navbar. On phones the budget comes first.         | Today                 |
 | Form    | One column, `max-w-sm`. Left-aligned in the app; centered under the logo signed out.           | Account, login, setup |
 
 A value is visualized where it is edited, so feedback stays in view when the summary stacks below. Unsaved edits on a full-page editor get a sticky bottom action bar: status text left, Reset (outline) + primary action right.
@@ -97,7 +98,7 @@ Radii: `rounded-md` ≈6 for small controls, `rounded-lg` 8 for inputs and butto
 
 ## Components
 
-Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Shared ones sit at the top of `src/components` (`segmented-bar.tsx`, `stat-tile.tsx`, `status-line.tsx`, `unit-input.tsx`, and `library-table.tsx` for the Library shape's headings, row names and row actions), and shared class names and constants in `src/lib/design-system.ts`. Others still live with Goals (`split-slider.tsx`): reuse them, and move a component to the shared location the first time a second view needs it, rather than copying it.
+Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Shared ones sit at the top of `src/components` (`segmented-bar.tsx`, `stat-tile.tsx`, `status-line.tsx`, `unit-input.tsx`, `meal-picker.tsx`, `macro-bars.tsx`, and `library-table.tsx` for the Library shape's headings, row names and row actions), and shared class names and constants in `src/lib/design-system.ts`. Others still live with Goals (`split-slider.tsx`): reuse them, and move a component to the shared location the first time a second view needs it, rather than copying it.
 
 - **Site header** — 56px sticky bar at the wide tier: logo mark in `brand` and wordmark, section links, then the theme toggle, Account and Sign out. Links and actions are 32px ghost buttons in `muted-foreground`; the current page is `muted` + `foreground`. Actions fold to their icons below `md`; on phones the section links fold into one menu named after the current section, and below 360px only the logo mark stays.
 - **Button** — primary / outline / ghost / icon, plus the tinted `destructive` for confirming a delete.
@@ -112,6 +113,8 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 - **StatTile** — a 3-cell bordered row for P/C/F grams.
 - **Day header** — weekday and day number together at `label`, planned against target kcal (`planned/target`), a state marker once something is planned (principle 6), and a 6px kcal bar with a `primary` fill. Days share rows through subgrid from `xl`, so one slot sits on one line across the week; narrower screens stack the days.
 - **Slot card** — slot name and kcal in `micro`, then one row per meal. A planned card is `muted` at 50% with a `border`; an empty one has no fill and a `border-subtle`, so content outweighs gaps. An empty editable card reads "+ Add meal"; an empty past one reads "Nothing planned". A meal row shows kcal only when the card has several rows, because a lone row's kcal is the header total (principle 5).
+- **Tickable meal row** — a `Checkbox`, the meal's name, its kcal and a labelled ghost swap button, with the slot's name above its rows. A ticked meal's name goes `muted-foreground` with no strikethrough, and its swap button is removed. Ticks stay monochrome: `brand` isn't used for them. Each planned meal has its own row, even when a template is planned twice. While a tick saves it's read-only rather than disabled, so it keeps focus.
+- **Day budget bar** — a 6px bar on a `muted` track with eaten in `primary`, still planned in `primary` at 30%, and unplanned left empty. It scales to the larger of the target and everything on the day, so an overshoot fills the track and the text reports it (principle 6). Ticking animates the fill, the view's only animation, and reduced motion removes it. Above it, kcal left is the view's one `stat-lg`. On phones a one-line `caption` copy of it stays under the header while the meals scroll, hidden from assistive technology.
 
 ### Lists and tables
 
@@ -125,7 +128,7 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 
 ### Overlays
 
-`Dialog` holds create and edit forms that don't fit inline. `AlertDialog` confirms deletes and discarding unsaved work, and names the thing affected. `Popover` holds panels anchored to what opened them, such as the calendar's food panel. Floating layers are the only surfaces that keep a shadow, because they need the elevation.
+`Dialog` holds create and edit forms that don't fit inline. `AlertDialog` confirms deletes and discarding unsaved work, and names the thing affected. `Popover` holds panels anchored to what opened them, such as the calendar's food panel. A step dialog walks through a short sequence, such as the welcome tutorial: "Step 2 of 4" in `caption`, then ghost Skip, outline Back and primary Next. Floating layers are the only surfaces that keep a shadow, because they need the elevation.
 
 ### Charts
 
@@ -160,10 +163,10 @@ Text ≥ 4.5:1 in both themes (`muted-foreground` is the darkest allowed for sma
 
 ## Adoption
 
-Goals, Ingredients, Meals, Calendar, Account, login, setup and the site header follow this system; the rest of the app is being brought over view by view.
+Today, Goals, Ingredients, Meals, Calendar, Account, login, setup and the site header follow this system; the rest of the app is being brought over view by view.
 
 - **Theme scope.** The palette lives in `.nutria-theme`, so a view opts in by putting that class on its `<main>`. Portaled content (dialogs, popovers, menus) renders outside that subtree and needs the class on its own content element. Once every view has adopted it, move the values into `:root` and `.dark` and remove the class.
 - **Default theme.** With no stored choice, `themeScript` follows the OS preference instead of defaulting to dark.
 - **Width.** `PageContainer`'s default tier still steps up to 1280px; views that have adopted this system force 1200px with an override.
 - **Page chrome.** Other views still use `text-2xl font-medium` titles and `py-10`, and don't set `tabular-nums` at the view level.
-- **Add actions.** The + icons outside Goals, Ingredients, Meals and Calendar aren't `brand` yet.
+- **Add actions.** The + icons outside Today, Goals, Ingredients, Meals and Calendar aren't `brand` yet.

@@ -25,6 +25,24 @@ export const removeMealSchema = z.object({
 });
 
 /**
+ * Validation for a tick on the Today page: the plan row and its new state,
+ * posted as the strings `true` or `false`.
+ */
+export const setMealEatenSchema = z.object({
+  planMealId: z.uuid({ error: "Choose a planned meal" }),
+  eaten: z.enum(["true", "false"], { error: "Choose a valid state" }),
+});
+
+/**
+ * Validation for a swap on the Today page: the plan row and the template to
+ * plan instead.
+ */
+export const swapMealSchema = z.object({
+  planMealId: z.uuid({ error: "Choose a planned meal" }),
+  mealId: z.uuid({ error: "Choose a meal" }),
+});
+
+/**
  * Reads the assign dialog's form out of a submission and validates it.
  *
  * @param formData Submission of the assign dialog.
@@ -47,5 +65,31 @@ export function parseAssignMealFormData(formData: FormData) {
 export function parseRemoveMealFormData(formData: FormData) {
   return removeMealSchema.safeParse({
     planMealId: formData.get("planMealId"),
+  });
+}
+
+/**
+ * Reads a tick out of a submission and validates it.
+ *
+ * @param formData Submission of a tick.
+ * @returns The parsed values, or a failure carrying the messages.
+ */
+export function parseSetMealEatenFormData(formData: FormData) {
+  return setMealEatenSchema.safeParse({
+    planMealId: formData.get("planMealId"),
+    eaten: formData.get("eaten"),
+  });
+}
+
+/**
+ * Reads the swap picker's form out of a submission and validates it.
+ *
+ * @param formData Submission of the swap picker.
+ * @returns The parsed values, or a failure carrying the messages.
+ */
+export function parseSwapMealFormData(formData: FormData) {
+  return swapMealSchema.safeParse({
+    planMealId: formData.get("planMealId"),
+    mealId: formData.get("mealId"),
   });
 }
