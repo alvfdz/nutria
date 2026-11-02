@@ -20,8 +20,7 @@ export type PageContainerWidth = "default" | "wide";
  * which frames the whole app. It applies no cap below `2xl`, so small and
  * mid-size screens render exactly as an uncapped surface would, and then caps at
  * 1800px. Because that cap sits above the `2xl` breakpoint, it only takes effect
- * once the viewport is wider than the cap itself, so the board never scrolls
- * horizontally on a screen where it currently does not. The tier is chosen with
+ * once the viewport is wider than the cap itself. The tier is chosen with
  * a prop rather than a `className` because its steps live in `lg:`/`xl:`/`2xl:`
  * variants, which a plain `max-w-*` class cannot reliably override.
  *

@@ -126,7 +126,10 @@ describe("FoodPanel", () => {
 
   test("reveals the picker from Add a meal and hides it again", async () => {
     const user = userEvent.setup();
-    renderPanel({ meals: [makeMeal()] });
+    renderPanel({
+      meals: [makeMeal()],
+      slot: makeSlotView({ meals: [makePlannedMealView()] }),
+    });
 
     expect(
       screen.queryByRole("textbox", { name: "Search meals" }),
@@ -143,10 +146,80 @@ describe("FoodPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("draws no bars and says nothing is planned yet when the food is empty", () => {
+  test("shows the picker straight away, with no toggle, when the food is empty", () => {
+    renderPanel({ meals: [makeMeal()] });
+
+    expect(
+      screen.getByRole("textbox", { name: "Search meals" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Add a meal/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("shows the picker once the food's last meal is removed", () => {
+    const panel = (slot: SlotView) => (
+      <Popover open>
+        <PopoverPortal>
+          <PopoverPositioner>
+            <PopoverPopup>
+              <FoodPanel
+                date="2026-10-13"
+                slot={slot}
+                meals={[makeMeal()]}
+                removeAction={vi.fn()}
+                removePending={false}
+                onAssigned={vi.fn()}
+              />
+            </PopoverPopup>
+          </PopoverPositioner>
+        </PopoverPortal>
+      </Popover>
+    );
+    const { rerender } = render(
+      panel(makeSlotView({ meals: [makePlannedMealView()] })),
+    );
+    expect(
+      screen.queryByRole("textbox", { name: "Search meals" }),
+    ).not.toBeInTheDocument();
+
+    rerender(panel(makeSlotView()));
+
+    expect(
+      screen.getByRole("textbox", { name: "Search meals" }),
+    ).toBeInTheDocument();
+  });
+
+  test("shows meal kcal as whole numbers but keeps ingredient detail", async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      slot: makeSlotView({
+        meals: [
+          makePlannedMealView({
+            name: "Oatmeal",
+            totals: { calories: 139.6, protein: 1, carbs: 1, fat: 1 },
+            items: [
+              makePlannedMealItem({
+                id: "item-1",
+                name: "Oats",
+                calories: 9.5,
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+
+    expect(screen.getByText("140")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Oatmeal/ }));
+
+    expect(screen.getByText("9.5")).toBeInTheDocument();
+  });
+
+  test("draws no bars when the food is empty", () => {
     renderPanel();
 
-    expect(screen.getByText("Nothing planned yet")).toBeInTheDocument();
     expect(
       screen.queryByRole("listitem", { name: /Protein: / }),
     ).not.toBeInTheDocument();

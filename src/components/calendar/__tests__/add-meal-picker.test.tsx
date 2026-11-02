@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -196,6 +196,31 @@ describe("AddMealPicker", () => {
     expect(screen.getByText("over by 100")).toBeInTheDocument();
   });
 
+  test("rounds the overage and hides one that rounds away", () => {
+    renderPicker({
+      meals: [
+        mealWithCalories("meal-near", "Near Bowl", 600.3),
+        mealWithCalories("meal-past", "Past Bowl", 640.6),
+      ],
+    });
+
+    expect(screen.getByText("over by 41")).toBeInTheDocument();
+    expect(screen.getAllByText(/^over by/)).toHaveLength(1);
+  });
+
+  test("lists a meal's macros with a dot and an initial", () => {
+    renderPicker({ meals: [porridge] });
+
+    const button = screen.getByRole("button", { name: "Add Porridge" });
+
+    expect(button).toHaveTextContent("P 10");
+    expect(button).toHaveTextContent("C 10");
+    expect(button).toHaveTextContent("F 5");
+    expect(button.querySelector(".bg-protein")).toBeInTheDocument();
+    expect(button.querySelector(".bg-carbs")).toBeInTheDocument();
+    expect(button.querySelector(".bg-fat")).toBeInTheDocument();
+  });
+
   test("submits the chosen meal through the action", async () => {
     const user = userEvent.setup();
     let submitted: FormData | undefined;
@@ -255,10 +280,11 @@ describe("AddMealPicker", () => {
   test("points at the meal library when it is empty", () => {
     renderPicker({ meals: [] });
 
-    const message = screen.getByText(/Your meal library is empty/);
-    expect(
-      within(message).getByRole("link", { name: "Build a meal" }),
-    ).toHaveAttribute("href", "/meals");
+    expect(screen.getByText("Your meal library is empty")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build a meal" })).toHaveAttribute(
+      "href",
+      "/meals",
+    );
   });
 
   test("clips a long meal name and lets its list shrink", () => {

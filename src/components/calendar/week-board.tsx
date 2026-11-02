@@ -2,6 +2,8 @@
 
 import { useActionState, useCallback, useMemo, useRef, useState } from "react";
 
+import { cn } from "cn";
+
 import { removeMealAction } from "@/app/(app)/calendar/actions";
 import { DayColumn } from "@/components/calendar/day-column";
 import { FoodPanel } from "@/components/calendar/food-panel";
@@ -11,6 +13,7 @@ import {
   PopoverPositioner,
   PopoverPopup,
 } from "@/components/ui/popover";
+import { OVERLAY_THEME_CLASS } from "@/lib/design-system";
 import type { Meal } from "@/lib/meals/types";
 import {
   initialRemoveMealState,
@@ -29,11 +32,12 @@ type ActiveFood = {
 };
 
 /**
- * The week board: seven independent day columns, Monday to Sunday. Each column
- * is its own vertical agenda — no shared rows, no matching card heights — so
- * the week reads as a week rather than a table. Owns the one food panel, the
- * shared remove form action, and the screen-reader live region for add and
- * remove outcomes.
+ * The week board: seven day columns, Monday to Sunday, from the `xl` breakpoint,
+ * where they fit without scrolling; narrower screens stack the days. The columns
+ * share their rows through subgrid, so one slot sits on one line across the week
+ * and days can be compared at a glance. A slot holding several meals makes its
+ * whole row taller. Owns the one food panel, the shared remove form action, and
+ * the screen-reader live region for add and remove outcomes.
  *
  * The open panel is anchored to the card that opened it. Its food is derived
  * from the current `days` on every render rather than frozen when it opened, so
@@ -110,17 +114,15 @@ export function WeekBoard({
 
   return (
     <div className="grid gap-3">
-      <div className="overflow-x-auto pb-1">
-        <div className="grid w-full grid-cols-[repeat(7,minmax(11rem,1fr))] gap-3">
-          {days.map((day) => (
-            <DayColumn
-              key={day.date}
-              day={day}
-              activeCardId={active?.cardId ?? null}
-              onOpen={handleOpen}
-            />
-          ))}
-        </div>
+      <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[repeat(7,minmax(10rem,1fr))] xl:gap-x-3 xl:gap-y-2">
+        {days.map((day) => (
+          <DayColumn
+            key={day.date}
+            day={day}
+            activeCardId={active?.cardId ?? null}
+            onOpen={handleOpen}
+          />
+        ))}
       </div>
 
       <Popover
@@ -143,14 +145,19 @@ export function WeekBoard({
             side="right"
             align="start"
             sideOffset={8}
+            collisionPadding={16}
             collisionAvoidance={{ side: "flip", align: "shift" }}
           >
             <PopoverPopup
               finalFocus={finalFocus}
-              className="max-h-[min(80vh,40rem)] w-86 overflow-y-auto rounded-xl p-4"
+              className={cn(
+                OVERLAY_THEME_CLASS,
+                "rounded-card! max-h-[min(var(--available-height),40rem)] w-[min(21.5rem,calc(100vw-2rem))] overflow-y-auto p-4",
+              )}
             >
               {activeSlot ? (
                 <FoodPanel
+                  key={active?.cardId}
                   date={active?.date ?? ""}
                   slot={activeSlot}
                   meals={meals}

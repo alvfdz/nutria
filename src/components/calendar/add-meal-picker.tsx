@@ -4,16 +4,37 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 
+import { cn } from "cn";
 import { Search } from "lucide-react";
 
 import { assignMealAction } from "@/app/(app)/calendar/actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { formatMacro } from "@/lib/ingredients/format";
+import { MacroDot, type MacroName } from "@/components/segmented-bar";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { CARD_TITLE_CLASS, ICON_STROKE, THIN_SPACE } from "@/lib/design-system";
+import { formatWhole } from "@/lib/goals/display";
 import { computeMealTotals } from "@/lib/meals/macros";
 import type { Meal } from "@/lib/meals/types";
 import { initialAssignMealState } from "@/lib/plan/form-state";
 import type { SlotView } from "@/lib/plan/types";
+
+/** The macros a picker row lists, with the initial shown beside each dot. */
+const MACRO_INITIALS: { macro: MacroName; initial: string }[] = [
+  { macro: "protein", initial: "P" },
+  { macro: "carbs", initial: "C" },
+  { macro: "fat", initial: "F" },
+];
 
 /**
  * The food panel's picker for adding a meal template. Filters the library by
@@ -72,13 +93,22 @@ export function AddMealPicker({
 
   if (meals.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm">
-        Your meal library is empty.{" "}
-        <Link href="/meals" className="text-foreground underline">
-          Build a meal
-        </Link>{" "}
-        to start planning.
-      </p>
+      <Empty className="py-6">
+        <EmptyHeader>
+          <EmptyTitle className={CARD_TITLE_CLASS}>
+            Your meal library is empty
+          </EmptyTitle>
+          <EmptyDescription>Build a meal to start planning.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Link
+            href="/meals"
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Build a meal
+          </Link>
+        </EmptyContent>
+      </Empty>
     );
   }
 
@@ -86,19 +116,17 @@ export function AddMealPicker({
 
   return (
     <div className="grid gap-2">
-      <div className="relative">
-        <Search
-          aria-hidden="true"
-          className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-        />
-        <Input
+      <InputGroup>
+        <InputGroupAddon aria-hidden="true">
+          <Search strokeWidth={ICON_STROKE} />
+        </InputGroupAddon>
+        <InputGroupInput
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search meals"
           aria-label="Search meals"
-          className="pl-8"
         />
-      </div>
+      </InputGroup>
 
       {filtered.length === 0 ? (
         <p className="text-muted-foreground py-6 text-center text-sm">
@@ -110,7 +138,12 @@ export function AddMealPicker({
             {filtered.map((meal) => {
               const totals = computeMealTotals(meal);
               const added = plannedCounts.get(meal.id) ?? 0;
-              const over = totals.calories - remaining;
+              const over = Math.round(totals.calories - remaining);
+              const macros = {
+                protein: totals.protein,
+                carbs: totals.carbs,
+                fat: totals.fat,
+              };
 
               return (
                 <li key={meal.id} className="min-w-0">
@@ -133,24 +166,33 @@ export function AddMealPicker({
                         >
                           {meal.name}
                         </span>
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          P {formatMacro(totals.protein)} · C{" "}
-                          {formatMacro(totals.carbs)} · F{" "}
-                          {formatMacro(totals.fat)}
+                        <span className="text-muted-foreground flex items-center gap-2 text-xs font-normal">
+                          {MACRO_INITIALS.map(({ macro, initial }) => (
+                            <span
+                              key={macro}
+                              className="inline-flex items-center gap-1"
+                            >
+                              <MacroDot macro={macro} />
+                              {initial} {formatWhole(macros[macro])}
+                            </span>
+                          ))}
                         </span>
                       </span>
-                      <span className="flex shrink-0 flex-col items-end">
-                        <span className="text-sm tabular-nums">
-                          {formatMacro(totals.calories)} kcal
+                      <span className="flex shrink-0 flex-col items-end font-normal">
+                        <span className="text-sm">
+                          {formatWhole(totals.calories)}
+                          <span className="text-muted-foreground">
+                            {THIN_SPACE}kcal
+                          </span>
                         </span>
                         {added > 0 ? (
-                          <span className="text-muted-foreground text-xs tabular-nums">
+                          <span className="text-muted-foreground text-xs">
                             Added ×{added}
                           </span>
                         ) : null}
                         {over > 0 ? (
-                          <span className="text-muted-foreground text-xs tabular-nums">
-                            over by {formatMacro(over)}
+                          <span className="text-muted-foreground text-xs">
+                            over by {over}
                           </span>
                         ) : null}
                       </span>

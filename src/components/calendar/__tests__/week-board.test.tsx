@@ -7,7 +7,7 @@ import { dayOfMonth, weekDays, weekdayShort } from "@/lib/calendar/week";
 import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
 import type { MealTotals } from "@/lib/meals/macros";
 import type { DayColumn } from "@/lib/plan/types";
-import { makeSlotView } from "@test/factories";
+import { makePlannedMealView, makeSlotView } from "@test/factories";
 
 vi.mock("@/app/(app)/calendar/actions", () => ({
   assignMealAction: vi.fn(),
@@ -109,7 +109,100 @@ describe("WeekBoard", () => {
 
     render(<WeekBoard days={days} meals={[]} />);
 
-    expect(screen.getAllByText("0 / 0 kcal")).toHaveLength(7);
+    const headers = document.querySelectorAll('[data-slot="day-planned"]');
+
+    expect(headers).toHaveLength(7);
+    for (const header of headers) {
+      expect(header.parentElement).toHaveTextContent(/^0\/0\skcal$/);
+    }
+  });
+
+  test("names each day as a region and heading", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
+
+    expect(screen.getByRole("region", { name: "Tue 13" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(7);
+  });
+
+  test("makes each day span one board row per header and slot", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
+
+    expect(screen.getByRole("region", { name: "Tue 13" })).toHaveStyle({
+      gridRow: "span 4",
+    });
+  });
+
+  test("keeps past days readable rather than dimming them", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
+
+    const past = screen.getByRole("region", { name: "Mon 12" });
+
+    expect(past).not.toHaveClass("opacity-60");
+    expect(past).toHaveClass("bg-transparent");
+  });
+
+  test("shows no marker on a day with nothing planned", () => {
+    render(<WeekBoard days={makeDays()} meals={[]} />);
+
+    expect(
+      document.querySelector('[data-slot="day-marker"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  test.each([
+    { calories: 2200, marker: "✓", sentence: "On target" },
+    { calories: 1000, marker: "−1200", sentence: "1200 kcal short of target" },
+    { calories: 2500, marker: "+300", sentence: "300 kcal over target" },
+  ])(
+    "marks a day planned at $calories kcal with $marker",
+    ({ calories, marker, sentence }) => {
+      const days = makeDays();
+      days[2] = { ...days[2], planned: { ...ZERO, calories } };
+
+      render(<WeekBoard days={days} meals={[]} />);
+
+      const day = screen.getByRole("region", { name: "Wed 14" });
+
+      expect(day.querySelector('[data-slot="day-marker"]')).toHaveTextContent(
+        marker,
+      );
+      expect(day).toHaveTextContent(sentence);
+    },
+  );
+
+  test("shows a day's planned kcal as a whole number", () => {
+    const days = makeDays();
+    days[2] = { ...days[2], planned: { ...ZERO, calories: 139.6 } };
+
+    render(<WeekBoard days={days} meals={[]} />);
+
+    expect(
+      screen
+        .getByRole("region", { name: "Wed 14" })
+        .querySelector('[data-slot="day-planned"]'),
+    ).toHaveTextContent(/^140$/);
+  });
+
+  test("does not carry an open picker over to the next food", async () => {
+    const user = userEvent.setup();
+    const days = makeDays();
+    const meal = makePlannedMealView({ name: "Porridge" });
+    days[1] = {
+      ...days[1],
+      slots: days[1].slots.map((slot) => ({ ...slot, meals: [meal] })),
+    };
+    render(<WeekBoard days={days} meals={[]} />);
+
+    await user.click(screen.getByRole("button", { name: /Breakfast, Tue 13/ }));
+    await user.click(screen.getByRole("button", { name: /Add a meal/ }));
+    expect(screen.getByText("Your meal library is empty")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Lunch, Tue 13/ }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("Lunch");
+    expect(
+      screen.queryByText("Your meal library is empty"),
+    ).not.toBeInTheDocument();
   });
 
   test("a food whose slot vanished renders no panel", async () => {

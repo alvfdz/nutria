@@ -5,7 +5,7 @@ import { cn } from "cn";
 import { daySplitSegments, overLimitPosition } from "@/lib/goals/day-split";
 
 /** The macro colour utilities, keyed by macro. */
-const MACRO_COLOR = {
+export const MACRO_COLOR = {
   protein: "bg-protein",
   carbs: "bg-carbs",
   fat: "bg-fat",

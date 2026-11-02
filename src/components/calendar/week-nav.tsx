@@ -1,13 +1,18 @@
 import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
+import { cn } from "cn";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import { Button, buttonVariants } from "@/components/ui/button";
 import { addWeeks, formatWeekRange } from "@/lib/calendar/week";
+import { CARD_TITLE_CLASS, ICON_STROKE } from "@/lib/design-system";
 
 /**
- * Week navigation above the board: previous, today, and next. Backwards stops
- * at the current week — before it, `‹ Prev` is a disabled button rather than a
- * link, because the calendar never looks into the past. Pure links, so no
- * client JavaScript is needed.
+ * Week navigation above the board: the shown range, then today, previous and
+ * next. Backwards stops at the current week — there, previous is a disabled
+ * button rather than a link, because the calendar never looks into the past,
+ * and Today is left out, because it would link to the page already showing.
+ * Pure links, so no client JavaScript is needed.
  *
  * @param props.weekStart The shown week's Monday, `YYYY-MM-DD`.
  * @param props.isCurrentWeek Whether the shown week is the current week, in
@@ -20,44 +25,59 @@ export function WeekNav({
   weekStart: string;
   isCurrentWeek: boolean;
 }) {
-  const linkClass = buttonVariants({ variant: "outline", size: "sm" });
+  // Through `cn`, like `Button` itself: raw variants keep the base's transparent
+  // border next to the outline's, and the transparent one wins in light mode.
+  const iconLinkClass = cn(
+    buttonVariants({ variant: "outline", size: "icon" }),
+  );
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {isCurrentWeek ? (
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className={linkClass}
-        >
-          ‹ Prev
-        </button>
-      ) : (
+    <nav
+      aria-label="Week"
+      className="flex flex-wrap items-center justify-between gap-2"
+    >
+      <span className={CARD_TITLE_CLASS}>{formatWeekRange(weekStart)}</span>
+
+      <div className="flex items-center gap-2">
+        {isCurrentWeek ? null : (
+          <Link
+            href="/calendar"
+            scroll={false}
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Today
+          </Link>
+        )}
+
+        {isCurrentWeek ? (
+          <Button
+            variant="outline"
+            size="icon"
+            disabled
+            aria-label="Previous week"
+          >
+            <ChevronLeft strokeWidth={ICON_STROKE} />
+          </Button>
+        ) : (
+          <Link
+            href={`?week=${addWeeks(weekStart, -1)}`}
+            scroll={false}
+            aria-label="Previous week"
+            className={iconLinkClass}
+          >
+            <ChevronLeft strokeWidth={ICON_STROKE} />
+          </Link>
+        )}
+
         <Link
-          href={`?week=${addWeeks(weekStart, -1)}`}
+          href={`?week=${addWeeks(weekStart, 1)}`}
           scroll={false}
-          className={linkClass}
+          aria-label="Next week"
+          className={iconLinkClass}
         >
-          ‹ Prev
+          <ChevronRight strokeWidth={ICON_STROKE} />
         </Link>
-      )}
-
-      <Link href="/calendar" scroll={false} className={linkClass}>
-        Today
-      </Link>
-
-      <Link
-        href={`?week=${addWeeks(weekStart, 1)}`}
-        scroll={false}
-        className={linkClass}
-      >
-        › Next
-      </Link>
-
-      <span className="text-muted-foreground ml-1 text-sm">
-        {formatWeekRange(weekStart)}
-      </span>
-    </div>
+      </div>
+    </nav>
   );
 }

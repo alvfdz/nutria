@@ -1,12 +1,16 @@
+import { cn } from "cn";
+
+import { MACRO_COLOR } from "@/components/segmented-bar";
+import { THIN_SPACE } from "@/lib/design-system";
 import type { SlotBudget } from "@/lib/goals/budget";
-import { formatMacro } from "@/lib/ingredients/format";
+import { formatWhole } from "@/lib/goals/display";
 import type { MealTotals } from "@/lib/meals/macros";
 import {
   barGeometry,
   macroState,
   stateLabel,
+  stateMarker,
   type MacroKey,
-  type MacroState,
 } from "@/lib/plan/rollup";
 
 /** One bar's static wiring: key, name and value readers. */
@@ -44,27 +48,12 @@ const BARS: BarSpec[] = [
 ];
 
 /**
- * Renders a macro's short state marker. The glyph carries the state in text
- * form so it is never colour-only: a tick when met, the signed gap otherwise.
- *
- * @param state The classification from {@link macroState}.
- * @param delta The signed gap (`planned - target`).
- * @returns `✓`, `−n` or `+n`.
- */
-function markerFor(state: MacroState, delta: number): string {
-  if (state === "met") return "✓";
-  if (state === "short") return `−${formatMacro(Math.abs(delta))}`;
-
-  return `+${formatMacro(delta)}`;
-}
-
-/**
  * The food panel's macro guidance: one bar per macro, protein → carbs → fat.
  * Each row reads left to right as the macro name, the planned amount against
- * its target in grams, and a state marker. Below the row, a track scaled to
- * the larger of the plan and the target carries the plan as a fill, so an
- * overshoot fills the whole track. Every row carries the full
- * {@link stateLabel} sentence as its accessible name.
+ * its target in grams, and a state marker. Below the row, a 6px track scaled to
+ * the larger of the plan and the target carries the plan as a fill in the
+ * macro's colour, so an overshoot fills the whole track. Every row carries the
+ * full {@link stateLabel} sentence as its accessible name.
  *
  * @param props.totals The macros the food's planned meals deliver.
  * @param props.target The food's target macros.
@@ -81,7 +70,7 @@ export function MacroBars({
       {BARS.map((bar) => {
         const planned = bar.planned(totals);
         const targetValue = bar.target(target);
-        const { state, delta } = macroState(planned, targetValue);
+        const { state } = macroState(planned, targetValue);
         const label = stateLabel(state, bar.key, planned, targetValue);
         const { fillPercent } = barGeometry(planned, targetValue);
 
@@ -94,25 +83,34 @@ export function MacroBars({
           >
             <span className="flex items-baseline gap-2 text-xs">
               <span className="font-medium">{bar.name}</span>
-              <span className="tabular-nums">
-                {formatMacro(planned)}
+              <span>
+                {formatWhole(planned)}
                 <span className="text-muted-foreground">
-                  /{formatMacro(targetValue)} g
+                  /{formatWhole(targetValue)}
+                  {THIN_SPACE}g
                 </span>
               </span>
-              <span className="text-muted-foreground ml-auto tabular-nums">
-                {markerFor(state, delta)}
+              <span
+                className={cn(
+                  "ml-auto",
+                  state === "met" ? "text-brand" : "text-muted-foreground",
+                )}
+              >
+                {stateMarker(planned, targetValue)}
               </span>
             </span>
 
             <span
               aria-hidden="true"
               data-slot="macro-bar-track"
-              className="bg-muted block h-2 overflow-hidden rounded-full"
+              className="bg-muted block h-1.5 overflow-hidden rounded-full"
             >
               <span
                 data-slot="macro-bar-fill"
-                className="bg-primary block h-full rounded-full"
+                className={cn(
+                  "block h-full rounded-full",
+                  MACRO_COLOR[bar.key],
+                )}
                 style={{ width: `${fillPercent}%` }}
               />
             </span>

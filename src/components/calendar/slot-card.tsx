@@ -1,8 +1,10 @@
 import { cn } from "cn";
+import { Plus } from "lucide-react";
 
 import { formatDayLabel } from "@/lib/calendar/week";
-import { formatMacro } from "@/lib/ingredients/format";
-import { overLabel } from "@/lib/plan/rollup";
+import { ICON_STROKE } from "@/lib/design-system";
+import { formatWhole } from "@/lib/goals/display";
+import { groupPlannedMeals, overLabel } from "@/lib/plan/rollup";
 import type { SlotView } from "@/lib/plan/types";
 
 /**
@@ -21,11 +23,14 @@ export function slotCardId(date: string, slotId: string): string {
 /**
  * One food (meal slot) of one day on the board. It carries only what the week
  * is scanned for: the food's name, its planned calories against the target, and
- * one row per planned meal with its calories. Guidance and editing live in the
- * food panel the card opens.
+ * one row per planned meal. A meal row shows its calories only when the card has
+ * several rows; a lone row's calories are the total already in the card's header.
+ * Guidance and editing live in the food panel the card opens.
  *
- * When the day is editable the whole card is a button that opens that panel;
- * on a past day it is a plain block with nothing focusable.
+ * A planned card carries more weight than an empty one, so the week's content
+ * stands out from its gaps. When the day is editable the whole card is a button
+ * that opens the panel, and an empty card says so with "Add meal"; on a past day
+ * it is a plain block with nothing focusable.
  *
  * @param props.date The day's key, used in the accessible name and the id.
  * @param props.slot The slot view to render.
@@ -48,96 +53,88 @@ export function SlotCard({
 }) {
   const isEmpty = slot.meals.length === 0;
   const over = overLabel(slot.totals.calories, slot.target.calories);
+  const groups = groupPlannedMeals(slot.meals);
 
   const inner = (
     <>
-      <span className="flex items-center justify-between gap-2">
+      <span className="flex items-center justify-between gap-2 text-xs">
         <span
-          className="text-muted-foreground min-w-0 truncate text-[0.6rem] font-semibold tracking-wide uppercase"
+          className="text-muted-foreground min-w-0 truncate font-medium"
           title={slot.name}
         >
           {slot.name}
         </span>
-        <span className="sr-only">, {formatDayLabel(date)}</span>
+        <span className="sr-only">, {formatDayLabel(date)}: </span>
         {isEmpty ? (
-          <span className="text-muted-foreground shrink-0 text-[0.65rem] tabular-nums">
-            {formatMacro(slot.target.calories)}
+          <span className="text-muted-foreground shrink-0">
+            {formatWhole(slot.target.calories)}
           </span>
         ) : (
-          <span className="inline-flex shrink-0 items-center gap-1 text-[0.65rem] tabular-nums">
+          <span className="inline-flex shrink-0 items-center gap-1">
             {over ? (
-              <>
-                <span
-                  aria-hidden="true"
-                  className="inline-block -translate-y-0.5 leading-none"
-                >
-                  ▲
-                </span>
-                <span className="text-foreground font-semibold">
-                  {formatMacro(slot.totals.calories)}
-                </span>
-              </>
-            ) : (
-              formatMacro(slot.totals.calories)
-            )}
-            <span className="text-muted-foreground">
-              {" / "}
-              {formatMacro(slot.target.calories)}
+              <span
+                aria-hidden="true"
+                className="inline-block -translate-y-0.5 leading-none"
+              >
+                ▲
+              </span>
+            ) : null}
+            <span>
+              <span className={cn(over && "text-foreground font-semibold")}>
+                {formatWhole(slot.totals.calories)}
+              </span>
+              <span className="text-muted-foreground">
+                /{formatWhole(slot.target.calories)}
+              </span>
             </span>
           </span>
         )}
+        <span className="sr-only"> kcal. </span>
       </span>
 
       {isEmpty ? (
-        <span className="text-muted-foreground text-xs">Nothing planned</span>
+        editable ? (
+          <span className="text-muted-foreground flex items-center gap-1 text-xs leading-5">
+            <Plus
+              aria-hidden="true"
+              strokeWidth={ICON_STROKE}
+              className="group-hover:text-brand group-focus-visible:text-brand size-4 shrink-0"
+            />
+            Add meal
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs leading-5">
+            Nothing planned
+          </span>
+        )
       ) : (
         <span className="grid min-w-0 gap-0.5">
-          {Object.values(
-            slot.meals.reduce<
-              Record<
-                string,
-                {
-                  mealId: string;
-                  name: string;
-                  count: number;
-                  calories: number;
-                }
-              >
-            >((acc, meal) => {
-              const key = meal.mealId;
-              const existing = acc[key];
-              if (existing) {
-                existing.count += 1;
-                existing.calories += meal.totals.calories;
-              } else {
-                acc[key] = {
-                  mealId: meal.mealId,
-                  name: meal.name,
-                  count: 1,
-                  calories: meal.totals.calories,
-                };
-              }
-              return acc;
-            }, {}),
-          ).map((group) => (
-            <span
-              key={group.mealId}
-              className="flex min-w-0 items-baseline gap-1"
-            >
+          {groups.map((group) => {
+            const label =
+              group.count > 1 ? `${group.name} ×${group.count}` : group.name;
+
+            return (
               <span
-                className="min-w-0 flex-1 truncate text-sm"
-                title={
-                  group.count > 1 ? `${group.name} ×${group.count}` : group.name
-                }
+                key={group.mealId}
+                className="flex min-w-0 items-baseline gap-1"
               >
-                {group.name}
-                {group.count > 1 ? ` ×${group.count}` : ""}
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-sm leading-5",
+                    !editable && "text-muted-foreground",
+                  )}
+                  title={label}
+                >
+                  {label}
+                </span>
+                {groups.length > 1 ? (
+                  <span className="text-muted-foreground shrink-0 text-xs">
+                    {formatWhole(group.calories)}
+                  </span>
+                ) : null}
               </span>
-              <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                {formatMacro(group.calories)}
-              </span>
-            </span>
-          ))}
+            );
+          })}
         </span>
       )}
 
@@ -146,8 +143,9 @@ export function SlotCard({
   );
 
   const classes = cn(
-    "flex w-full flex-col gap-2 rounded-lg border p-2.5 text-left",
-    isEmpty ? "border-transparent bg-muted/40" : "border-border bg-card",
+    "flex w-full flex-col gap-2 rounded-lg border p-3 text-left",
+    isEmpty ? "border-border-subtle" : "border-border",
+    !isEmpty && editable && "bg-muted/50",
   );
 
   if (!editable) {
@@ -163,7 +161,9 @@ export function SlotCard({
       onClick={onOpen}
       className={cn(
         classes,
-        "cursor-pointer hover:border-ring focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none",
+        "group focus-visible:border-ring focus-visible:ring-ring/50 cursor-pointer outline-none focus-visible:ring-3",
+        isEmpty ? "hover:bg-muted/50" : "hover:border-ring",
+        open && "border-ring",
       )}
     >
       {inner}

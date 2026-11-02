@@ -1,6 +1,7 @@
-import { formatMacro } from "@/lib/ingredients/format";
+import { formatWhole } from "@/lib/goals/display";
 import { computeMealTotals, type MealTotals } from "@/lib/meals/macros";
 import type { Meal } from "@/lib/meals/types";
+import type { PlannedMealView } from "@/lib/plan/types";
 
 /**
  * How far a macro may miss its target and still count as met, as a fraction of
@@ -74,10 +75,11 @@ export function dayTotals(
 /**
  * Classifies a planned macro amount against its target.
  *
- * A target of zero is a special case: any plan is `over`, an empty plan is
- * `met`. Otherwise the plan is `met` while its distance from the target stays
- * within {@link MACRO_TOLERANCE} of the target, and `short` or `over` beyond
- * that.
+ * The calendar shows whole numbers, so a plan that rounds to the same number as
+ * its target is `met`; otherwise the marker would read `−0` or `+0`. Past that,
+ * a target of zero is a special case: any plan is `over`. Otherwise the plan is
+ * `met` while its distance from the target stays within {@link MACRO_TOLERANCE}
+ * of the target, and `short` or `over` beyond that.
  *
  * @param planned The macro amount the planned meals deliver.
  * @param target The macro amount the goal asks for.
@@ -89,8 +91,12 @@ export function macroState(
 ): { state: MacroState; delta: number } {
   const delta = planned - target;
 
+  if (Math.round(planned) === Math.round(target)) {
+    return { state: "met", delta };
+  }
+
   if (target === 0) {
-    return { state: planned > 0 ? "over" : "met", delta };
+    return { state: "over", delta };
   }
 
   if (Math.abs(delta) <= MACRO_TOLERANCE * target) {
@@ -101,6 +107,36 @@ export function macroState(
 }
 
 /**
+ * The gap between a plan and its target as the whole numbers the calendar
+ * shows, so the gap always matches the two values beside it.
+ *
+ * @param planned The amount the plan delivers.
+ * @param target The amount the goal asks for.
+ * @returns The rounded plan minus the rounded target.
+ */
+function wholeGap(planned: number, target: number): number {
+  return Math.round(planned) - Math.round(target);
+}
+
+/**
+ * A plan's short state marker. The glyph carries the state in text form, so it
+ * is never colour-only: a tick when met, the signed gap otherwise.
+ *
+ * @param planned The amount the plan delivers.
+ * @param target The amount the goal asks for.
+ * @returns `✓`, `−n` or `+n`.
+ */
+export function stateMarker(planned: number, target: number): string {
+  const { state } = macroState(planned, target);
+
+  if (state === "met") return "✓";
+
+  const gap = wholeGap(planned, target);
+
+  return gap < 0 ? `−${Math.abs(gap)}` : `+${gap}`;
+}
+
+/**
  * Spells a macro's state out in words for screen readers, so the guidance is
  * never carried by colour or a glyph alone.
  *
@@ -108,7 +144,7 @@ export function macroState(
  * @param macro Which macronutrient the bar reports on.
  * @param planned The planned amount, in grams.
  * @param target The target amount, in grams.
- * @returns A string such as `Protein: 46.8 of 62 g, 15.2 g short`.
+ * @returns A string such as `Protein: 47 of 62 g, 15 g short`.
  */
 export function stateLabel(
   state: MacroState,
@@ -117,14 +153,15 @@ export function stateLabel(
   target: number,
 ): string {
   const name = MACRO_LABELS[macro];
-  const amount = `${formatMacro(planned)} of ${formatMacro(target)} g`;
+  const amount = `${formatWhole(planned)} of ${formatWhole(target)} g`;
+  const gap = Math.abs(wholeGap(planned, target));
 
   if (state === "short") {
-    return `${name}: ${amount}, ${formatMacro(target - planned)} g short`;
+    return `${name}: ${amount}, ${gap} g short`;
   }
 
   if (state === "over") {
-    return `${name}: ${amount}, ${formatMacro(planned - target)} g over`;
+    return `${name}: ${amount}, ${gap} g over`;
   }
 
   return `${name}: ${amount}, on target`;
@@ -164,6 +201,69 @@ export function overLabel(planned: number, target: number): string | null {
   const { state } = macroState(planned, target);
 
   return state === "over"
-    ? `${formatMacro(planned - target)} kcal over target`
+    ? `${wholeGap(planned, target)} kcal over target`
     : null;
+}
+
+/**
+ * Spells a day's calories against its target in words, for the screen-reader
+ * twin of the day header's marker.
+ *
+ * @param planned The kcal the day's plan delivers.
+ * @param target The day's kcal target.
+ * @returns `On target`, `500 kcal short of target` or `60 kcal over target`.
+ */
+export function calorieStateLabel(planned: number, target: number): string {
+  const { state } = macroState(planned, target);
+
+  if (state === "met") return "On target";
+
+  const gap = wholeGap(planned, target);
+
+  return gap < 0
+    ? `${Math.abs(gap)} kcal short of target`
+    : `${gap} kcal over target`;
+}
+
+/** Copies of one meal template planned into a slot, folded into one row. */
+export type PlannedMealGroup = {
+  /** Identifier of the meal template. */
+  mealId: string;
+  /** Display name of the meal template. */
+  name: string;
+  /** How many copies sit in the slot. */
+  count: number;
+  /** The kcal of all the copies together. */
+  calories: number;
+};
+
+/**
+ * Folds a slot's planned meals into one row per template, in first-planned
+ * order, so three servings of one meal read as `×3` rather than three rows.
+ *
+ * @param meals The slot's planned meals.
+ * @returns One group per distinct template; empty for an empty slot.
+ */
+export function groupPlannedMeals(
+  meals: Pick<PlannedMealView, "mealId" | "name" | "totals">[],
+): PlannedMealGroup[] {
+  const groups = new Map<string, PlannedMealGroup>();
+
+  for (const meal of meals) {
+    const group = groups.get(meal.mealId);
+
+    if (group) {
+      group.count += 1;
+      group.calories += meal.totals.calories;
+    } else {
+      groups.set(meal.mealId, {
+        mealId: meal.mealId,
+        name: meal.name,
+        count: 1,
+        calories: meal.totals.calories,
+      });
+    }
+  }
+
+  return [...groups.values()];
 }

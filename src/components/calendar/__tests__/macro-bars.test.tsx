@@ -52,10 +52,10 @@ describe("MacroBars", () => {
     render(<MacroBars totals={totals({ carbs: 46.8 })} target={target} />);
 
     const bar = screen.getByRole("listitem", {
-      name: "Carbs: 46.8 of 60 g, 13.2 g short",
+      name: "Carbs: 47 of 60 g, 13 g short",
     });
 
-    expect(bar).toHaveTextContent("−13.2");
+    expect(bar).toHaveTextContent("−13");
   });
 
   test("marks an over macro with the signed gap", () => {
@@ -87,6 +87,30 @@ describe("MacroBars", () => {
     const fill = bar.querySelector('[data-slot="macro-bar-fill"]');
 
     expect(fill).toHaveStyle({ width: "100%" });
+  });
+
+  test("fills each bar in its macro's colour", () => {
+    render(
+      <MacroBars
+        totals={totals({ protein: 30, carbs: 30, fat: 10 })}
+        target={target}
+      />,
+    );
+
+    const fills = document.querySelectorAll('[data-slot="macro-bar-fill"]');
+
+    expect(fills[0]).toHaveClass("bg-protein");
+    expect(fills[1]).toHaveClass("bg-carbs");
+    expect(fills[2]).toHaveClass("bg-fat");
+  });
+
+  test("marks only an on-target macro in the brand colour", () => {
+    render(
+      <MacroBars totals={totals({ protein: 60, carbs: 10 })} target={target} />,
+    );
+
+    expect(screen.getByText("✓")).toHaveClass("text-brand");
+    expect(screen.getByText("−50")).toHaveClass("text-muted-foreground");
   });
 
   test("draws no target tick in any state", () => {

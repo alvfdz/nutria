@@ -10,7 +10,7 @@ New UI follows this document. When you change an existing view, bring the parts 
 
 1. **Monochrome first.** Layout, hierarchy, navigation and actions come from `foreground`, `muted-foreground`, `border` and type weight — never from color. The primary button is `primary` (near-white in dark), as in shadcn.
 2. **Color is data.** `protein`, `carbs` and `fat` appear only as 6px dots, bar segments, progress fills and chart series, always next to their name. Numbers stay `foreground`.
-3. **One accent, used sparingly.** `brand` green marks "good / brand / add" in five places only: the logo mark, the ✓ beside a valid or on-target total, the + in Add actions, the 2px underline of a selected segment, and the unsaved-changes dot. Never a fill.
+3. **One accent, used sparingly.** `brand` green marks "good / brand / add" in five places only: the logo mark, the ✓ beside a valid or on-target total, the + in Add actions, the 2px underline of a selected segment, and the unsaved-changes dot. Never a fill. On the calendar board the + repeats on every empty slot, so there it stays `muted-foreground` and turns `brand` on hover or focus.
 4. **Say how to fix it.** Validation is inline and specific: "Macros total 95% — add 5% to reach 100%", in `destructive` with an alert icon. Never color alone.
 5. **Show each number once.** If a value is visualized in one place (a macro bar), don't repeat the same visualization elsewhere on the view (no donut in the summary).
 6. **Being off budget is not an error.** Short of or over a target is information the user plans around: show it in neutral text with a marker (`✓`, `−12`, `+8`, `▲`). `destructive` is for failures, invalid input and irreversible actions.
@@ -109,6 +109,8 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 - **StatusLine** — ✓ (brand) or alert (destructive) + one sentence.
 - **Card** — bordered surface with title, description and an optional header action.
 - **StatTile** — a 3-cell bordered row for P/C/F grams.
+- **Day header** — weekday and day number together at `label`, planned against target kcal (`planned/target`), a state marker once something is planned (principle 6), and a 6px kcal bar with a `primary` fill. Days share rows through subgrid from `xl`, so one slot sits on one line across the week; narrower screens stack the days.
+- **Slot card** — slot name and kcal in `micro`, then one row per meal. A planned card is `muted` at 50% with a `border`; an empty one has no fill and a `border-subtle`, so content outweighs gaps. An empty editable card reads "+ Add meal"; an empty past one reads "Nothing planned". A meal row shows kcal only when the card has several rows, because a lone row's kcal is the header total (principle 5).
 
 ### Lists and tables
 
@@ -157,12 +159,11 @@ Text ≥ 4.5:1 in both themes (`muted-foreground` is the darkest allowed for sma
 
 ## Adoption
 
-Goals, Ingredients, Meals, Account, login, setup and the site header follow this system; the rest of the app is being brought over view by view.
+Goals, Ingredients, Meals, Calendar, Account, login, setup and the site header follow this system; the rest of the app is being brought over view by view.
 
 - **Theme scope.** The palette lives in `.nutria-theme`, so a view opts in by putting that class on its `<main>`. Portaled content (dialogs, popovers, menus) renders outside that subtree and needs the class on its own content element. Once every view has adopted it, move the values into `:root` and `.dark` and remove the class.
 - **Default theme.** With no stored choice, `themeScript` follows the OS preference instead of defaulting to dark.
 - **Width.** `PageContainer`'s default tier still steps up to 1280px; views that have adopted this system force 1200px with an override.
 - **Page chrome.** Other views still use `text-2xl font-medium` titles and `py-10`, and don't set `tabular-nums` at the view level.
-- **Calendar.** Slot cards and the food panel use text below the 12px floor and uppercase labels; progress bars are 8px with a `primary` fill.
-- **Add actions.** The + icons outside Goals, Ingredients and Meals aren't `brand` yet.
+- **Add actions.** The + icons outside Goals, Ingredients, Meals and Calendar aren't `brand` yet.
 - **Toasts.** `Toaster` is mounted outside `.nutria-theme`, so toasts keep the old palette until the values move to `:root`.

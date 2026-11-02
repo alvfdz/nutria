@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { cn } from "cn";
-import { ChevronRight, Plus, X } from "lucide-react";
+import { ChevronRight, Plus, Trash2, X } from "lucide-react";
 
 import { AddMealPicker } from "@/components/calendar/add-meal-picker";
 import { MacroBars } from "@/components/calendar/macro-bars";
@@ -14,6 +14,8 @@ import {
   PopoverTitle,
 } from "@/components/ui/popover";
 import { formatDayLabel } from "@/lib/calendar/week";
+import { CARD_TITLE_CLASS, ICON_STROKE, THIN_SPACE } from "@/lib/design-system";
+import { formatWhole } from "@/lib/goals/display";
 import { formatMacro } from "@/lib/ingredients/format";
 import type { Meal } from "@/lib/meals/types";
 import type { SlotView } from "@/lib/plan/types";
@@ -22,7 +24,8 @@ import type { SlotView } from "@/lib/plan/types";
  * The anchored panel for one food. Its header names the food and reads the day
  * and the food's kcal against target; its bars carry the macro guidance; its
  * meal rows expand to the ingredients and offer removal; and its footer reveals
- * the picker for adding another meal. It renders inside a base-ui popup, so its
+ * the picker for adding another meal. An empty food has nothing else to do, so
+ * it shows the picker straight away. It renders inside a base-ui popup, so its
  * close button and focus behaviour come from that popup.
  *
  * @param props.date The day's key, `YYYY-MM-DD`.
@@ -70,18 +73,18 @@ export function FoodPanel({
       <header className="flex min-w-0 items-start justify-between gap-2">
         <div className="grid min-w-0 gap-0.5">
           <PopoverTitle
-            className="truncate text-base font-medium"
+            className={cn("truncate", CARD_TITLE_CLASS)}
             title={slot.name}
           >
             {slot.name}
           </PopoverTitle>
-          <PopoverDescription className="text-xs tabular-nums">
+          <PopoverDescription className="type-caption">
             {formatDayLabel(date)} ·{" "}
             <span className="text-foreground font-medium">
-              {formatMacro(slot.totals.calories)}
+              {formatWhole(slot.totals.calories)}
             </span>
-            {" / "}
-            {formatMacro(slot.target.calories)} kcal
+            /{formatWhole(slot.target.calories)}
+            {THIN_SPACE}kcal
           </PopoverDescription>
         </div>
         <PopoverClose
@@ -93,41 +96,36 @@ export function FoodPanel({
             />
           }
         >
-          <X />
+          <X strokeWidth={ICON_STROKE} />
           <span className="sr-only">Close</span>
         </PopoverClose>
       </header>
 
       {isEmpty ? null : <MacroBars totals={slot.totals} target={slot.target} />}
 
-      <section className="grid min-w-0 gap-2">
-        <h3 className="text-muted-foreground text-[0.6rem] font-semibold tracking-wide uppercase">
-          Meals in this food
-        </h3>
-
-        {isEmpty ? (
-          <p className="text-muted-foreground text-sm">Nothing planned yet</p>
-        ) : (
-          <form action={removeAction} className="grid min-w-0 gap-2">
+      {isEmpty ? null : (
+        <section aria-label={`Meals in ${slot.name}`} className="grid min-w-0">
+          <form
+            action={removeAction}
+            className="divide-border-subtle grid min-w-0 divide-y"
+          >
             {slot.meals.map((meal) => {
               const isExpanded = expanded.has(meal.id);
 
               return (
-                <div
-                  key={meal.id}
-                  className="grid min-w-0 gap-1.5 rounded-lg border p-1.5"
-                >
+                <div key={meal.id} className="grid min-w-0 gap-1.5 py-1.5">
                   <div className="flex min-w-0 items-center gap-1">
                     <button
                       type="button"
                       aria-expanded={isExpanded}
                       onClick={() => toggleMeal(meal.id)}
-                      className="hover:bg-muted focus-visible:ring-ring/50 flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left outline-none focus-visible:ring-2"
+                      className="hover:bg-muted focus-visible:ring-ring/50 flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1 text-left outline-none focus-visible:ring-3"
                     >
                       <ChevronRight
                         aria-hidden="true"
+                        strokeWidth={ICON_STROKE}
                         className={cn(
-                          "text-muted-foreground size-3.5 shrink-0 transition-transform",
+                          "text-muted-foreground size-4 shrink-0 transition-transform",
                           isExpanded && "rotate-90",
                         )}
                       />
@@ -137,8 +135,8 @@ export function FoodPanel({
                       >
                         {meal.name}
                       </span>
-                      <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                        {formatMacro(meal.totals.calories)}
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {formatWhole(meal.totals.calories)}
                       </span>
                     </button>
                     <Button
@@ -146,16 +144,16 @@ export function FoodPanel({
                       name="planMealId"
                       value={meal.id}
                       variant="ghost"
-                      size="icon-xs"
+                      size="icon"
                       disabled={removePending}
                       aria-label={`Remove ${meal.name} from ${slot.name}`}
                     >
-                      <X />
+                      <Trash2 strokeWidth={ICON_STROKE} />
                     </Button>
                   </div>
 
                   {isExpanded ? (
-                    <ul className="grid min-w-0 gap-0.5 border-t pt-1.5">
+                    <ul className="grid min-w-0 gap-0.5 pr-9 pl-6.5">
                       {meal.items.map((item) => (
                         <li
                           key={item.id}
@@ -167,10 +165,11 @@ export function FoodPanel({
                           >
                             {item.name}
                           </span>
-                          <span className="tabular-nums">
-                            {formatMacro(item.grams)} g
+                          <span>
+                            {formatMacro(item.grams)}
+                            {THIN_SPACE}g
                           </span>
-                          <span className="w-12 text-right tabular-nums">
+                          <span className="w-10 text-right">
                             {formatMacro(item.calories)}
                           </span>
                         </li>
@@ -181,23 +180,29 @@ export function FoodPanel({
               );
             })}
           </form>
+        </section>
+      )}
+
+      <footer className={cn(!isEmpty && "border-border-subtle border-t pt-2")}>
+        {isEmpty ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            aria-expanded={pickerOpen}
+            onClick={() => setPickerOpen((open) => !open)}
+            className="w-full justify-start"
+          >
+            <Plus
+              data-icon="inline-start"
+              strokeWidth={ICON_STROKE}
+              className="text-brand"
+            />
+            Add a meal
+          </Button>
         )}
-      </section>
 
-      <footer className="border-t pt-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-expanded={pickerOpen}
-          onClick={() => setPickerOpen((open) => !open)}
-          className="w-full justify-start"
-        >
-          <Plus /> Add a meal
-        </Button>
-
-        {pickerOpen ? (
-          <div className="mt-2">
+        {isEmpty || pickerOpen ? (
+          <div className={cn(!isEmpty && "mt-2")}>
             <AddMealPicker
               date={date}
               slot={slot}

@@ -5,13 +5,14 @@ import { WeekBoard } from "@/components/calendar/week-board";
 import { WeekNav } from "@/components/calendar/week-nav";
 import { PageContainer } from "@/components/page-container";
 import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   addDays,
   clampWeekToCurrent,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/calendar/week";
 import { computeMacroBudget, computeSlotBudgets } from "@/lib/goals/budget";
 import { requireUser } from "@/lib/auth/session";
+import { CARD_CLASS, CARD_TITLE_CLASS } from "@/lib/design-system";
 import { getGoals } from "@/lib/goals/repository";
 import type { Goals } from "@/lib/goals/types";
 import { computeMealTotals, itemCalories } from "@/lib/meals/macros";
@@ -112,7 +114,7 @@ function buildDays(
  * Calendar route. Requires a signed-in user, resolves the requested week from `?week=`, clamps it to the
  * current week so the past is never shown, and renders the week board from the
  * user's stored goals and plan. Without goals yet it explains what to do and points
- * at `/goals`.
+ * at `/goals`. The page opts into the design-system palette through `nutria-theme`.
  */
 export default async function CalendarPage(props: PageProps<"/calendar">) {
   const user = await requireUser();
@@ -132,12 +134,10 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
   ]);
 
   return (
-    <main className="flex-1">
-      <PageContainer width="wide" className="py-10">
+    <main className="nutria-theme bg-background text-foreground flex-1 tabular-nums">
+      <PageContainer width="wide" className="py-12">
         <header className="grid gap-1">
-          <h1 className="font-heading text-2xl font-medium tracking-tight">
-            Calendar
-          </h1>
+          <h1 className="font-heading type-page-title">Calendar</h1>
           <p className="text-muted-foreground text-sm">
             Your week of meals against the daily budget.
           </p>
@@ -156,19 +156,25 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
               />
             </>
           ) : (
-            <Card className="max-w-xl">
-              <CardHeader>
-                <CardTitle>Set your budget first</CardTitle>
-                <CardDescription>
-                  The calendar splits your daily calories and macros across the
-                  day&apos;s meals. Set your goals once and every day gets its
-                  targets.
-                </CardDescription>
-              </CardHeader>
+            <Card className={CARD_CLASS}>
               <CardContent>
-                <Link href="/goals" className={buttonVariants()}>
-                  Set your budget
-                </Link>
+                <Empty className="py-10">
+                  <EmptyHeader>
+                    <EmptyTitle className={CARD_TITLE_CLASS}>
+                      Set your budget first
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      The calendar splits your daily calories and macros across
+                      the day&apos;s meals. Set your goals once and every day
+                      gets its targets.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Link href="/goals" className={buttonVariants()}>
+                      Set your budget
+                    </Link>
+                  </EmptyContent>
+                </Empty>
               </CardContent>
             </Card>
           )}

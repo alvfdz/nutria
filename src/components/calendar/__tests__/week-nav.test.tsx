@@ -12,9 +12,9 @@ describe("WeekNav", () => {
       screen.queryByRole("link", { name: /Prev/ }),
     ).not.toBeInTheDocument();
 
-    const prev = screen.getByRole("button", { name: /Prev/ });
-    expect(prev).toBeDisabled();
-    expect(prev).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByRole("button", { name: "Previous week" }),
+    ).toBeDisabled();
 
     expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute(
       "href",
@@ -35,7 +35,32 @@ describe("WeekNav", () => {
     );
   });
 
-  test("always points Today at the calendar root", () => {
+  test("labels the icon-only controls by what they do", () => {
+    render(<WeekNav weekStart="2026-11-02" isCurrentWeek={false} />);
+
+    expect(
+      screen.getByRole("link", { name: "Previous week" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Next week" })).toBeInTheDocument();
+  });
+
+  test("drops the base's transparent border from outline links", () => {
+    render(<WeekNav weekStart="2026-11-02" isCurrentWeek={false} />);
+
+    for (const name of ["Today", "Previous week", "Next week"]) {
+      expect(screen.getByRole("link", { name })).not.toHaveClass(
+        "border-transparent",
+      );
+    }
+  });
+
+  test("leaves Today out on the current week, where it would go nowhere", () => {
+    render(<WeekNav weekStart="2026-10-12" isCurrentWeek />);
+
+    expect(screen.queryByRole("link", { name: "Today" })).toBeNull();
+  });
+
+  test("points Today at the calendar root on any other week", () => {
     render(<WeekNav weekStart="2026-11-02" isCurrentWeek={false} />);
 
     expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute(

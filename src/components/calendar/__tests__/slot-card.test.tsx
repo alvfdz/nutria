@@ -59,19 +59,91 @@ describe("SlotCard", () => {
 
     expect(screen.getByText("Lunch")).toBeInTheDocument();
     expect(screen.getByText("620")).toBeInTheDocument();
-    expect(screen.getByText("/ 840")).toBeInTheDocument();
+    expect(screen.getByText("/840")).toBeInTheDocument();
     expect(screen.getByText("Chicken & Rice Bowl")).toBeInTheDocument();
     expect(screen.getByText("Greek Yogurt")).toBeInTheDocument();
     // One kcal figure per meal row.
     expect(screen.getAllByText("462")).toHaveLength(2);
   });
 
-  test("shows the target alone and a placeholder when nothing is planned", () => {
+  test("shows the target alone and offers to add a meal when nothing is planned", () => {
     renderCard();
 
-    expect(screen.getByText("Nothing planned")).toBeInTheDocument();
+    expect(screen.getByText("Add meal")).toBeInTheDocument();
+    expect(screen.queryByText("Nothing planned")).not.toBeInTheDocument();
     expect(screen.getByText("660")).toBeInTheDocument();
-    expect(screen.queryByText("/ 660")).not.toBeInTheDocument();
+    expect(screen.queryByText("/660")).not.toBeInTheDocument();
+  });
+
+  test("says nothing is planned, and offers nothing, on an empty past day", () => {
+    renderCard({ editable: false });
+
+    expect(screen.getByText("Nothing planned")).toBeInTheDocument();
+    expect(screen.queryByText("Add meal")).not.toBeInTheDocument();
+  });
+
+  test("hides a lone meal's kcal, which the header already shows", () => {
+    renderCard({
+      slot: makeSlotView({
+        meals: [makePlannedMealView({ name: "Porridge" })],
+        totals: { calories: 462, protein: 10, carbs: 10, fat: 10 },
+      }),
+    });
+
+    expect(screen.getAllByText("462")).toHaveLength(1);
+  });
+
+  test("folds copies of one meal into one row with no separate kcal", () => {
+    const copy = { name: "Porridge", mealId: "meal-porridge" };
+    renderCard({
+      slot: makeSlotView({
+        meals: [
+          makePlannedMealView({ ...copy, id: "plan-1" }),
+          makePlannedMealView({ ...copy, id: "plan-2" }),
+        ],
+        totals: { calories: 924, protein: 10, carbs: 10, fat: 10 },
+      }),
+    });
+
+    expect(screen.getByText("Porridge ×2")).toBeInTheDocument();
+    expect(screen.getAllByText("924")).toHaveLength(1);
+  });
+
+  test("shows kcal as whole numbers", () => {
+    renderCard({
+      slot: makeSlotView({
+        meals: [makePlannedMealView({ name: "Porridge" })],
+        totals: { calories: 139.6, protein: 10, carbs: 10, fat: 10 },
+      }),
+    });
+
+    expect(screen.getByText("140")).toBeInTheDocument();
+    expect(screen.queryByText("139.6")).not.toBeInTheDocument();
+  });
+
+  test("names the unit for screen readers", () => {
+    renderCard();
+
+    expect(
+      screen.getByRole("button", { name: /Tue 13: ?660 ?kcal/ }),
+    ).toBeInTheDocument();
+  });
+
+  test("gives a planned card more weight than an empty one", () => {
+    renderCard({
+      slot: makeSlotView({ meals: [makePlannedMealView()] }),
+    });
+    expect(screen.getByRole("button")).toHaveClass("bg-muted/50");
+  });
+
+  test("leaves an empty card without a fill", () => {
+    renderCard();
+    expect(screen.getByRole("button")).not.toHaveClass("bg-muted/50");
+  });
+
+  test("marks the card whose panel is open", () => {
+    renderCard({ open: true });
+    expect(screen.getByRole("button")).toHaveClass("border-ring");
   });
 
   test("marks food over its kcal target and names the excess", () => {
