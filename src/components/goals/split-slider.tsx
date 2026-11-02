@@ -1,6 +1,7 @@
 "use client";
 
 import { Slider } from "@base-ui/react/slider";
+import { cn } from "cn";
 import type { ReactNode } from "react";
 
 import { PCT_TOLERANCE } from "@/lib/goals/schema";
@@ -12,6 +13,10 @@ import { moveBoundary, splitBoundaries } from "@/lib/goals/shares";
  * Thumbs only appear while the total is valid, since dividers mean nothing on a
  * split that does not add up; the inputs and status line handle that case. Arrow
  * keys move a focused thumb by 1%, and two thumbs stay at least 1% apart.
+ *
+ * A caption under the bar says the thumbs can be dragged. It keeps its space
+ * while the total is invalid, so the rows below don't jump as a share is typed.
+ * A single share has nothing to trade, so it gets neither thumbs nor a caption.
  *
  * @param props.label Accessible name of the whole control.
  * @param props.names The name of each share, in order, for the thumbs' labels.
@@ -41,45 +46,58 @@ export function SplitSlider({
   const boundaries = splitBoundaries(shares);
 
   return (
-    <div className="relative flex h-6 items-center">
-      <div className="w-full">{children}</div>
+    <div className="grid gap-1">
+      <div className="relative flex h-6 items-center">
+        <div className="w-full">{children}</div>
 
-      {interactive ? (
-        <Slider.Root
-          aria-label={label}
-          value={boundaries}
-          min={0}
-          max={100}
-          step={1}
-          minStepsBetweenValues={1}
-          thumbCollisionBehavior="none"
-          onValueChange={(next) => {
-            const values = next as number[];
-            const moved = values.findIndex(
-              (value, index) => value !== boundaries[index],
-            );
-            if (moved !== -1) {
-              onChange(moveBoundary(shares, moved, values[moved]));
-            }
-          }}
-          className="absolute inset-0"
+        {interactive ? (
+          <Slider.Root
+            aria-label={label}
+            value={boundaries}
+            min={0}
+            max={100}
+            step={1}
+            minStepsBetweenValues={1}
+            thumbCollisionBehavior="none"
+            onValueChange={(next) => {
+              const values = next as number[];
+              const moved = values.findIndex(
+                (value, index) => value !== boundaries[index],
+              );
+              if (moved !== -1) {
+                onChange(moveBoundary(shares, moved, values[moved]));
+              }
+            }}
+            className="absolute inset-0"
+          >
+            <Slider.Control className="flex h-full w-full touch-none items-center select-none">
+              <Slider.Track className="relative h-full w-full">
+                {boundaries.map((_, index) => (
+                  <Slider.Thumb
+                    key={index}
+                    index={index}
+                    aria-label={`Divider between ${names[index]} and ${names[index + 1]}`}
+                    getAriaValueText={(_formatted, _value, thumb) =>
+                      `${names[thumb]} ${Math.round(shares[thumb])}%, ${names[thumb + 1]} ${Math.round(shares[thumb + 1])}%`
+                    }
+                    className="border-foreground bg-background ring-ring/50 relative size-4 rounded-full border-2 transition-shadow select-none after:absolute after:-inset-2 hover:ring-3 has-[:focus-visible]:ring-3"
+                  />
+                ))}
+              </Slider.Track>
+            </Slider.Control>
+          </Slider.Root>
+        ) : null}
+      </div>
+      {shares.length > 1 ? (
+        <p
+          data-slot="split-slider-hint"
+          className={cn(
+            "type-caption text-muted-foreground",
+            !interactive && "invisible",
+          )}
         >
-          <Slider.Control className="flex h-full w-full touch-none items-center select-none">
-            <Slider.Track className="relative h-full w-full">
-              {boundaries.map((_, index) => (
-                <Slider.Thumb
-                  key={index}
-                  index={index}
-                  aria-label={`Divider between ${names[index]} and ${names[index + 1]}`}
-                  getAriaValueText={(_formatted, _value, thumb) =>
-                    `${names[thumb]} ${Math.round(shares[thumb])}%, ${names[thumb + 1]} ${Math.round(shares[thumb + 1])}%`
-                  }
-                  className="border-foreground bg-background ring-ring/50 relative size-4 rounded-full border-2 transition-shadow select-none after:absolute after:-inset-2 hover:ring-3 has-[:focus-visible]:ring-3"
-                />
-              ))}
-            </Slider.Track>
-          </Slider.Control>
-        </Slider.Root>
+          Drag the circles on the bar to change the split.
+        </p>
       ) : null}
     </div>
   );

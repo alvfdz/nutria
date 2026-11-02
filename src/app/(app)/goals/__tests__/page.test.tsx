@@ -69,8 +69,8 @@ describe("GoalsPage", () => {
       screen.getByRole("button", { name: "Set goals" }),
     ).toBeInTheDocument();
 
-    // The default seed: 3 meals, balanced shares.
-    expect(screen.getAllByLabelText(/^Meal \d+ name$/)).toHaveLength(3);
+    // The default seed: 4 meals, balanced shares.
+    expect(screen.getAllByLabelText(/^Meal \d+ name$/)).toHaveLength(4);
     expect(screen.getByText(/Start from these defaults/)).toBeInTheDocument();
     const calories = screen.getByLabelText(
       "Calories (kcal)",
@@ -82,7 +82,8 @@ describe("GoalsPage", () => {
 
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
     expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
-    expect(screen.getByLabelText("Meal 3 name")).toHaveValue("Dinner");
+    expect(screen.getByLabelText("Meal 3 name")).toHaveValue("Snack");
+    expect(screen.getByLabelText("Meal 4 name")).toHaveValue("Dinner");
   });
 
   test("prefills the form from the stored goals and shows the summary", async () => {

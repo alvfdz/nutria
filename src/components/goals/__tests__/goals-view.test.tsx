@@ -72,14 +72,24 @@ const drawnWidth = () =>
   segmentWidths().reduce((sum, width) => sum + Number.parseFloat(width), 0);
 
 describe("GoalsView", () => {
-  test("starts with three default meals when no goals are stored", () => {
+  test("starts with four default meals when no goals are stored", () => {
     render(<GoalsView goals={null} />);
 
-    expect(mealCount()).toBe(3);
+    expect(mealCount()).toBe(4);
     expect(screen.getByLabelText("Calories (kcal)")).toHaveValue(2000);
-    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
-    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
-    expect(screen.getByLabelText("Meal 3 name")).toHaveValue("Dinner");
+    const defaults = [
+      ["Breakfast", 25],
+      ["Lunch", 35],
+      ["Snack", 10],
+      ["Dinner", 30],
+    ] as const;
+    defaults.forEach(([name, share], index) => {
+      const position = index + 1;
+      expect(screen.getByLabelText(`Meal ${position} name`)).toHaveValue(name);
+      expect(screen.getByLabelText(`Meal ${position} share (%)`)).toHaveValue(
+        share,
+      );
+    });
     expect(
       screen.getByRole("button", { name: "Set goals" }),
     ).toBeInTheDocument();
@@ -101,7 +111,7 @@ describe("GoalsView", () => {
 
   test("makes room for added meals and keeps the others' proportions", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
     await user.click(screen.getByRole("button", { name: "Add meal" }));
@@ -117,7 +127,7 @@ describe("GoalsView", () => {
     render(<GoalsView goals={null} />);
     const add = screen.getByRole("button", { name: "Add meal" });
 
-    for (let count = 3; count < 8; count += 1) await user.click(add);
+    for (let count = 4; count < 8; count += 1) await user.click(add);
     expect(mealCount()).toBe(8);
     expect(add).toBeDisabled();
     expect(screen.getByText(/You can have up to 8 meals/)).toBeInTheDocument();
@@ -130,7 +140,7 @@ describe("GoalsView", () => {
 
   test("focuses and selects a new meal's name", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
@@ -141,7 +151,7 @@ describe("GoalsView", () => {
 
   test("appends a row named Meal N and keeps the shares summing to 100", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
 
@@ -154,7 +164,7 @@ describe("GoalsView", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
-      render(<GoalsView goals={null} />);
+      render(<GoalsView goals={makeGoals()} />);
 
       // Removing the middle row leaves keys like row-0, row-2 — no longer
       // positional — so an append must not reuse a positional fallback key.
@@ -176,7 +186,7 @@ describe("GoalsView", () => {
 
   test("removes a meal and hands its share to the others in proportion", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeEnabled();
 
@@ -188,7 +198,7 @@ describe("GoalsView", () => {
 
   test("moves focus to the next meal's name after a removal", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
     expect(screen.getByLabelText("Meal 2 name")).toHaveFocus();
@@ -199,7 +209,7 @@ describe("GoalsView", () => {
 
   test("removes the middle meal, not the last one", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
 
@@ -231,7 +241,7 @@ describe("GoalsView", () => {
 
   test("disables removal once only one meal remains", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
     await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
@@ -272,7 +282,7 @@ describe("GoalsView", () => {
 
   test("moves a meal up and carries its name and share with it", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Move Lunch up" }));
 
@@ -285,7 +295,7 @@ describe("GoalsView", () => {
 
   test("moves a meal down and keeps the live summary in step", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     expect(summaryMeals()).toEqual(["Breakfast", "Lunch", "Dinner"]);
 
@@ -363,7 +373,7 @@ describe("GoalsView", () => {
 
   test("offers the row actions in a menu that names the meal", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Actions for Lunch" }));
     await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
@@ -374,7 +384,7 @@ describe("GoalsView", () => {
 
   test("splits the day evenly on request", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
     const split = screen.getByRole("button", { name: "Split evenly" });
 
     await user.click(split);
@@ -386,7 +396,7 @@ describe("GoalsView", () => {
 
   test("offers no even split for a single meal", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
     await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
@@ -397,8 +407,50 @@ describe("GoalsView", () => {
   });
 
   describe("draggable bars", () => {
-    test("moves a meal divider with the arrow keys, trading between neighbours", () => {
+    /** The drag hints, in page order: the macro bar's, then the meal bar's. */
+    const hints = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-slot="split-slider-hint"]',
+        ),
+      );
+
+    test("tells the user the macro and meal bars can be dragged", () => {
       render(<GoalsView goals={null} />);
+
+      expect(hints()).toHaveLength(2);
+      for (const hint of hints()) {
+        expect(hint).toHaveTextContent(
+          "Drag the circles on the bar to change the split.",
+        );
+        expect(hint).not.toHaveClass("invisible");
+      }
+    });
+
+    test("hides a bar's hint but keeps its space while the total does not add up", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={null} />);
+
+      await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+      await user.type(screen.getByLabelText("Meal 1 share (%)"), "10");
+
+      const [macroHint, mealHint] = hints();
+      expect(macroHint).not.toHaveClass("invisible");
+      expect(mealHint).toHaveClass("invisible");
+    });
+
+    test("offers no meal hint for a single meal, which has nothing to drag", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+
+      await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
+      await user.click(screen.getByRole("button", { name: "Remove Lunch" }));
+
+      expect(hints()).toHaveLength(1);
+    });
+
+    test("moves a meal divider with the arrow keys, trading between neighbours", () => {
+      render(<GoalsView goals={makeGoals()} />);
 
       fireEvent.keyDown(
         screen.getByRole("slider", {
@@ -454,7 +506,7 @@ describe("GoalsView", () => {
     });
 
     test("does not submit the sliders with the form", () => {
-      render(<GoalsView goals={null} />);
+      render(<GoalsView goals={makeGoals()} />);
 
       const form = document.querySelector("form") as HTMLFormElement;
       expect([...new FormData(form).keys()].sort()).toEqual([
@@ -578,20 +630,20 @@ describe("GoalsView", () => {
   });
 
   test("divides the day into one bar segment per meal, in dining order", () => {
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
-    // The defaults are Breakfast 30, Lunch 40, Dinner 30.
+    // The stored goals are Breakfast 30, Lunch 40, Dinner 30.
     expect(segmentWidths()).toEqual(["30%", "40%", "30%"]);
   });
 
   test("paints the meals with the meal tokens, in dining order", () => {
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     expect(segmentColors()).toEqual(["bg-meal-1", "bg-meal-2", "bg-meal-3"]);
   });
 
   test("marks each meal row with its own segment's colour", () => {
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     const swatches = Array.from(
       document.querySelectorAll<HTMLElement>('[data-slot="day-split-swatch"]'),
@@ -605,7 +657,7 @@ describe("GoalsView", () => {
 
   test("redraws the bar as a share is edited", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.clear(screen.getByLabelText("Meal 3 share (%)"));
     await user.type(screen.getByLabelText("Meal 3 share (%)"), "10");
@@ -616,7 +668,7 @@ describe("GoalsView", () => {
 
   test("leaves the unclaimed stretch of the track empty while the shares fall short", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.clear(screen.getByLabelText("Meal 1 share (%)"));
     await user.type(screen.getByLabelText("Meal 1 share (%)"), "10");
@@ -629,7 +681,7 @@ describe("GoalsView", () => {
 
   test("scales the whole bar back when the shares exceed 100", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.clear(screen.getByLabelText("Meal 1 share (%)"));
     await user.type(screen.getByLabelText("Meal 1 share (%)"), "80");
@@ -641,7 +693,7 @@ describe("GoalsView", () => {
 
   test("repaints the bar in the new order after a meal is moved", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Move Lunch down" }));
 
@@ -653,7 +705,7 @@ describe("GoalsView", () => {
 
   test("gives every meal its own tint past the four meal tokens", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Add meal" }));
     await user.click(screen.getByRole("button", { name: "Add meal" }));
@@ -665,7 +717,7 @@ describe("GoalsView", () => {
 
   test("keeps the bar but hides per-meal numbers without a calorie target", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.clear(screen.getByLabelText("Calories (kcal)"));
 
@@ -678,7 +730,7 @@ describe("GoalsView", () => {
   });
 
   test("shows each meal's calories on its row", () => {
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     const row = screen
       .getByLabelText("Meal 2 name")
@@ -688,7 +740,7 @@ describe("GoalsView", () => {
   });
 
   test("lists each meal's slice as aligned table columns", () => {
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     const cells = within(summaryRows()[1])
       .getAllByRole("cell")
@@ -715,7 +767,7 @@ describe("GoalsView", () => {
 
   test("marks 100% on an over-allocated bar", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
     const limit = () =>
       document.querySelector<HTMLElement>('[data-slot="day-split-bar-limit"]');
 
@@ -730,7 +782,7 @@ describe("GoalsView", () => {
 
   test("keeps whole percentages when a rescale does not divide evenly", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.click(screen.getByRole("button", { name: "Remove Dinner" }));
     await user.click(screen.getByRole("button", { name: "Add meal" }));
@@ -773,7 +825,7 @@ describe("GoalsView", () => {
 
   test("says how to fix a meal total that runs over", async () => {
     const user = userEvent.setup();
-    render(<GoalsView goals={null} />);
+    render(<GoalsView goals={makeGoals()} />);
 
     await user.clear(screen.getByLabelText("Meal 1 share (%)"));
     await user.type(screen.getByLabelText("Meal 1 share (%)"), "40");

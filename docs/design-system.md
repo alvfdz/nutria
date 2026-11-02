@@ -107,7 +107,7 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 - **MacroBar** — the 6px segmented protein/carbs/fat bar with gaps, plus its status line. It shows how a whole divides up. An over-allocated total scales back to fit and shows a `destructive` tick at 100%.
 - **Macro share** — a `MacroBar` under a food's name, showing each macro's share of its calories at a glance. Its proportions complement the grams beside it, so principle 5 isn't broken.
 - **Progress bar** — one 6px bar per macro showing planned against target on a `muted` track, filled in that macro's color, with name, `planned/target g` and a state marker above it. An overshoot fills the track and is reported by the marker (principle 6).
-- **SplitSlider** — thumbs on a segmented bar's dividers, so dragging or arrow keys trade share between neighbours and keep the total. Shown only while the total is valid; typed inputs always stay available.
+- **SplitSlider** — thumbs on a segmented bar's dividers, so dragging or arrow keys trade share between neighbours and keep the total. Shown only while the total is valid; typed inputs always stay available. A `caption` under the bar says the thumbs can be dragged, and keeps its space while they're hidden so the rows below don't jump.
 - **StatusLine** — ✓ (brand) or alert (destructive) + one sentence.
 - **Card** — bordered surface with title, description and an optional header action.
 - **StatTile** — a 3-cell bordered row for P/C/F grams.

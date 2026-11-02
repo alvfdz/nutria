@@ -119,8 +119,9 @@ const NO_STATE_RESTORE = { autoComplete: "off" } as const;
 const DEFAULT_CALORIES = 2000;
 const DEFAULT_MACROS = { proteinPct: "30", carbsPct: "40", fatPct: "30" };
 const DEFAULT_SLOTS = [
-  { name: "Breakfast", percent: "30" },
-  { name: "Lunch", percent: "40" },
+  { name: "Breakfast", percent: "25" },
+  { name: "Lunch", percent: "35" },
+  { name: "Snack", percent: "10" },
   { name: "Dinner", percent: "30" },
 ];
 
