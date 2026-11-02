@@ -1,6 +1,6 @@
 # Third-party notices
 
-This repository includes code and documents copied from the projects below. They keep their own licenses. Packages installed through npm carry their own license files and aren't listed here. External data sources are listed at the end.
+This repository includes code and documents copied from the projects below. They keep their own licenses. Packages installed through npm carry their own license files and aren't listed here. Fonts and external data sources are listed at the end.
 
 ## shadcn/ui
 
@@ -44,6 +44,22 @@ SOFTWARE.
 - **Source:** <https://github.com/anthropics/skills>
 - **Used in:** `.agents/skills/frontend-design`
 - **License:** see [`.agents/skills/frontend-design/LICENSE.txt`](.agents/skills/frontend-design/LICENSE.txt)
+
+## Fonts
+
+These aren't included in this repository; `next/font` downloads them from Google Fonts at build time and bundles them with the built app.
+
+### Geist and Geist Mono
+
+- **Source:** <https://fonts.google.com/specimen/Geist>, <https://github.com/vercel/geist-font>
+- **Used for:** all the app's text
+- **License:** [SIL Open Font License 1.1](https://openfontlicense.org)
+
+```text
+Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+```
 
 ## External data sources
 

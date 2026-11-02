@@ -303,7 +303,8 @@ never evaluated on a Postgres project.
 Nutria's code is released under the [MIT License](LICENSE). It is provided "as
 is", with no warranty and no support of any kind.
 
-Third-party code copied into this repository keeps its own license: see
+Third-party code copied into this repository, and the fonts bundled at build
+time, keep their own licenses: see
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ### Food data
