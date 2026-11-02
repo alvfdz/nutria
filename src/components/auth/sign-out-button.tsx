@@ -3,16 +3,21 @@
 import { LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth/client";
+import { ICON_STROKE } from "@/lib/design-system";
 
 /**
  * Ends the session and returns to the login screen. Its tooltip names who is
  * signed in, which is all the account UI a single-account instance needs.
+ * While the request runs the label reads "Signing out…" and a spinner takes the
+ * icon's place, which is what shows below `md`, where the label is hidden.
  *
  * @param props.name Display name of the signed-in user.
+ * @returns The sign-out button; failures surface as a toast, never a throw.
  */
 export function SignOutButton({ name }: { name: string }) {
   const router = useRouter();
@@ -29,7 +34,10 @@ export function SignOutButton({ name }: { name: string }) {
     );
 
     if (failed) {
-      toast.error("Could not sign out. Please try again.");
+      toast.add({
+        type: "error",
+        title: "Could not sign out. Please try again.",
+      });
       setPending(false);
       return;
     }
@@ -42,13 +50,15 @@ export function SignOutButton({ name }: { name: string }) {
     <Button
       type="button"
       variant="ghost"
-      size="sm"
+      className="text-muted-foreground max-md:w-8 max-md:px-0"
       disabled={pending}
       onClick={handleClick}
       title={`Signed in as ${name}`}
     >
-      <LogOutIcon />
-      <span className="max-sm:sr-only">Sign out</span>
+      {pending ? <Spinner /> : <LogOutIcon strokeWidth={ICON_STROKE} />}
+      <span className="max-md:sr-only">
+        {pending ? "Signing out…" : "Sign out"}
+      </span>
     </Button>
   );
 }

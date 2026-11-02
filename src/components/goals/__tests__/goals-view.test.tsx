@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 import { saveGoalsAction } from "@/app/(app)/goals/actions";
 import { GoalsView } from "@/components/goals/goals-form";
@@ -17,12 +17,9 @@ import { makeGoals } from "@test/factories";
 // the action instead, so a fake is enough.
 vi.mock("@/app/(app)/goals/actions", () => ({ saveGoalsAction: vi.fn() }));
 
-// The real sonner module only feeds the toast container, which these tests do
+// The real toast manager only feeds the toast container, which these tests do
 // not render; mocking it keeps the calls assertable.
-vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-  Toaster: () => null,
-}));
+vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -31,7 +28,7 @@ const action = vi.mocked(saveGoalsAction);
 
 beforeEach(() => {
   action.mockReset();
-  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.add).mockClear();
   push.mockClear();
 });
 
@@ -490,8 +487,11 @@ describe("GoalsView", () => {
     await user.type(screen.getByLabelText("Calories (kcal)"), "5");
     await user.click(screen.getByRole("button", { name: "Save goals" }));
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
-    expect(toast.success).toHaveBeenCalledWith("Goals saved.");
+    await waitFor(() => expect(toast.add).toHaveBeenCalledTimes(1));
+    expect(toast.add).toHaveBeenCalledWith({
+      type: "success",
+      title: "Goals saved.",
+    });
     // The live region keeps the same message for screen readers.
     expect(screen.getByText("Goals saved.")).toBeInTheDocument();
   });
@@ -511,7 +511,7 @@ describe("GoalsView", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The goals could not be saved. Please try again.",
     );
-    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.add).not.toHaveBeenCalled();
   });
 
   describe("errors from a failed save", () => {

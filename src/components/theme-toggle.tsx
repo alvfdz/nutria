@@ -4,6 +4,7 @@ import { Moon, Sun } from "lucide-react";
 import { useLayoutEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ICON_STROKE } from "@/lib/design-system";
 import {
   applyTheme,
   isDarkMode,
@@ -35,9 +36,10 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggle}
       aria-label="Toggle theme"
+      className="text-muted-foreground"
     >
-      <Moon className="dark:hidden" />
-      <Sun className="hidden dark:block" />
+      <Moon className="dark:hidden" strokeWidth={ICON_STROKE} />
+      <Sun className="hidden dark:block" strokeWidth={ICON_STROKE} />
     </Button>
   );
 }

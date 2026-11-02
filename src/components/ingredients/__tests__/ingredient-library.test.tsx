@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 import { makeIngredient } from "@test/factories";
 import { IngredientLibrary } from "@/components/ingredients/ingredient-library";
@@ -11,7 +11,7 @@ import {
 } from "@/app/(app)/ingredients/actions";
 import { initialIngredientFormState } from "@/lib/ingredients/form-state";
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/app/(app)/ingredients/actions", () => ({
   createIngredientFromFoodfactsAction: vi.fn(),
   createIngredientAction: vi.fn(),
@@ -42,7 +42,7 @@ const oats = makeIngredient({
 beforeEach(() => {
   updateAction.mockReset();
   deleteAction.mockReset();
-  vi.mocked(toast.success).mockReset();
+  vi.mocked(toast.add).mockReset();
 });
 
 describe("IngredientLibrary", () => {
@@ -126,7 +126,10 @@ describe("IngredientLibrary", () => {
     await user.click(save);
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Oats updated."),
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Oats updated.",
+      }),
     );
   });
 
@@ -142,7 +145,10 @@ describe("IngredientLibrary", () => {
     await user.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Oats deleted."),
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Oats deleted.",
+      }),
     );
   });
 

@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { authClient } from "@/lib/auth/client";
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/lib/auth/client", () => ({
   authClient: { changePassword: vi.fn() },
 }));
@@ -40,9 +40,10 @@ describe("ChangePasswordForm", () => {
       newPassword: next,
       revokeOtherSessions: true,
     });
-    expect(toast.success).toHaveBeenCalledWith(
-      "Password changed. Other devices were signed out.",
-    );
+    expect(toast.add).toHaveBeenCalledWith({
+      type: "success",
+      title: "Password changed. Other devices were signed out.",
+    });
     expect(screen.getByLabelText("Current password")).toHaveValue("");
     expect(screen.getByLabelText(/^New password/)).toHaveValue("");
   });
@@ -81,7 +82,7 @@ describe("ChangePasswordForm", () => {
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveFocus();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.add).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", { name: "Change password" }),
     ).toBeEnabled();
@@ -147,7 +148,7 @@ describe("ChangePasswordForm", () => {
 
     await submit();
 
-    expect(toast.success).toHaveBeenCalled();
+    expect(toast.add).toHaveBeenCalled();
     expect(screen.getByLabelText("Current password")).toHaveAttribute(
       "type",
       "password",

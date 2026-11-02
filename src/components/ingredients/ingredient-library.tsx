@@ -4,7 +4,6 @@ import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { Search } from "lucide-react";
 import { cn } from "cn";
-import { toast } from "sonner";
 
 import { DeleteIngredientDialog } from "@/components/ingredients/delete-ingredient-dialog";
 import { EditIngredientDialog } from "@/components/ingredients/edit-ingredient-dialog";
@@ -49,6 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
 import { CARD_CLASS, CARD_TITLE_CLASS, ICON_STROKE } from "@/lib/design-system";
 import { formatMacro } from "@/lib/ingredients/format";
 import {
@@ -190,19 +190,19 @@ export function IngredientLibrary({
   const handleAdded = useCallback(
     (name: string) => {
       rememberSaved(name);
-      toast.success(`${name} added.`);
+      toast.add({ type: "success", title: `${name} added.` });
     },
     [rememberSaved],
   );
   const handleSaved = useCallback(
     (name: string) => {
       rememberSaved(name);
-      toast.success(`${name} updated.`);
+      toast.add({ type: "success", title: `${name} updated.` });
     },
     [rememberSaved],
   );
   const handleDeleted = useCallback((name: string) => {
-    toast.success(`${name} deleted.`);
+    toast.add({ type: "success", title: `${name} deleted.` });
   }, []);
 
   function openImport(query: string) {

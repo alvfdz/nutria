@@ -25,4 +25,31 @@ describe("SiteHeader", () => {
       screen.getByRole("button", { name: "Sign out" }),
     ).toBeInTheDocument();
   });
+
+  test("links home from the logo mark and wordmark, with the mark in brand", () => {
+    render(
+      <SiteHeader
+        user={{ id: "user-1", name: "Owner", email: "owner@example.com" }}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Nutria" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(screen.getByTestId("header-logo")).toHaveClass("text-brand");
+  });
+
+  test("resolves its text colour inside the design-system palette", () => {
+    render(
+      <SiteHeader
+        user={{ id: "user-1", name: "Owner", email: "owner@example.com" }}
+      />,
+    );
+
+    expect(screen.getByRole("banner")).toHaveClass(
+      "nutria-theme",
+      "text-foreground",
+    );
+  });
 });

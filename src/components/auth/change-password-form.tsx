@@ -1,13 +1,13 @@
 "use client";
 
 import { Fragment, useState, type FormEvent } from "react";
-import { toast } from "sonner";
 
 import { AuthField } from "@/components/auth/auth-field";
 import { useFocusFirstInvalid } from "@/components/auth/use-focus-first-invalid";
 import { StatusLine } from "@/components/status-line";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
+import { toast } from "@/components/ui/toast";
 import { authClient } from "@/lib/auth/client";
 import { authErrorMessage } from "@/lib/auth/errors";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/limits";
@@ -84,7 +84,10 @@ export function ChangePasswordForm() {
 
     setFieldsKey((key) => key + 1);
     setPending(false);
-    toast.success("Password changed. Other devices were signed out.");
+    toast.add({
+      type: "success",
+      title: "Password changed. Other devices were signed out.",
+    });
   }
 
   return (

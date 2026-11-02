@@ -12,7 +12,6 @@ import {
 
 import { ArrowDown, ArrowUp, EllipsisVertical, Plus, X } from "lucide-react";
 import { cn } from "cn";
-import { toast } from "sonner";
 
 import { saveGoalsAction } from "@/app/(app)/goals/actions";
 import {
@@ -72,6 +71,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
 import {
   CARD_CLASS,
   CARD_TITLE_CLASS,
@@ -279,7 +279,10 @@ export function GoalsView({
   // submit, so this runs exactly when the action resolves successfully.
   useEffect(() => {
     if (state.status === "success") {
-      toast.success(state.savedMessage ?? "Goals saved.");
+      toast.add({
+        type: "success",
+        title: state.savedMessage ?? "Goals saved.",
+      });
     }
   }, [state]);
 

@@ -1,14 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { authClient } from "@/lib/auth/client";
 
 vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/lib/auth/client", () => ({ authClient: { signOut: vi.fn() } }));
 
 const router = { replace: vi.fn(), refresh: vi.fn() };
@@ -49,9 +49,10 @@ describe("SignOutButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(toast.error).toHaveBeenCalledWith(
-      "Could not sign out. Please try again.",
-    );
+    expect(toast.add).toHaveBeenCalledWith({
+      type: "error",
+      title: "Could not sign out. Please try again.",
+    });
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
     expect(router.replace).not.toHaveBeenCalled();
   });
@@ -62,10 +63,20 @@ describe("SignOutButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(toast.error).toHaveBeenCalledWith(
-      "Could not sign out. Please try again.",
-    );
+    expect(toast.add).toHaveBeenCalledWith({
+      type: "error",
+      title: "Could not sign out. Please try again.",
+    });
     expect(router.replace).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
+  });
+
+  test("disables itself and says so while the request runs", async () => {
+    signOut.mockReturnValue(new Promise(() => {}) as never);
+
+    render(<SignOutButton name="Owner" />);
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
   });
 });

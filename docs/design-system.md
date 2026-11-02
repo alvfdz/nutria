@@ -10,7 +10,7 @@ New UI follows this document. When you change an existing view, bring the parts 
 
 1. **Monochrome first.** Layout, hierarchy, navigation and actions come from `foreground`, `muted-foreground`, `border` and type weight — never from color. The primary button is `primary` (near-white in dark), as in shadcn.
 2. **Color is data.** `protein`, `carbs` and `fat` appear only as 6px dots, bar segments, progress fills and chart series, always next to their name. Numbers stay `foreground`.
-3. **One accent, used sparingly.** `brand` green marks "good / brand / add" in five places only: the logo mark, the ✓ beside a valid or on-target total, the + in Add actions, the 2px underline of a selected segment, and the unsaved-changes dot. Never a fill. On the calendar board the + repeats on every empty slot, so there it stays `muted-foreground` and turns `brand` on hover or focus.
+3. **One accent, used sparingly.** `brand` green marks "good / brand / add" in five places only: the logo mark, the ✓ beside a valid or on-target total or a completed save, the + in Add actions, the 2px underline of a selected segment, and the unsaved-changes dot. Never a fill. On the calendar board the + repeats on every empty slot, so there it stays `muted-foreground` and turns `brand` on hover or focus.
 4. **Say how to fix it.** Validation is inline and specific: "Macros total 95% — add 5% to reach 100%", in `destructive` with an alert icon. Never color alone.
 5. **Show each number once.** If a value is visualized in one place (a macro bar), don't repeat the same visualization elsewhere on the view (no donut in the summary).
 6. **Being off budget is not an error.** Short of or over a target is information the user plans around: show it in neutral text with a marker (`✓`, `−12`, `+8`, `▲`). `destructive` is for failures, invalid input and irreversible actions.
@@ -99,6 +99,7 @@ Radii: `rounded-md` ≈6 for small controls, `rounded-lg` 8 for inputs and butto
 
 Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Shared ones sit at the top of `src/components` (`segmented-bar.tsx`, `stat-tile.tsx`, `status-line.tsx`, `unit-input.tsx`, and `library-table.tsx` for the Library shape's headings, row names and row actions), and shared class names and constants in `src/lib/design-system.ts`. Others still live with Goals (`split-slider.tsx`): reuse them, and move a component to the shared location the first time a second view needs it, rather than copying it.
 
+- **Site header** — 56px sticky bar at the wide tier: logo mark in `brand` and wordmark, section links, then the theme toggle, Account and Sign out. Links and actions are 32px ghost buttons in `muted-foreground`; the current page is `muted` + `foreground`. Actions fold to their icons below `md`; on phones the section links fold into one menu named after the current section, and below 360px only the logo mark stays.
 - **Button** — primary / outline / ghost / icon, plus the tinted `destructive` for confirming a delete.
 - **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line. An error takes the helper line's place. A button inside the field, such as the password reveal, is 24px so it fits the 32px input; `AuthField` is this pattern for the auth forms.
 - **SegmentedToggle** — shadcn ToggleGroup styled as a track; for presets and view switches. Not built yet: add it the first time one is needed.
@@ -137,7 +138,7 @@ Macro series use `protein`, `carbs` and `fat`, in that order; meal series use th
 - **Read-only** — remove the affordance instead of graying it out: a past calendar day is a plain block with nothing focusable.
 - **Field errors** — `destructive` text under the field, tied to the input with `aria-describedby`, and `aria-invalid` on the input.
 - **Form and request errors** — one `destructive` line above the form's actions with `role="alert"`.
-- **Toasts** — confirm a completed save ("Password changed.") or report a failure with no form to show it in. Never use them for validation.
+- **Toasts** — confirm a completed save ("Password changed.") or report a failure with no form to show it in. Never use them for validation. Use shadcn's Base UI `toast`, bottom right at the page gutter and full width on phones, on the same surface as a popover. Like `StatusLine`, a success has a `brand` ✓ and an error has an alert icon and `destructive` text. They wrap a long name rather than truncate it, because the words after it carry the news.
 
 ## Iconography
 
@@ -166,4 +167,3 @@ Goals, Ingredients, Meals, Calendar, Account, login, setup and the site header f
 - **Width.** `PageContainer`'s default tier still steps up to 1280px; views that have adopted this system force 1200px with an override.
 - **Page chrome.** Other views still use `text-2xl font-medium` titles and `py-10`, and don't set `tabular-nums` at the view level.
 - **Add actions.** The + icons outside Goals, Ingredients, Meals and Calendar aren't `brand` yet.
-- **Toasts.** `Toaster` is mounted outside `.nutria-theme`, so toasts keep the old palette until the values move to `:root`.

@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 import { makeIngredient, makeMeal } from "@test/factories";
 import {
@@ -16,7 +16,7 @@ import {
   initialMealFormState,
 } from "@/lib/meals/form-state";
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+vi.mock("@/components/ui/toast", () => ({ toast: { add: vi.fn() } }));
 vi.mock("@/app/(app)/meals/actions", () => ({
   createMealAction: vi.fn(),
   updateMealAction: vi.fn(),
@@ -86,7 +86,7 @@ beforeEach(() => {
   createAction.mockReset();
   updateAction.mockReset();
   deleteAction.mockReset();
-  vi.mocked(toast.success).mockReset();
+  vi.mocked(toast.add).mockReset();
 });
 
 /** The meal names of the table's rows, top to bottom. */
@@ -230,7 +230,10 @@ describe("MealLibrary", () => {
     await user.click(save);
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Porridge updated."),
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Porridge updated.",
+      }),
     );
   });
 
@@ -246,7 +249,10 @@ describe("MealLibrary", () => {
     await user.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Porridge deleted."),
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Porridge deleted.",
+      }),
     );
   });
 
@@ -265,7 +271,7 @@ describe("MealLibrary", () => {
       "The meal could not be deleted. Please try again.",
     );
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.add).not.toHaveBeenCalled();
   });
 
   test("highlights a saved row once the dialog has closed", async () => {
@@ -357,7 +363,10 @@ describe("MealLibrary", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add meal" }));
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Toast added."),
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Toast added.",
+      }),
     );
     expect(screen.getByLabelText("Filter meals")).toHaveValue("");
   });
@@ -378,7 +387,10 @@ describe("MealLibrary", () => {
     );
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Porridge updated."),
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Porridge updated.",
+      }),
     );
     expect(screen.getByLabelText("Filter meals")).toHaveValue("porr");
   });

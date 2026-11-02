@@ -5,7 +5,6 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { cn } from "cn";
-import { toast } from "sonner";
 
 import {
   AddButton,
@@ -49,6 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
 import { CARD_CLASS, CARD_TITLE_CLASS, ICON_STROKE } from "@/lib/design-system";
 import { formatMacro } from "@/lib/ingredients/format";
 import type { Ingredient } from "@/lib/ingredients/types";
@@ -191,19 +191,19 @@ export function MealLibrary({
       // A filter could hide the new row, leaving nothing to highlight.
       setFilter("");
       rememberSaved(name);
-      toast.success(`${name} added.`);
+      toast.add({ type: "success", title: `${name} added.` });
     },
     [rememberSaved],
   );
   const handleSaved = useCallback(
     (name: string) => {
       rememberSaved(name);
-      toast.success(`${name} updated.`);
+      toast.add({ type: "success", title: `${name} updated.` });
     },
     [rememberSaved],
   );
   const handleDeleted = useCallback((name: string) => {
-    toast.success(`${name} deleted.`);
+    toast.add({ type: "success", title: `${name} deleted.` });
   }, []);
 
   function handleSort(column: MealSortKey) {
