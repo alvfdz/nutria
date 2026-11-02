@@ -1,12 +1,11 @@
-import { LeafyGreen } from "lucide-react";
 import Link from "next/link";
 
 import { AccountLink, AppNav } from "@/components/app-nav";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { AcornMark } from "@/components/brand-logo";
 import { PageContainer } from "@/components/page-container";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { AuthUser } from "@/lib/auth/types";
-import { ICON_STROKE } from "@/lib/design-system";
 
 /**
  * Sticky app bar with the home link, the section nav, the theme toggle, the
@@ -32,11 +31,9 @@ export function SiteHeader({ user }: { user: AuthUser }) {
           href="/"
           className="focus-visible:ring-ring/50 flex shrink-0 items-center gap-1.5 rounded-lg text-sm font-semibold outline-none focus-visible:ring-3"
         >
-          <LeafyGreen
+          <AcornMark
             data-testid="header-logo"
-            className="text-brand size-4"
-            strokeWidth={ICON_STROKE}
-            aria-hidden
+            className="text-brand h-6 w-auto"
           />
           <span className="max-[359px]:sr-only">Nutria</span>
         </Link>

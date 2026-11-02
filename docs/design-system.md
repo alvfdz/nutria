@@ -10,7 +10,7 @@ New UI follows this document. When you change an existing view, bring the parts 
 
 1. **Monochrome first.** Layout, hierarchy, navigation and actions come from `foreground`, `muted-foreground`, `border` and type weight — never from color. The primary button is `primary` (near-white in dark), as in shadcn.
 2. **Color is data.** `protein`, `carbs` and `fat` appear only as 6px dots, bar segments, progress fills and chart series, always next to their name. Numbers stay `foreground`.
-3. **One accent, used sparingly.** `brand` green marks "good / brand / add" in five places only: the logo mark, the ✓ beside a valid or on-target total or a completed save, the + in Add actions, the 2px underline of a selected segment, and the unsaved-changes dot. Never a fill. On the calendar board the + repeats on every empty slot, so there it stays `muted-foreground` and turns `brand` on hover or focus.
+3. **One accent, used sparingly.** `brand` green marks "good / brand / add" in five places only: the logo's acorn, the ✓ beside a valid or on-target total or a completed save, the + in Add actions, the 2px underline of a selected segment, and the unsaved-changes dot. Never a fill. On the calendar board the + repeats on every empty slot, so there it stays `muted-foreground` and turns `brand` on hover or focus.
 4. **Say how to fix it.** Validation is inline and specific: "Macros total 95% — add 5% to reach 100%", in `destructive` with an alert icon. Never color alone.
 5. **Show each number once.** If a value is visualized in one place (a macro bar), don't repeat the same visualization elsewhere on the view (no donut in the summary).
 6. **Being off budget is not an error.** Short of or over a target is information the user plans around: show it in neutral text with a marker (`✓`, `−12`, `+8`, `▲`). `destructive` is for failures, invalid input and irreversible actions.
@@ -68,7 +68,7 @@ Geist (Google Fonts) for everything; Geist Mono only for code or IDs. All number
 - `card-title` 16/24 semibold — card headings (`text-base/6 font-semibold`).
 - `stat-lg` 32 semibold — at most one hero number per view (daily kcal; `type-stat-lg`); `stat` 18 semibold in stat tiles.
 - `label` 14 medium, `body` 14 regular, `caption` 13 (`type-caption`), `micro` 12 (the floor, including dense views like the calendar).
-- Brand moments only — the auth wordmark — may go larger, up to 36.
+- The auth wordmark is the one brand moment that goes larger: 48, or 60 from `sm`, so it's about as wide as the logo above it.
 
 Custom sizes are `type-*` utilities, not `text-*`: `cn` reads an unknown `text-*` class as a color and drops it next to a real one.
 
@@ -100,7 +100,8 @@ Radii: `rounded-md` ≈6 for small controls, `rounded-lg` 8 for inputs and butto
 
 Built from shadcn/ui primitives in `src/components/ui`; add new ones with the shadcn CLI rather than by hand. Shared ones sit at the top of `src/components` (`segmented-bar.tsx`, `stat-tile.tsx`, `status-line.tsx`, `unit-input.tsx`, `meal-picker.tsx`, `macro-bars.tsx`, and `library-table.tsx` for the Library shape's headings, row names and row actions), and shared class names and constants in `src/lib/design-system.ts`. Others still live with Goals (`split-slider.tsx`): reuse them, and move a component to the shared location the first time a second view needs it, rather than copying it.
 
-- **Site header** — 56px sticky bar at the wide tier: logo mark in `brand` and wordmark, section links, then the theme toggle, Account and Sign out. Links and actions are 32px ghost buttons in `muted-foreground`; the current page is `muted` + `foreground`. Actions fold to their icons below `md`; on phones the section links fold into one menu named after the current section, and below 360px only the logo mark stays.
+- **Logo** — `src/components/brand-logo.tsx`, with the master artwork in `docs/brand/`. `NutriaLogo`, a `brand` acorn in an otter outline in `foreground`, is for the signed-out screens: 160px tall (192px from `sm`), with the wordmark centered below it. `AcornMark`, in `brand`, is for small places: the site header and the favicon (`src/app/icon.svg`, with `favicon.ico` as its fallback). Both are inline SVGs painted through tokens, so they follow the theme.
+- **Site header** — 56px sticky bar at the wide tier: the 24px acorn logo mark and wordmark, section links, then the theme toggle, Account and Sign out. Links and actions are 32px ghost buttons in `muted-foreground`; the current page is `muted` + `foreground`. Actions fold to their icons below `md`; on phones the section links fold into one menu named after the current section, and below 360px only the logo mark stays.
 - **Button** — primary / outline / ghost / icon, plus the tinted `destructive` for confirming a delete.
 - **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line. An error takes the helper line's place. A button inside the field, such as the password reveal, is 24px so it fits the 32px input; `AuthField` is this pattern for the auth forms.
 - **SegmentedToggle** — shadcn ToggleGroup styled as a track; for presets and view switches. Not built yet: add it the first time one is needed.
@@ -146,7 +147,7 @@ Macro series use `protein`, `carbs` and `fat`, in that order; meal series use th
 
 ## Iconography
 
-Lucide (shadcn's default), stroke 1.8, 15–16px, `currentColor` in `muted-foreground`; turns `foreground` on hover. The logo mark beside the auth wordmark is the one larger icon, at 32px in `brand`. Icon-only buttons are 32–36px, except inside a field (see **Field**), and always labelled. No emoji, no filled icons, no illustrations in the app chrome.
+Lucide (shadcn's default), stroke 1.8, 15–16px, `currentColor` in `muted-foreground`; turns `foreground` on hover. Icon-only buttons are 32–36px, except inside a field (see **Field**), and always labelled. No emoji, no filled icons, no illustrations in the app chrome; the logo is the one exception (see **Logo**).
 
 ## Numbers & copy
 
