@@ -11,6 +11,15 @@ For any UI work, on any screen, follow `docs/design-system.md`. When you change 
 - Format the code with Prettier — run `npm run format` (or `npm run format:check` to verify) after making changes.
 - Run the tests with `npm test` after every change, and make sure they pass before considering the work done.
 
+# Third parties
+
+Nutria is MIT-licensed. Before adding an npm package, copied code or assets, or an external service or data source, check its license and terms.
+
+- **Licenses:** stop and ask before adding anything under a copyleft or non-commercial license (such as GPL, AGPL, SSPL or CC BY-NC), with no license, or with terms you can't confirm.
+- **Copied code and assets:** add the source and license notice to `THIRD_PARTY_NOTICES.md` in the same change. This includes components added with the shadcn CLI from another registry. Packages installed through npm carry their own notices.
+- **External services and data:** follow their attribution and usage terms, and record them in the README's License section and, where users see the data, in the UI. See the source credit in `docs/design-system.md`. List external data sources in `THIRD_PARTY_NOTICES.md`, pointing to the README rather than repeating its terms.
+- **Trademarks:** a code license doesn't cover logos or brand names, so don't add third-party ones without permission.
+
 # Behavior
 
 - Keep the output clear and straight to the point. Avoid unnecessary wording or overexplanation.

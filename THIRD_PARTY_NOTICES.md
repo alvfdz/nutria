@@ -1,6 +1,6 @@
 # Third-party notices
 
-This repository includes code and documents copied from the projects below. They keep their own licenses. Packages installed through npm carry their own license files and aren't listed here.
+This repository includes code and documents copied from the projects below. They keep their own licenses. Packages installed through npm carry their own license files and aren't listed here. External data sources are listed at the end.
 
 ## shadcn/ui
 
@@ -44,3 +44,13 @@ SOFTWARE.
 - **Source:** <https://github.com/anthropics/skills>
 - **Used in:** `.agents/skills/frontend-design`
 - **License:** see [`.agents/skills/frontend-design/LICENSE.txt`](.agents/skills/frontend-design/LICENSE.txt)
+
+## External data sources
+
+These aren't included in this repository; Nutria fetches their data at runtime.
+
+### Open Food Facts
+
+- **Source:** <https://world.openfoodfacts.org>
+- **Used for:** food search results, and the products users import into their own library
+- **License and terms:** see [Food data](README.md#food-data) in the README
