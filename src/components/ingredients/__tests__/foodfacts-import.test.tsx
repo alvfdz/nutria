@@ -106,6 +106,21 @@ describe("FoodfactsImport", () => {
     expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
   });
 
+  it("credits Open Food Facts and warns against medical use before any search", async () => {
+    await openDialog();
+
+    expect(
+      await screen.findByRole("link", { name: "Open Food Facts" }),
+    ).toHaveAttribute("href", "https://world.openfoodfacts.org");
+    expect(
+      screen.getByRole("link", { name: "ODbL and CC BY-SA licenses" }),
+    ).toHaveAttribute("href", "https://world.openfoodfacts.org/terms-of-use");
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "It may contain errors and is not for medical use.",
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("renders results in a scrollable list", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

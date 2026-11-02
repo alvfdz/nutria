@@ -5,6 +5,7 @@ import {
   type FoodfactsSearchResponse,
   mapSearchResponse,
 } from "@/lib/foodfacts/mapping";
+import packageJson from "../../../../../package.json";
 
 /**
  * OpenFoodFacts full-text search endpoint (Search-a-licious). The `/api/v2`
@@ -14,7 +15,7 @@ import {
 const OFF_SEARCH_URL = "https://search.openfoodfacts.org/search";
 
 /** User-Agent OpenFoodFacts asks integrations to send to identify their app. */
-const USER_AGENT = "Nutria/1.0 (+https://github.com/nutria/nutria)";
+const USER_AGENT = `Nutria/${packageJson.version} (+https://github.com/alvfdz/nutria)`;
 
 /** Result page size used when the request does not specify one. */
 const DEFAULT_LIMIT = 20;

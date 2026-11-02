@@ -300,4 +300,20 @@ never evaluated on a Postgres project.
 
 ## License
 
-Open source — see [`docs/vision.md`](docs/vision.md) for scope and intent.
+Nutria's code is released under the [MIT License](LICENSE). It is provided "as
+is", with no warranty and no support of any kind.
+
+Third-party code copied into this repository keeps its own license: see
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+### Food data
+
+The MIT License does not cover food data. Food search results come from
+[Open Food Facts](https://world.openfoodfacts.org) contributors. The database is
+available under the Open Database License, its individual contents under the
+Database Contents License, and product images under Creative Commons
+Attribution-ShareAlike. See their
+[terms of use](https://world.openfoodfacts.org/terms-of-use).
+
+This data may contain errors and must not be used for medical purposes. Nutria
+is not medical advice.

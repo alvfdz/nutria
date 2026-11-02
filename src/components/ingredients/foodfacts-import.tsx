@@ -469,6 +469,10 @@ function ImportButton({
   );
 }
 
+/** Inline link inside the dialog's data source credit. */
+const SOURCE_LINK_CLASS =
+  "text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 outline-none focus-visible:ring-3";
+
 /**
  * Dialog to search OpenFoodFacts on demand and import a chosen product as an
  * ingredient. The results scroll inside the dialog, and only the selected
@@ -753,6 +757,28 @@ export function FoodfactsImportDialog({
             Load more
           </Button>
         ) : null}
+
+        <p className="type-caption text-muted-foreground">
+          Data and images from{" "}
+          <a
+            href="https://world.openfoodfacts.org"
+            target="_blank"
+            rel="noreferrer"
+            className={SOURCE_LINK_CLASS}
+          >
+            Open Food Facts
+          </a>{" "}
+          contributors, under the{" "}
+          <a
+            href="https://world.openfoodfacts.org/terms-of-use"
+            target="_blank"
+            rel="noreferrer"
+            className={SOURCE_LINK_CLASS}
+          >
+            ODbL and CC BY-SA licenses
+          </a>
+          . It may contain errors and is not for medical use.
+        </p>
       </DialogContent>
     </Dialog>
   );

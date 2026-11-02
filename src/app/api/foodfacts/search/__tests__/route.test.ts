@@ -123,7 +123,9 @@ describe("GET /api/foodfacts/search", () => {
     const [url, init] = mockFetch.mock.calls[0];
     expect(String(url)).toContain("https://search.openfoodfacts.org/search");
     expect(String(url)).toContain("q=chicken");
-    expect(init.headers["User-Agent"]).toContain("Nutria");
+    expect(init.headers["User-Agent"]).toBe(
+      "Nutria/0.1.0 (+https://github.com/alvfdz/nutria)",
+    );
   });
 
   it("requests the thumbnail and nutriments fields", async () => {

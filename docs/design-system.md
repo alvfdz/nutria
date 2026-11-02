@@ -141,6 +141,7 @@ Macro series use `protein`, `carbs` and `fat`, in that order; meal series use th
 - **Read-only** — remove the affordance instead of graying it out: a past calendar day is a plain block with nothing focusable.
 - **Field errors** — `destructive` text under the field, tied to the input with `aria-describedby`, and `aria-invalid` on the input.
 - **Form and request errors** — one `destructive` line above the form's actions with `role="alert"`.
+- **Source credit** — where external data enters the app, one `caption` line in `muted-foreground` names the source and its license, plus any limit on its use, with inline links in `foreground`, underlined. It stays visible in every state, and is the last line of a dialog.
 - **Toasts** — confirm a completed save ("Password changed.") or report a failure with no form to show it in. Never use them for validation. Use shadcn's Base UI `toast`, bottom right at the page gutter and full width on phones, on the same surface as a popover. Like `StatusLine`, a success has a `brand` ✓ and an error has an alert icon and `destructive` text. They wrap a long name rather than truncate it, because the words after it carry the news.
 
 ## Iconography
