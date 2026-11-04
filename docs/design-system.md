@@ -92,7 +92,7 @@ Pick the view shape that fits, and stack columns on narrow screens:
 | Day     | ≈2/3 meal list, ≈1/3 budget sticky under the navbar. On phones the budget comes first.         | Today                 |
 | Form    | One column, `max-w-sm`. Left-aligned in the app; centered under the logo signed out.           | Account, login, setup |
 
-A value is visualized where it is edited, so feedback stays in view when the summary stacks below. Unsaved edits on a full-page editor get a sticky bottom action bar: status text left, Reset (outline) + primary action right.
+A value is visualized where it is edited, so feedback stays in view when the summary stacks below. A full-page editor keeps a sticky bottom action bar in view at all times, on the `background` surface with a top border so it covers the content scrolling under it: status text left (saved, unsaved or what blocks the save), Reset (outline) + primary action right.
 
 Radii: `rounded-md` ≈6 for small controls, `rounded-lg` 8 for inputs and buttons, `rounded-card!` 12 for cards, `rounded-full` for dots and bars.
 
@@ -103,7 +103,8 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 - **Logo** — `src/components/brand-logo.tsx`, with the master artwork in `docs/brand/`. `NutriaLogo`, a `brand` acorn in an otter outline in `foreground`, is for the signed-out screens: 160px tall (192px from `sm`), with the wordmark centered below it. `AcornMark`, in `brand`, is for small places: the site header and the favicon (`src/app/icon.svg`, with `favicon.ico` as its fallback). Both are inline SVGs painted through tokens, so they follow the theme.
 - **Site header** — 56px sticky bar at the wide tier: the 24px acorn logo mark and wordmark, section links, then the theme toggle, Account and Sign out. Links and actions are 32px ghost buttons in `muted-foreground`; the current page is `muted` + `foreground`. Actions fold to their icons below `md`; on phones the section links fold into one menu named after the current section, and below 360px only the logo mark stays.
 - **Button** — primary / outline / ghost / icon, plus the tinted `destructive` for confirming a delete.
-- **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line. An error takes the helper line's place. A button inside the field, such as the password reveal, is 24px so it fits the 32px input; `AuthField` is this pattern for the auth forms.
+- **Field** — shadcn `Field` + `InputGroup` with an inline unit suffix and an optional muted helper line. An error takes the helper line's place. A button inside the field, such as the password reveal, is 24px so it fits the 32px input; `AuthField` is this pattern for the auth forms. A lone field at the top of a card, such as Goals' Calories, puts its label (and any help popover) on the input's line, before a fixed-width input, with its error below.
+- **Help popover** — `src/components/help-popover.tsx`: a 24px ghost `?` (Lucide `CircleHelp`, 15px, `muted-foreground`) beside a field's label, with an `aria-label` naming what it explains ("About the calorie target"). It opens a small `Popover` (title plus one or two short paragraphs) on click or tap, and on hover for mouse users; never hover only. Use it to explain where a value comes from and who can help choose it, such as the Goals defaults. Nutria never recommends a target, so the note informs and points to a professional; it holds no form or action.
 - **SegmentedToggle** — shadcn ToggleGroup styled as a track; for presets and view switches. Not built yet: add it the first time one is needed.
 - **MacroBar** — the 6px segmented protein/carbs/fat bar with gaps, plus its status line. It shows how a whole divides up. An over-allocated total scales back to fit and shows a `destructive` tick at 100%.
 - **Macro share** — a `MacroBar` under a food's name, showing each macro's share of its calories at a glance. Its proportions complement the grams beside it, so principle 5 isn't broken.
@@ -129,7 +130,7 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 
 ### Overlays
 
-`Dialog` holds create and edit forms that don't fit inline. `AlertDialog` confirms deletes and discarding unsaved work, and names the thing affected. `Popover` holds panels anchored to what opened them, such as the calendar's food panel. A step dialog walks through a short sequence, such as the welcome tutorial: "Step 2 of 4" in `caption`, then ghost Skip, outline Back and primary Next. Floating layers are the only surfaces that keep a shadow, because they need the elevation.
+`Dialog` holds create and edit forms that don't fit inline. `AlertDialog` confirms deletes and discarding unsaved work, and names the thing affected. `Popover` holds panels anchored to what opened them, such as the calendar's food panel, and the short notes of a **Help popover**. A step dialog walks through a short sequence, such as the welcome tutorial: "Step 2 of 4" in `caption`, then ghost Skip, outline Back and primary Next. Floating layers are the only surfaces that keep a shadow, because they need the elevation.
 
 ### Charts
 

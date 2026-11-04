@@ -76,9 +76,10 @@ describe("GoalsPage", () => {
       "Calories (kcal)",
     ) as HTMLInputElement;
     expect(calories.value).toBe("2000");
-    expect(screen.getByLabelText("Protein %")).toHaveValue(30);
-    expect(screen.getByLabelText("Carbs %")).toHaveValue(40);
-    expect(screen.getByLabelText("Fat %")).toHaveValue(30);
+    // Inside the WHO adult ranges.
+    expect(screen.getByLabelText("Protein %")).toHaveValue(15);
+    expect(screen.getByLabelText("Carbs %")).toHaveValue(60);
+    expect(screen.getByLabelText("Fat %")).toHaveValue(25);
 
     expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
     expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");

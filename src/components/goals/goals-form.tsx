@@ -23,6 +23,7 @@ import {
   type MacroName,
 } from "@/components/segmented-bar";
 import { SplitSlider } from "@/components/goals/split-slider";
+import { HelpPopover } from "@/components/help-popover";
 import { StatTiles } from "@/components/stat-tile";
 import { FieldError, StatusLine } from "@/components/status-line";
 import { UnitInput } from "@/components/unit-input";
@@ -117,13 +118,57 @@ const NO_STATE_RESTORE = { autoComplete: "off" } as const;
 
 /** Seed values for a first-time visit without stored goals. */
 const DEFAULT_CALORIES = 2000;
-const DEFAULT_MACROS = { proteinPct: "30", carbsPct: "40", fatPct: "30" };
+/**
+ * First-visit macro split, inside the adult ranges of the WHO "Healthy diet"
+ * fact sheet (26 January 2026): protein 10–15%, carbohydrates 45–75% and
+ * total fat 15–30% of daily energy. Each share sits inside its range and the
+ * three add up to 100. Update the copy in {@link MacrosHelp} with it.
+ */
+const DEFAULT_MACROS = { proteinPct: "15", carbsPct: "60", fatPct: "25" };
 const DEFAULT_SLOTS = [
   { name: "Breakfast", percent: "25" },
   { name: "Lunch", percent: "35" },
   { name: "Snack", percent: "10" },
   { name: "Dinner", percent: "30" },
 ];
+
+/**
+ * Guidance behind the Calories `?`. It says the starting number is only an
+ * example and points to a professional to set it. It names no formulas:
+ * Nutria stores the user's target, it doesn't pick or suggest one.
+ */
+function CaloriesHelp() {
+  return (
+    <>
+      <p>
+        {DEFAULT_CALORIES} kcal is just an example value, not a target for you.
+        What you need depends on your age, sex, body size, activity and goals.
+      </p>
+      <p>A dietitian or doctor can help you set the right number.</p>
+    </>
+  );
+}
+
+/**
+ * Guidance behind the Macros `?`: the starting split, the WHO adult ranges
+ * it sits in (see {@link DEFAULT_MACROS}), and a pointer to professional advice.
+ */
+function MacrosHelp() {
+  return (
+    <>
+      <p>
+        Nutria starts you at {DEFAULT_MACROS.proteinPct}% protein,{" "}
+        {DEFAULT_MACROS.carbsPct}% carbs and {DEFAULT_MACROS.fatPct}% fat,
+        within WHO&apos;s ranges for adults: protein 10–15%, carbs 45–75% and
+        fat 15–30% of calories.
+      </p>
+      <p>
+        Teenagers, athletes and people with medical needs may need a different
+        split, so check with a dietitian or doctor.
+      </p>
+    </>
+  );
+}
 
 /** A ghost row action: muted until hovered, and at the 32px icon size. */
 const ROW_ACTION_CLASS = "text-muted-foreground";
@@ -632,40 +677,68 @@ function GoalsForm({
                 <FieldLegend className="sr-only">Daily budget</FieldLegend>
 
                 <FieldGroup className="gap-6">
-                  <Field
-                    className="sm:max-w-48"
-                    data-invalid={caloriesErrors ? true : undefined}
-                  >
-                    <FieldLabel htmlFor={`${baseId}-calories`}>
-                      Calories<span className="sr-only"> (kcal)</span>
-                    </FieldLabel>
-                    <UnitInput
-                      ref={caloriesRef}
-                      unit="kcal"
-                      id={`${baseId}-calories`}
-                      name="calories"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      step="any"
-                      value={calories}
-                      onChange={(event) => {
-                        setCalories(event.target.value);
-                        markEdited("calories");
-                      }}
-                      placeholder="2000"
-                      aria-invalid={caloriesErrors ? true : undefined}
-                      aria-describedby={
-                        caloriesErrors ? `${baseId}-calories-error` : undefined
-                      }
-                    />
+                  <Field data-invalid={caloriesErrors ? true : undefined}>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <FieldLabel htmlFor={`${baseId}-calories`}>
+                          Calories<span className="sr-only"> (kcal)</span>
+                        </FieldLabel>
+                        <HelpPopover
+                          label="About the calorie target"
+                          title="Choosing your calorie target"
+                        >
+                          <CaloriesHelp />
+                        </HelpPopover>
+                      </div>
+                      <UnitInput
+                        groupClassName="w-40"
+                        ref={caloriesRef}
+                        unit="kcal"
+                        id={`${baseId}-calories`}
+                        name="calories"
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        step="any"
+                        value={calories}
+                        onChange={(event) => {
+                          setCalories(event.target.value);
+                          markEdited("calories");
+                        }}
+                        placeholder="2000"
+                        aria-invalid={caloriesErrors ? true : undefined}
+                        aria-describedby={
+                          caloriesErrors
+                            ? `${baseId}-calories-error`
+                            : undefined
+                        }
+                      />
+                    </div>
                     <FieldError
                       id={`${baseId}-calories-error`}
                       errors={caloriesErrors}
                     />
                   </Field>
 
-                  <div className="flex flex-col gap-3">
+                  <div
+                    role="group"
+                    aria-labelledby={`${baseId}-macros-label`}
+                    className="flex flex-col gap-3"
+                  >
+                    <div className="-mb-1 flex items-center gap-1">
+                      <p
+                        id={`${baseId}-macros-label`}
+                        className="text-sm leading-snug font-medium"
+                      >
+                        Macros
+                      </p>
+                      <HelpPopover
+                        label="About the macro split"
+                        title="Choosing your macro split"
+                      >
+                        <MacrosHelp />
+                      </HelpPopover>
+                    </div>
                     <FieldGroup className="grid grid-cols-3 gap-3">
                       {MACRO_FIELDS.map(({ macro, name, label }) => {
                         const id = `${baseId}-${name}`;
@@ -1119,10 +1192,7 @@ function GoalsForm({
 
       <div
         data-slot="goals-action-bar"
-        className={cn(
-          "bg-background mt-6 flex flex-wrap items-center justify-between gap-3 border-t py-4",
-          dirty && "sticky bottom-0 z-10",
-        )}
+        className="bg-background sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-between gap-3 border-t py-4"
       >
         <div className="min-w-0">
           {formError ? (

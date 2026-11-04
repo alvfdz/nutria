@@ -95,6 +95,65 @@ describe("GoalsView", () => {
     ).toBeInTheDocument();
   });
 
+  test("explains the calorie target without recommending one", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "About the calorie target" }),
+    );
+
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Choosing your calorie target",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /2000 kcal is just an example value, not a target for you/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A dietitian or doctor can help you set the right number.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Mifflin|Harris/)).not.toBeInTheDocument();
+  });
+
+  test("explains the macro split with the WHO adult ranges", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    expect(screen.getByRole("group", { name: "Macros" })).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "About the macro split" }),
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "Choosing your macro split" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /starts you at 15% protein, 60% carbs and 25% fat, within WHO/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/protein 10–15%, carbs 45–75% and fat 15–30%/),
+    ).toBeInTheDocument();
+  });
+
+  test("opening a help note does not submit the form", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "About the calorie target" }),
+    );
+
+    expect(saveGoalsAction).not.toHaveBeenCalled();
+  });
+
   test("seeds every field from the stored goals", () => {
     render(<GoalsView goals={makeGoals()} />);
 
@@ -269,14 +328,14 @@ describe("GoalsView", () => {
     const user = userEvent.setup();
     render(<GoalsView goals={null} />);
 
-    // 2000 kcal at 30% protein → 150 g.
-    expect(screen.getByText("150")).toBeInTheDocument();
+    // 2000 kcal at 60% carbs → 300 g.
+    expect(screen.getByText("300")).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Calories (kcal)"));
     await user.type(screen.getByLabelText("Calories (kcal)"), "2500");
 
-    // 2500 × 30% / 4 = 187.5 g, shown as a whole number.
-    expect(screen.getByText("188")).toBeInTheDocument();
+    // 2500 × 25% fat / 9 = 69.4 g, shown as a whole number.
+    expect(screen.getByText("69")).toBeInTheDocument();
     expect(screen.getByText("2500")).toBeInTheDocument();
   });
 
@@ -471,9 +530,9 @@ describe("GoalsView", () => {
         { key: "ArrowLeft" },
       );
 
-      expect(screen.getByLabelText("Carbs %")).toHaveValue(39);
-      expect(screen.getByLabelText("Fat %")).toHaveValue(31);
-      expect(screen.getByLabelText("Protein %")).toHaveValue(30);
+      expect(screen.getByLabelText("Carbs %")).toHaveValue(59);
+      expect(screen.getByLabelText("Fat %")).toHaveValue(26);
+      expect(screen.getByLabelText("Protein %")).toHaveValue(15);
     });
 
     test("describes both neighbours to screen readers", () => {
@@ -483,7 +542,7 @@ describe("GoalsView", () => {
         screen.getByRole("slider", {
           name: "Divider between Protein and Carbs",
         }),
-      ).toHaveAttribute("aria-valuetext", "Protein 30%, Carbs 40%");
+      ).toHaveAttribute("aria-valuetext", "Protein 15%, Carbs 60%");
     });
 
     test("removes the thumbs while the total does not add up", async () => {
@@ -816,7 +875,7 @@ describe("GoalsView", () => {
     render(<GoalsView goals={null} />);
 
     await user.clear(screen.getByLabelText("Protein %"));
-    await user.type(screen.getByLabelText("Protein %"), "25");
+    await user.type(screen.getByLabelText("Protein %"), "10");
 
     expect(
       screen.getByText("Macros total 95% — add 5% to reach 100%"),
@@ -849,13 +908,13 @@ describe("GoalsView", () => {
     const reset = () => screen.getByRole("button", { name: "Reset" });
     const save = () => screen.getByRole("button", { name: "Save goals" });
 
-    test("rests in the flow with nothing to discard on saved goals", () => {
+    test("stays in view with nothing to discard on saved goals", () => {
       render(<GoalsView goals={makeGoals()} />);
 
       expect(screen.getByText("All changes saved")).toBeInTheDocument();
       expect(reset()).toBeDisabled();
       expect(save()).toBeDisabled();
-      expect(bar()).not.toHaveClass("sticky");
+      expect(bar()).toHaveClass("sticky", "bottom-0");
     });
 
     test("lets a first-time visitor save the untouched defaults", () => {
@@ -910,9 +969,10 @@ describe("GoalsView", () => {
 
       expect(screen.getByText("Not saved yet")).toBeInTheDocument();
       expect(reset()).toBeDisabled();
+      expect(bar()).toHaveClass("sticky", "bottom-0");
     });
 
-    test("sticks and shows the unsaved dot once a field changes", async () => {
+    test("shows the unsaved dot once a field changes", async () => {
       const user = userEvent.setup();
       render(<GoalsView goals={makeGoals()} />);
 
