@@ -227,76 +227,16 @@ calculations keep full precision.
 
 ## Dependency overrides
 
-`package.json` pins two transitive dependencies ahead of what the Prisma CLI
-asks for:
+| Package     | Forced to | Scoped to                                                  | Why                                         | Drop when                                |
+| ----------- | --------- | ---------------------------------------------------------- | ------------------------------------------- | ---------------------------------------- |
+| `minimatch` | 11.0.5    | `@ts-morph/common`, `@typescript-eslint/typescript-estree` | [GHSA-g3hv-75wg-m249][mm] (fixed in 11.0.1) | both parents accept `minimatch@>=11.0.1` |
 
-```json
-"overrides": {
-  "deepmerge-ts": "8.0.2",
-  "mysql2": "3.24.5"
-}
-```
+Both parents only call `minimatch(path, pattern, options)`, which survives the
+11.x API removals. `npm audit` also reports an unfixed low-severity advisory in
+`deepmerge` ([GHSA-gcqx-w48m-w2h4][dm]), used only by the shadcn CLI.
 
-Both come from `prisma@7.10.0`, which pins them to exact versions carrying
-published advisories — `deepmerge-ts@7.1.5` (stack exhaustion on recursive
-object graphs, GHSA-ggr8-5vv4-36mx) and `mysql2@3.15.3` (credential leak and
-decompression-bomb DoS, GHSA-3f6p-5ww8-9rcr / GHSA-rgwj-5xj2-c3m3). Neither is
-reachable from application code: `deepmerge-ts` is used by `@prisma/config`
-while loading `prisma.config.ts`, and `mysql2` only speaks the MySQL wire
-protocol, which this project never uses. `npm audit` flags them anyway because
-`prisma` is a peer dependency of `@prisma/client` and therefore part of the
-resolved tree.
-
-Without the overrides the only fix npm offers is downgrading to `prisma@6`.
-
-### `deepmerge-ts`
-
-The 7 → 8 bump is a major version, so it deserves justification beyond "the
-scan went away". Three facts make it the right call:
-
-**Upstream has already asked for this bump.**
-[prisma/prisma#30052](https://github.com/prisma/prisma/issues/30052) (open since
-2026-08-17) requests exactly this change and lists a consumer-side override as
-the mitigation while it is pending. The reporter also classifies the finding as
-dependency hygiene rather than an exploit: the advisory's trigger is a crafted
-self-referencing object graph, and in Prisma the only call site merges the
-developer's own `prisma.config.ts`, which `c12` already executes via `jiti`
-before merging. Reaching it would require the ability to run code on the
-machine already.
-
-**Prisma's own dev line already ships it.**
-`@prisma/config@8.1.0-dev.7` depends on `deepmerge-ts@8.0.2` — the exact version
-pinned here. Only the stable `7.10.0` release still asks for `7.1.5`, so this
-override converges on what upstream will require anyway rather than diverging
-from it.
-
-**The breaking changes do not reach the call site.**
-8.0.0 changes Map merging to recursive, stops `deepmergeInto` leak-mutating its
-inputs, and renames two types. `@prisma/config` imports only the plain
-`deepmerge` export and passes it as `c12`'s `merger` with `extend`, `giget`,
-`rcFile`, `packageJson` and `dotenv` all disabled — so it merges the local
-config against nothing, touches no Maps, and never reaches `deepmergeInto` or
-the renamed types.
-
-Two caveats worth knowing:
-
-- The fix is still only in Prisma's dev channel. Dropping the override requires
-  a stable release that pins `>=8.0.0`.
-- Moving to Prisma 8 is a separate, larger migration (its config API changes
-  shape to a `definePrismaConfig` envelope), so it is not a shortcut to
-  unpinning this dependency.
-
-Re-verify after bumping Prisma:
-
-```bash
-npm run db:generate && npm run db:deploy && npm test
-```
-
-### `mysql2`
-
-A same-major bump, and doubly inert: the CLI reaches it through a dynamic
-`await import("mysql2/promise")` inside the `mysql:` adapter factory, so it is
-never evaluated on a Postgres project.
+[mm]: https://github.com/advisories/GHSA-g3hv-75wg-m249
+[dm]: https://github.com/advisories/GHSA-gcqx-w48m-w2h4
 
 ## License
 

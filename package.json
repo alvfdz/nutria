@@ -69,7 +69,11 @@
     "@prisma/engines@7.10.1": true
   },
   "overrides": {
-    "deepmerge-ts": "8.0.2",
-    "mysql2": "3.24.5"
+    "@ts-morph/common": {
+      "minimatch": "11.0.5"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.5"
+    }
   }
 }
