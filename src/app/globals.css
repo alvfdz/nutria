@@ -240,3 +240,63 @@
     @apply font-sans;
   }
 }
+
+/*
+ * Calendar week slide (`WeekSlide`): the shown week leaves towards where it
+ * now lies and the new one arrives from the other side, fading as they move.
+ */
+::view-transition-old(.week-slide-forward),
+::view-transition-new(.week-slide-forward),
+::view-transition-old(.week-slide-back),
+::view-transition-new(.week-slide-back) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  animation-fill-mode: both;
+}
+
+::view-transition-old(.week-slide-forward) {
+  animation-name: week-slide-out-left;
+}
+::view-transition-new(.week-slide-forward) {
+  animation-name: week-slide-in-right;
+}
+::view-transition-old(.week-slide-back) {
+  animation-name: week-slide-out-right;
+}
+::view-transition-new(.week-slide-back) {
+  animation-name: week-slide-in-left;
+}
+
+@keyframes week-slide-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-3rem);
+  }
+}
+@keyframes week-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(3rem);
+  }
+}
+@keyframes week-slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(3rem);
+  }
+}
+@keyframes week-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-3rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(.week-slide-forward),
+  ::view-transition-new(.week-slide-forward),
+  ::view-transition-old(.week-slide-back),
+  ::view-transition-new(.week-slide-back) {
+    animation: none;
+  }
+}

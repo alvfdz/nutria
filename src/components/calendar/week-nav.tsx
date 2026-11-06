@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cn } from "cn";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { WEEK_BACK, WEEK_FORWARD } from "@/components/calendar/week-slide";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { addWeeks, formatWeekRange } from "@/lib/calendar/week";
 import { CARD_TITLE_CLASS, ICON_STROKE } from "@/lib/design-system";
@@ -12,7 +13,8 @@ import { CARD_TITLE_CLASS, ICON_STROKE } from "@/lib/design-system";
  * next. Backwards stops at the current week — there, previous is a disabled
  * button rather than a link, because the calendar never looks into the past,
  * and Today is left out, because it would link to the page already showing.
- * Pure links, so no client JavaScript is needed.
+ * Pure links, so no client JavaScript is needed. Each link tags its navigation
+ * with a direction, so `WeekSlide` slides the board the matching way.
  *
  * @param props.weekStart The shown week's Monday, `YYYY-MM-DD`.
  * @param props.isCurrentWeek Whether the shown week is the current week, in
@@ -43,6 +45,7 @@ export function WeekNav({
           <Link
             href="/calendar"
             scroll={false}
+            transitionTypes={[WEEK_BACK]}
             className={cn(buttonVariants({ variant: "outline" }))}
           >
             Today
@@ -62,6 +65,7 @@ export function WeekNav({
           <Link
             href={`?week=${addWeeks(weekStart, -1)}`}
             scroll={false}
+            transitionTypes={[WEEK_BACK]}
             aria-label="Previous week"
             className={iconLinkClass}
           >
@@ -72,6 +76,7 @@ export function WeekNav({
         <Link
           href={`?week=${addWeeks(weekStart, 1)}`}
           scroll={false}
+          transitionTypes={[WEEK_FORWARD]}
           aria-label="Next week"
           className={iconLinkClass}
         >

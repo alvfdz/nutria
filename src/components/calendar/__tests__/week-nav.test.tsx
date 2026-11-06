@@ -1,8 +1,29 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import type { ComponentProps } from "react";
+import { describe, expect, test, vi } from "vitest";
 
 import { WeekNav } from "@/components/calendar/week-nav";
+import { WEEK_BACK, WEEK_FORWARD } from "@/components/calendar/week-slide";
 import { formatWeekRange } from "@/lib/calendar/week";
+
+// `transitionTypes` never reaches the DOM, so the stub writes it out as an
+// attribute for the tests to read.
+vi.mock("next/link", () => ({
+  default: ({
+    transitionTypes,
+    scroll,
+    ...props
+  }: ComponentProps<"a"> & {
+    transitionTypes?: string[];
+    scroll?: boolean;
+  }) => (
+    <a
+      data-transition-types={transitionTypes?.join(" ")}
+      data-scroll={String(scroll)}
+      {...props}
+    />
+  ),
+}));
 
 describe("WeekNav", () => {
   test("disables Prev and points Next at the following week on the current week", () => {
@@ -73,5 +94,20 @@ describe("WeekNav", () => {
     render(<WeekNav weekStart="2026-10-12" isCurrentWeek />);
 
     expect(screen.getByText(formatWeekRange("2026-10-12"))).toBeInTheDocument();
+  });
+
+  test("tags Next as forward, and Prev and Today as back, for the slide", () => {
+    render(<WeekNav weekStart="2026-11-02" isCurrentWeek={false} />);
+
+    expect(screen.getByRole("link", { name: "Next week" })).toHaveAttribute(
+      "data-transition-types",
+      WEEK_FORWARD,
+    );
+    for (const name of ["Previous week", "Today"]) {
+      expect(screen.getByRole("link", { name })).toHaveAttribute(
+        "data-transition-types",
+        WEEK_BACK,
+      );
+    }
   });
 });

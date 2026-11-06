@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { WeekBoard } from "@/components/calendar/week-board";
 import { WeekNav } from "@/components/calendar/week-nav";
+import { WeekSlide } from "@/components/calendar/week-slide";
 import { PageContainer } from "@/components/page-container";
 import { SetBudgetCard } from "@/components/set-budget-card";
 import {
@@ -24,7 +25,7 @@ export const metadata: Metadata = { title: "Calendar" };
  * Calendar route. Requires a signed-in user, resolves the requested week from `?week=`, clamps it to the
  * current week so the past is never shown, and renders the week board from the
  * user's stored goals and plan. Without goals yet it explains what to do and points
- * at `/goals`. The page opts into the design-system palette through `nutria-theme`.
+ * at `/goals`. Moving between weeks slides the board through `WeekSlide`. The page opts into the design-system palette through `nutria-theme`.
  */
 export default async function CalendarPage(props: PageProps<"/calendar">) {
   const user = await requireUser();
@@ -60,10 +61,12 @@ export default async function CalendarPage(props: PageProps<"/calendar">) {
                 weekStart={weekStart}
                 isCurrentWeek={weekStart === currentWeekStart}
               />
-              <WeekBoard
-                days={buildDays(goals, plans, weekStart, today)}
-                meals={meals}
-              />
+              <WeekSlide weekStart={weekStart}>
+                <WeekBoard
+                  days={buildDays(goals, plans, weekStart, today)}
+                  meals={meals}
+                />
+              </WeekSlide>
             </>
           ) : (
             <SetBudgetCard />
