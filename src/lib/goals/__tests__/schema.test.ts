@@ -52,6 +52,32 @@ describe("parseGoalsFormData: happy path", () => {
     });
   });
 
+  test("carries each row's slot id and drops a blank one", () => {
+    const SLOT_ID = "9f1c1f9e-0000-4000-8000-000000000010";
+    const formData = makeValidGoalsFormData({}, [
+      { name: "Breakfast", percent: "50" },
+      { name: "Lunch", percent: "50" },
+    ]);
+    formData.append("slotId", SLOT_ID);
+    formData.append("slotId", "");
+
+    const result = parseGoalsFormData(formData);
+
+    expect(result.data?.slots).toEqual([
+      { slotId: SLOT_ID, name: "Breakfast", percent: 50 },
+      { name: "Lunch", percent: 50 },
+    ]);
+  });
+
+  test("rejects a slot id that is not a uuid", () => {
+    const formData = makeValidGoalsFormData({}, [
+      { name: "Breakfast", percent: "100" },
+    ]);
+    formData.append("slotId", "nope");
+
+    expect(errorsFor(formData, "slots.0.slotId")).not.toEqual([]);
+  });
+
   test("trims whitespace from names and padded numbers", () => {
     const result = parseGoalsFormData(
       makeValidGoalsFormData(
@@ -223,6 +249,24 @@ describe("parseGoalsFormData: slots", () => {
         "slots.0.percent",
       ),
     ).toEqual(["Meal share cannot be more than 100"]);
+  });
+
+  test("keeps a row whose name is missing and blames the name", () => {
+    const formData = makeGoalsFormData(
+      {
+        calories: String(goalsDefaults.calories),
+        proteinPct: String(goalsDefaults.proteinPct),
+        carbsPct: String(goalsDefaults.carbsPct),
+        fatPct: String(goalsDefaults.fatPct),
+      },
+      [
+        { name: "Breakfast", percent: "50" },
+        { name: null, percent: "50" },
+      ],
+    );
+
+    expect(errorsFor(formData, "slots.1.name")).not.toEqual([]);
+    expect(errorsFor(formData, "slots.1.percent")).toEqual([]);
   });
 
   test("keeps a row whose percent is missing and blames the percent", () => {

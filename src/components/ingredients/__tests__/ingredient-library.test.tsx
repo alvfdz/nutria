@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "@/components/ui/toast";
@@ -6,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { makeIngredient } from "@test/factories";
 import { IngredientLibrary } from "@/components/ingredients/ingredient-library";
 import {
+  createIngredientAction,
   deleteIngredientAction,
   updateIngredientAction,
 } from "@/app/(app)/ingredients/actions";
@@ -19,6 +26,7 @@ vi.mock("@/app/(app)/ingredients/actions", () => ({
   deleteIngredientAction: vi.fn(),
 }));
 
+const createAction = vi.mocked(createIngredientAction);
 const updateAction = vi.mocked(updateIngredientAction);
 const deleteAction = vi.mocked(deleteIngredientAction);
 
@@ -40,6 +48,7 @@ const oats = makeIngredient({
 });
 
 beforeEach(() => {
+  createAction.mockReset();
   updateAction.mockReset();
   deleteAction.mockReset();
   vi.mocked(toast.add).mockReset();
@@ -225,6 +234,17 @@ describe("IngredientLibrary", () => {
       ).not.toBeInTheDocument();
     });
 
+    test("opens the manual add dialog from the empty state", async () => {
+      const user = userEvent.setup();
+      render(<IngredientLibrary ingredients={[]} />);
+
+      await user.click(screen.getByRole("button", { name: "Add manually" }));
+
+      expect(
+        await screen.findByRole("dialog", { name: "New ingredient" }),
+      ).toBeInTheDocument();
+    });
+
     test("carries the search into the import dialog", async () => {
       const user = userEvent.setup();
       vi.stubGlobal(
@@ -283,6 +303,117 @@ describe("IngredientLibrary", () => {
     expect(
       await screen.findByRole("dialog", { name: "New ingredient" }),
     ).toBeInTheDocument();
+  });
+
+  test("confirms a manual add with a toast and highlights the row once done", async () => {
+    const user = userEvent.setup();
+    createAction.mockImplementation(async () => ({
+      status: "success",
+      resetKey: 1,
+      savedName: "Oats",
+    }));
+    render(<IngredientLibrary ingredients={[chicken, oats]} />);
+
+    await user.click(screen.getByRole("button", { name: "Add manually" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "New ingredient",
+    });
+    await user.type(within(dialog).getByLabelText("Name"), "Oats");
+    await user.type(within(dialog).getByLabelText("Calories (kcal)"), "389");
+    await user.type(within(dialog).getByLabelText("Protein (g)"), "16.9");
+    await user.type(within(dialog).getByLabelText("Carbs (g)"), "66.3");
+    await user.type(within(dialog).getByLabelText("Fat (g)"), "6.9");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add ingredient" }),
+    );
+
+    await waitFor(() =>
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Oats added.",
+      }),
+    );
+    // The dialog stays open for the next ingredient, so nothing is
+    // highlighted behind it yet.
+    expect(screen.getByText("Oats").closest("tr")).not.toHaveAttribute(
+      "data-new",
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Oats").closest("tr")).toHaveAttribute(
+      "data-new",
+      "true",
+    );
+    expect(screen.getByText(chicken.name).closest("tr")).not.toHaveAttribute(
+      "data-new",
+    );
+  });
+
+  test("highlights nothing when the add dialog closes without a save", async () => {
+    const user = userEvent.setup();
+    render(<IngredientLibrary ingredients={[oats]} />);
+
+    await user.click(screen.getByRole("button", { name: "Add manually" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "New ingredient",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Oats").closest("tr")).not.toHaveAttribute(
+      "data-new",
+    );
+  });
+
+  test("clears the highlight once its animation has played", async () => {
+    const user = userEvent.setup();
+    updateAction.mockImplementation(async () => ({
+      status: "success",
+      resetKey: 1,
+      savedName: "Oats",
+    }));
+    render(<IngredientLibrary ingredients={[oats]} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit Oats" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Save changes" }),
+    );
+    const row = () => screen.getByText("Oats").closest("tr")!;
+    await waitFor(() => expect(row()).toHaveAttribute("data-new", "true"));
+
+    // React listens for the vendor-prefixed name when jsdom lacks the
+    // unprefixed animation style.
+    fireEvent(row(), new Event("webkitAnimationEnd", { bubbles: true }));
+
+    expect(row()).not.toHaveAttribute("data-new");
+  });
+
+  test("opens an empty import dialog from the toolbar and resets it on close", async () => {
+    const user = userEvent.setup();
+    render(<IngredientLibrary ingredients={[oats]} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Import from OpenFoodFacts" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Import from OpenFoodFacts",
+    });
+    expect(within(dialog).getByRole("textbox")).toHaveValue("");
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Oats").closest("tr")).not.toHaveAttribute(
+      "data-new",
+    );
   });
 
   describe("filtering", () => {

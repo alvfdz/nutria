@@ -441,6 +441,25 @@ describe("GoalsView", () => {
     expect(shares()).toEqual([50, 50]);
   });
 
+  test("moves a meal up and down from the row menu", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={makeGoals()} />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Lunch" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Move up" }));
+
+    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Lunch");
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Breakfast");
+
+    await user.click(screen.getByRole("button", { name: "Actions for Lunch" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Move down" }),
+    );
+
+    expect(screen.getByLabelText("Meal 1 name")).toHaveValue("Breakfast");
+    expect(screen.getByLabelText("Meal 2 name")).toHaveValue("Lunch");
+  });
+
   test("splits the day evenly on request", async () => {
     const user = userEvent.setup();
     render(<GoalsView goals={makeGoals()} />);
@@ -520,6 +539,24 @@ describe("GoalsView", () => {
 
       expect(shares()).toEqual([31, 39, 30]);
       expect(screen.getByText("Meals total 100%")).toBeInTheDocument();
+    });
+
+    test("leaves the shares alone when a divider is already at the edge", async () => {
+      const user = userEvent.setup();
+      render(<GoalsView goals={makeGoals()} />);
+      await user.clear(screen.getByLabelText("Meal 1 share (%)"));
+      await user.type(screen.getByLabelText("Meal 1 share (%)"), "0");
+      await user.clear(screen.getByLabelText("Meal 2 share (%)"));
+      await user.type(screen.getByLabelText("Meal 2 share (%)"), "70");
+
+      fireEvent.keyDown(
+        screen.getByRole("slider", {
+          name: "Divider between Breakfast and Lunch",
+        }),
+        { key: "ArrowLeft" },
+      );
+
+      expect(shares()).toEqual([0, 70, 30]);
     });
 
     test("moves a macro divider", () => {
@@ -607,6 +644,40 @@ describe("GoalsView", () => {
     expect(screen.getByText("Goals saved.")).toBeInTheDocument();
   });
 
+  test("falls back to a default toast when the save returns no message", async () => {
+    const user = userEvent.setup();
+    action.mockImplementation(async () => ({
+      status: "success",
+      resetKey: 1,
+    }));
+
+    render(<GoalsView goals={makeGoals()} />);
+    await user.type(screen.getByLabelText("Calories (kcal)"), "5");
+    await user.click(screen.getByRole("button", { name: "Save goals" }));
+
+    await waitFor(() =>
+      expect(toast.add).toHaveBeenCalledWith({
+        type: "success",
+        title: "Goals saved.",
+      }),
+    );
+  });
+
+  test("treats an empty macro field as 0%", async () => {
+    const user = userEvent.setup();
+    render(<GoalsView goals={null} />);
+
+    // 2000 kcal at 60% carbs → 300 g, until the field is emptied.
+    expect(screen.getByText("300")).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Carbs %"));
+
+    expect(screen.queryByText("300")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Macros total 40% — add 60% to reach 100%"),
+    ).toBeInTheDocument();
+  });
+
   test("shows a failed save inline, without a success toast", async () => {
     const user = userEvent.setup();
     action.mockImplementation(async () => ({
@@ -672,6 +743,59 @@ describe("GoalsView", () => {
       expect(
         screen.getByText("Name is required").closest('[data-slot="meal-row"]'),
       ).toContainElement(screen.getByLabelText("Meal 2 name"));
+    });
+
+    test("mark a macro field invalid and point it at its message", async () => {
+      const user = userEvent.setup();
+      failWith({ proteinPct: ["Protein must be between 0 and 100"] });
+      render(<GoalsView goals={null} />);
+
+      await user.click(screen.getByRole("button", { name: "Set goals" }));
+      const message = await screen.findByText(
+        "Protein must be between 0 and 100",
+      );
+
+      const protein = screen.getByLabelText("Protein %");
+      expect(protein).toHaveAttribute("aria-invalid", "true");
+      expect(protein).toHaveAttribute(
+        "aria-describedby",
+        message.closest("[id]")?.id,
+      );
+      // The other macros keep their clean state.
+      expect(screen.getByLabelText("Carbs %")).not.toHaveAttribute(
+        "aria-invalid",
+      );
+    });
+
+    test("mark a meal's share invalid and point it at its message", async () => {
+      const user = userEvent.setup();
+      failWith({ "slots.0.percent": ["Share must be at least 1"] });
+      render(<GoalsView goals={null} />);
+
+      await user.click(screen.getByRole("button", { name: "Set goals" }));
+      const message = await screen.findByText("Share must be at least 1");
+
+      const share = screen.getByLabelText("Meal 1 share (%)");
+      expect(share).toHaveAttribute("aria-invalid", "true");
+      expect(share).toHaveAttribute(
+        "aria-describedby",
+        message.closest("[id]")?.id,
+      );
+      expect(screen.getByLabelText("Meal 2 share (%)")).not.toHaveAttribute(
+        "aria-invalid",
+      );
+    });
+
+    test("show an error about the meals as a whole under the list", async () => {
+      const user = userEvent.setup();
+      failWith({ slots: ["Add at least one meal"] });
+      render(<GoalsView goals={null} />);
+
+      await user.click(screen.getByRole("button", { name: "Set goals" }));
+
+      expect(
+        await screen.findByText("Add at least one meal"),
+      ).toBeInTheDocument();
     });
 
     test("clear a form-level error on any edit", async () => {

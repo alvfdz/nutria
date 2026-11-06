@@ -106,7 +106,10 @@ export function WeekBoard({
   // A card the panel is anchored to is the element focus returns to. The ref
   // holds the id even after `active` is cleared, because the popup unmounts
   // after React has already dropped the state.
+  // The ref is set whenever the panel opens, before it can close, so the
+  // null fallback only satisfies the ref's type.
   const finalFocus = useCallback(
+    /* v8 ignore next */
     () =>
       lastCardId.current ? document.getElementById(lastCardId.current) : null,
     [],
@@ -155,10 +158,10 @@ export function WeekBoard({
                 "rounded-card! max-h-[min(var(--available-height),40rem)] w-[min(21.5rem,calc(100vw-2rem))] overflow-y-auto p-4",
               )}
             >
-              {activeSlot ? (
+              {activeSlot && active ? (
                 <FoodPanel
-                  key={active?.cardId}
-                  date={active?.date ?? ""}
+                  key={active.cardId}
+                  date={active.date}
                   slot={activeSlot}
                   meals={meals}
                   removeAction={removeFormAction}

@@ -561,6 +561,8 @@ export function FoodfactsImportDialog({
    */
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
+    // The dialog has no trigger of its own, so it only ever reports closing.
+    /* v8 ignore next */
     if (next) return;
     controllerRef.current?.abort();
     controllerRef.current = null;

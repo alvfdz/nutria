@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "@/components/ui/toast";
@@ -293,6 +293,46 @@ describe("MealLibrary", () => {
         "data-new",
         "true",
       ),
+    );
+  });
+
+  test("drops the highlight once its animation ends", async () => {
+    const user = userEvent.setup();
+    updateAction.mockImplementation(async () => ({
+      status: "success",
+      resetKey: 1,
+      savedName: "Porridge",
+    }));
+
+    render(<MealLibrary meals={[porridge]} ingredients={[oats, milk]} />);
+    await user.click(screen.getByRole("button", { name: "Edit Porridge" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Save changes" }),
+    );
+    const row = () => screen.getByText("Porridge").closest("tr")!;
+    await waitFor(() => expect(row()).toHaveAttribute("data-new", "true"));
+
+    // jsdom has no AnimationEvent, so React listens for the prefixed name.
+    act(() => {
+      row().dispatchEvent(new Event("webkitAnimationEnd", { bubbles: true }));
+    });
+
+    expect(row()).not.toHaveAttribute("data-new");
+  });
+
+  test("highlights nothing when the dialog closes without a save", async () => {
+    const user = userEvent.setup();
+    updateAction.mockImplementation(async () => initialMealFormState);
+
+    render(<MealLibrary meals={[porridge]} ingredients={[oats, milk]} />);
+    await user.click(screen.getByRole("button", { name: "Edit Porridge" }));
+    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Porridge").closest("tr")).not.toHaveAttribute(
+      "data-new",
     );
   });
 

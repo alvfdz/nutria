@@ -282,6 +282,19 @@ describe("deleteIngredientAction", () => {
     });
     expect(refresh).not.toHaveBeenCalled();
   });
+
+  test("uses the singular when a single meal uses the ingredient", async () => {
+    vi.mocked(deleteIngredient).mockRejectedValue(new IngredientInUseError(1));
+
+    const state = await deleteIngredientAction(
+      initialIngredientDeleteState,
+      makeIngredientFormData({ id: "cod" }),
+    );
+
+    expect(state.formError).toBe(
+      "This ingredient is used in 1 meal. Remove it from them first.",
+    );
+  });
 });
 
 describe("createIngredientFromFoodfactsAction", () => {
@@ -380,6 +393,32 @@ describe("createIngredientFromFoodfactsAction", () => {
         proteinPer100g: "",
         carbsPer100g: "",
         fatPer100g: "",
+      }),
+    );
+
+    expect(createIngredient).toHaveBeenCalledWith(
+      testUser.id,
+      expect.objectContaining({
+        caloriesPer100g: 0,
+        proteinPer100g: 0,
+        carbsPer100g: 0,
+        fatPer100g: 0,
+      }),
+    );
+  });
+
+  test("stores macros that are not numbers as zero", async () => {
+    vi.mocked(createIngredient).mockResolvedValue(
+      makeIngredient({ id: "new-3", name: "Almond Butter (BrandCo)" }),
+    );
+
+    await createIngredientFromFoodfactsAction(
+      initialIngredientFormState,
+      importFormData({
+        caloriesPer100g: "n/a",
+        proteinPer100g: "n/a",
+        carbsPer100g: "n/a",
+        fatPer100g: "n/a",
       }),
     );
 

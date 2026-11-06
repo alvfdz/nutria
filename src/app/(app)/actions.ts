@@ -41,7 +41,10 @@ export async function setMealEatenAction(
     return {
       ...previousState,
       status: "error",
+      // A failed parse always carries at least one issue; the fallback only
+      // satisfies the index type.
       formError:
+        /* v8 ignore next */
         result.error.issues[0]?.message ?? "The meal could not be updated.",
     };
   }
@@ -101,7 +104,10 @@ export async function swapMealAction(
     return {
       ...previousState,
       status: "error",
+      // A failed parse always carries at least one issue; the fallback only
+      // satisfies the index type.
       formError:
+        /* v8 ignore next */
         result.error.issues[0]?.message ?? "The meal could not be swapped.",
     };
   }

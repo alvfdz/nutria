@@ -10,7 +10,13 @@ const query = vi.fn<ResetDb["query"]>();
 const db: ResetDb = { query };
 
 /** Answers the user lookup with `rows`, and every write with a row count. */
-function stubDb(rows: object[], { updated = 1, revoked = 2 } = {}) {
+function stubDb(
+  rows: object[],
+  {
+    updated = 1,
+    revoked = 2,
+  }: { updated?: number; revoked?: number | null } = {},
+) {
   query.mockImplementation(async (sql) => {
     if (sql.startsWith("SELECT")) {
       return { rows: rows as Record<string, unknown>[], rowCount: rows.length };
@@ -44,6 +50,14 @@ describe("resetPassword", () => {
     expect(userId).toBe(owner.id);
     expect(hash).not.toBe(password);
     await expect(verifyPassword({ hash, password })).resolves.toBe(true);
+  });
+
+  test("counts no revoked sessions when the driver reports no row count", async () => {
+    stubDb([owner], { revoked: null });
+
+    const result = await resetPassword(db, password);
+
+    expect(result).toEqual({ email: owner.email, revokedSessions: 0 });
   });
 
   test("looks the account up by trimmed, lower-cased email", async () => {

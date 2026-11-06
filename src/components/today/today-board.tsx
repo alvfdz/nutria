@@ -133,7 +133,10 @@ export function TodayBoard({ day, meals }: { day: DayColumn; meals: Meal[] }) {
 
   // The ref keeps the id after `active` clears, because the popup unmounts
   // after React has already dropped that state.
+  // The ref is set whenever the picker opens, before it can close, so the
+  // null fallback only satisfies the ref's type.
   const finalFocus = useCallback(
+    /* v8 ignore next */
     () =>
       lastTriggerId.current
         ? document.getElementById(lastTriggerId.current)
@@ -153,7 +156,7 @@ export function TodayBoard({ day, meals }: { day: DayColumn; meals: Meal[] }) {
         <StickyKcalLeft caloriesLeft={summary.caloriesLeft} />
         <TodayMeals
           slots={optimisticDay.slots}
-          activePickerId={open ? (active?.triggerId ?? null) : null}
+          activePickerId={open && active ? active.triggerId : null}
           onToggle={handleToggle}
           onSwap={(slot, meal) =>
             openPicker({

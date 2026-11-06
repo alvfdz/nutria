@@ -187,6 +187,18 @@ describe("swapMealAction", () => {
     expect(swapPlannedMeal).not.toHaveBeenCalled();
   });
 
+  test("echoes an empty name when the form sent none", async () => {
+    vi.mocked(getPlannedMeal).mockResolvedValue(plan());
+
+    const state = await swapMealAction(
+      initialSwapMealState,
+      makeSwapMealFormData({ planMealId: PLAN_ID, mealId: MEAL_ID }),
+    );
+
+    expect(state).toEqual({ status: "success", swappedName: "" });
+    expect(swapPlannedMeal).toHaveBeenCalledWith(testUser.id, PLAN_ID, MEAL_ID);
+  });
+
   test("rejects malformed ids", async () => {
     const state = await swapMealAction(
       initialSwapMealState,

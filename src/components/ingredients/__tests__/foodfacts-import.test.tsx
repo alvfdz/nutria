@@ -173,6 +173,60 @@ describe("FoodfactsImport", () => {
     });
   });
 
+  it("falls back to a generic message when the failed search gives none", async () => {
+    const user = await openDialog();
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+
+    await user.type(screen.getByRole("textbox"), "test");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Search failed");
+  });
+
+  it("falls back to a generic message when the failed search body is not JSON", async () => {
+    const user = await openDialog();
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError("Unexpected token <");
+      },
+    });
+
+    await user.type(screen.getByRole("textbox"), "test");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Search failed");
+  });
+
+  it("falls back to a generic message when the search throws a non-error", async () => {
+    const user = await openDialog();
+    mockFetch.mockRejectedValueOnce("offline");
+
+    await user.type(screen.getByRole("textbox"), "test");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Search failed");
+  });
+
+  it("treats a response without results as no matches", async () => {
+    const user = await openDialog();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    });
+
+    await user.type(screen.getByRole("textbox"), "nothing");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    expect(await screen.findByText(/no results found/i)).toBeInTheDocument();
+  });
+
   it("shows an empty state when nothing matches", async () => {
     const user = await openDialog();
     mockFetch.mockResolvedValueOnce({
@@ -303,6 +357,45 @@ describe("FoodfactsImport", () => {
     expect(
       screen.queryByTestId("foodfacts-image-loading"),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows a picture the browser already has cached as loaded", async () => {
+    const proto = HTMLImageElement.prototype;
+    const originals = {
+      complete: Object.getOwnPropertyDescriptor(proto, "complete"),
+      naturalWidth: Object.getOwnPropertyDescriptor(proto, "naturalWidth"),
+    };
+    Object.defineProperty(proto, "complete", {
+      get: () => true,
+      configurable: true,
+    });
+    Object.defineProperty(proto, "naturalWidth", {
+      get: () => 120,
+      configurable: true,
+    });
+    try {
+      const user = await openDialog();
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [makeResult({ imageUrl: "https://img.test/a.jpg" })],
+        }),
+      });
+
+      await user.type(screen.getByRole("textbox"), "almond");
+      await user.click(screen.getByRole("button", { name: /search/i }));
+
+      await screen.findByText("Almond Butter");
+      expect(
+        screen.queryByTestId("foodfacts-image-loading"),
+      ).not.toBeInTheDocument();
+    } finally {
+      for (const [key, descriptor] of Object.entries(originals)) {
+        if (descriptor) Object.defineProperty(proto, key, descriptor);
+        else delete (proto as unknown as Record<string, unknown>)[key];
+      }
+    }
   });
 
   it("falls back to the no-image placeholder when the picture fails", async () => {
@@ -500,6 +593,34 @@ describe("FoodfactsImport", () => {
 
     await waitFor(() => expect(onImported).toHaveBeenCalledTimes(1));
     expect(onImported).toHaveBeenCalledWith("Almond Butter");
+  });
+
+  it("shows why an import failed and does not report it as imported", async () => {
+    const onImported = vi.fn();
+    vi.mocked(createIngredientFromFoodfactsAction).mockResolvedValueOnce({
+      status: "error",
+      formError: "The ingredient could not be saved. Please try again.",
+      resetKey: 0,
+    });
+    const user = userEvent.setup();
+    render(<FoodfactsImport onImported={onImported} />);
+    await user.click(
+      screen.getByRole("button", { name: "Import from OpenFoodFacts" }),
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [makeResult()] }),
+    });
+    await user.type(screen.getByRole("textbox"), "almond");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+    await user.click(await screen.findByRole("button", { name: "Import" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The ingredient could not be saved. Please try again.",
+    );
+    expect(screen.getByRole("button", { name: "Import" })).toBeEnabled();
+    expect(onImported).not.toHaveBeenCalled();
   });
 
   it("lets the product be imported again once its ingredient is removed", async () => {
@@ -801,6 +922,53 @@ describe("FoodfactsImport", () => {
       }
     });
 
+    it("jumps to the added rows without animating when motion is reduced", async () => {
+      const scrollTo = vi.fn();
+      const original = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        "scrollTo",
+      );
+      Object.defineProperty(Element.prototype, "scrollTo", {
+        value: scrollTo,
+        configurable: true,
+        writable: true,
+      });
+      const matchMedia = vi
+        .spyOn(window, "matchMedia")
+        .mockImplementation(
+          (query: string) =>
+            ({ matches: true, media: query }) as MediaQueryList,
+        );
+      try {
+        const user = await openDialog();
+        respond({ results: [makeResult()], page: 1, pages: 2 });
+        await searchAlmond(user);
+        await screen.findByText("Almond Butter");
+
+        respond({
+          results: [makeResult({ code: "2", productName: "Cashew Butter" })],
+          page: 2,
+          pages: 2,
+        });
+        await user.click(screen.getByRole("button", { name: "Load more" }));
+        await screen.findByText("Cashew Butter");
+
+        expect(matchMedia).toHaveBeenCalledWith(
+          "(prefers-reduced-motion: reduce)",
+        );
+        expect(scrollTo).toHaveBeenCalledWith(
+          expect.objectContaining({ behavior: "auto" }),
+        );
+      } finally {
+        matchMedia.mockRestore();
+        if (original) {
+          Object.defineProperty(Element.prototype, "scrollTo", original);
+        } else {
+          delete (Element.prototype as { scrollTo?: unknown }).scrollTo;
+        }
+      }
+    });
+
     it("shows a loading message and marks the button busy while loading", async () => {
       const user = await openDialog();
       respond({ results: [makeResult()], page: 1, pages: 2 });
@@ -1027,6 +1195,11 @@ describe("formatMacro", () => {
     expect(formatMacro(1e-7)).toBe("0");
     expect(formatMacro(-0.04)).toBe("0");
     expect(formatMacro(-12.3456)).toBe("-12.3");
+  });
+
+  it("prints values already in exponent form as they are", () => {
+    expect(formatMacro(1e21)).toBe("1e+21");
+    expect(formatMacro(-1e21)).toBe("-1e+21");
   });
 
   it("returns N/A for non-finite values", () => {

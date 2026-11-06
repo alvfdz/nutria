@@ -155,6 +155,33 @@ describe("GET /api/foodfacts/search", () => {
     expect(res.status).toBe(503);
   });
 
+  it("passes the upstream Retry-After through", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      headers: new Headers({ "Retry-After": "30" }),
+      json: async () => ({}),
+    });
+
+    const res = await GET(
+      createRequest("http://localhost/api/foodfacts/search?q=busy"),
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("30");
+  });
+
+  it("falls back to the first page when the page is not a number", async () => {
+    mockFetch.mockResolvedValueOnce(okResponse({ hits: [] }));
+
+    await GET(
+      createRequest("http://localhost/api/foodfacts/search?q=paged&page=abc"),
+    );
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(new URL(url).searchParams.get("page")).toBe("1");
+  });
+
   it("returns 500 when the request throws", async () => {
     mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
@@ -189,5 +216,26 @@ describe("GET /api/foodfacts/search", () => {
     );
 
     expect(responses.some((response) => response.status === 429)).toBe(true);
+  });
+
+  it("throttles each forwarded client on its own", async () => {
+    mockFetch.mockResolvedValue(okResponse({ hits: [] }));
+    const fromClient = (ip: string, index: number) =>
+      GET(
+        new NextRequest(
+          `http://localhost/api/foodfacts/search?q=client-${ip}-${index}`,
+          { headers: { "x-forwarded-for": `${ip}, 10.0.0.1` } },
+        ),
+      );
+
+    const burst = await Promise.all(
+      Array.from({ length: 40 }, (_, index) =>
+        fromClient("203.0.113.1", index),
+      ),
+    );
+    const other = await fromClient("203.0.113.2", 0);
+
+    expect(burst.some((response) => response.status === 429)).toBe(true);
+    expect(other.status).toBe(200);
   });
 });

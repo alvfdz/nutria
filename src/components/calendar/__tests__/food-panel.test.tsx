@@ -108,6 +108,29 @@ describe("FoodPanel", () => {
     expect(screen.getByText("311.2")).toBeInTheDocument();
   });
 
+  test("collapses an expanded meal on a second click", async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      slot: makeSlotView({
+        meals: [
+          makePlannedMealView({
+            name: "Porridge",
+            items: [makePlannedMealItem({ id: "item-1", name: "Oats" })],
+          }),
+        ],
+      }),
+    });
+    const toggle = screen.getByRole("button", { name: /^Porridge/ });
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Oats")).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Oats")).not.toBeInTheDocument();
+  });
+
   test("offers a remove control carrying the plan row id", () => {
     renderPanel({
       slot: makeSlotView({

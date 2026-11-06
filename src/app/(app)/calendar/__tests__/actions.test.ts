@@ -111,6 +111,22 @@ describe("assignMealAction", () => {
     expect(state).toEqual({ status: "success", assignedName: "Porridge" });
   });
 
+  test("echoes an empty name when the submission carries none", async () => {
+    vi.mocked(assignMeal).mockResolvedValue(undefined);
+
+    const state = await assignMealAction(
+      initialAssignMealState,
+      makeAssignMealFormData({
+        date: TOMORROW,
+        mealSlotId: SLOT_ID,
+        mealId: MEAL_ID,
+      }),
+    );
+
+    expect(assignMeal).toHaveBeenCalledOnce();
+    expect(state).toEqual({ status: "success", assignedName: "" });
+  });
+
   test("refuses a day that has already passed", async () => {
     const state = await assignMealAction(
       initialAssignMealState,

@@ -23,6 +23,17 @@ function setupErrors(overrides: Partial<typeof validSetup>) {
   return authFieldErrors(result.error);
 }
 
+describe("authFieldErrors", () => {
+  test("keys an issue with no field path under an empty name", () => {
+    const result = loginSchema.safeParse(null);
+    if (result.success) throw new Error("expected a failure");
+
+    expect(authFieldErrors(result.error)).toEqual({
+      "": [result.error.issues[0].message],
+    });
+  });
+});
+
 describe("loginSchema", () => {
   test("normalizes the email", () => {
     expect(

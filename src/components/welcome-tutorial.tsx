@@ -59,6 +59,8 @@ export function WelcomeTutorial({ hasGoals }: { hasGoals: boolean }) {
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        // The dialog has no trigger, so it only ever reports closing.
+        /* v8 ignore next */
         if (!next) void close();
       }}
     >

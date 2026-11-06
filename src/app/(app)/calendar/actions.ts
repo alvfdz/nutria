@@ -42,7 +42,10 @@ export async function assignMealAction(
     return {
       ...previousState,
       status: "error",
+      // A failed parse always carries at least one issue; the fallback only
+      // satisfies the index type.
       formError:
+        /* v8 ignore next */
         result.error.issues[0]?.message ?? "The meal could not be added.",
     };
   }
@@ -110,7 +113,10 @@ export async function removeMealAction(
     return {
       ...previousState,
       status: "error",
+      // A failed parse always carries at least one issue; the fallback only
+      // satisfies the index type.
       formError:
+        /* v8 ignore next */
         result.error.issues[0]?.message ?? "The meal could not be removed.",
     };
   }

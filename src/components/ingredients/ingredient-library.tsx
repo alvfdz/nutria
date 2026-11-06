@@ -212,6 +212,8 @@ export function IngredientLibrary({
 
   function handleImportOpenChange(open: boolean) {
     setImportOpen(open);
+    // The import dialog is opened from outside, so it only ever reports closing.
+    /* v8 ignore next */
     if (!open) revealSaved();
   }
 

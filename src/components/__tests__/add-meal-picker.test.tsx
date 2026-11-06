@@ -122,6 +122,21 @@ describe("AddMealPicker", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("says so when no meal matches the search", async () => {
+    const user = userEvent.setup();
+    renderPicker();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Search meals" }),
+      "zzz",
+    );
+
+    expect(screen.getByText("No meals match that search.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Add / }),
+    ).not.toBeInTheDocument();
+  });
+
   test("marks a meal already in the food with its copy count and keeps it addable", async () => {
     const user = userEvent.setup();
     const totals: MealTotals = {

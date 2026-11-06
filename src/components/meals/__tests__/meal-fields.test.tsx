@@ -133,6 +133,37 @@ describe("MealFields", () => {
     expect(screen.getByLabelText("Grams 2")).toHaveValue(250);
   });
 
+  test("leaves the picker empty for an ingredient missing from the list", () => {
+    const gone = makeIngredient({ id: "ing-gone", name: "Gone" });
+    const meal: Meal = {
+      id: "meal-1",
+      name: "Porridge",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      items: [
+        {
+          id: "meal-item-1",
+          sortOrder: 0,
+          ingredientId: gone.id,
+          grams: 80,
+          ingredient: gone,
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MealFields meal={meal} ingredients={ingredients} fieldErrors={{}} />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Ingredient 1" })).toHaveValue(
+      "",
+    );
+    // The stored id is still posted, so the server can report it.
+    expect(
+      container.querySelector<HTMLInputElement>('input[name="ingredientId"]')
+        ?.value,
+    ).toBe("ing-gone");
+  });
+
   test("renders field errors next to the offending field", () => {
     render(
       <MealFields

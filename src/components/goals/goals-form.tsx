@@ -498,6 +498,8 @@ function GoalsForm({
    * its position after a middle removal and a positional fallback would collide.
    */
   const addRow = () => {
+    // "Add meal" is disabled at the cap, so this only guards the invariant.
+    /* v8 ignore next */
     if (rows.length >= MAX_MEALS) return;
 
     const row: Row = {
@@ -532,6 +534,8 @@ function GoalsForm({
    */
   const moveRow = (index: number, delta: number, from: "buttons" | "menu") => {
     const target = index + delta;
+    // The controls are disabled at the ends, so this only guards the invariant.
+    /* v8 ignore next */
     if (target < 0 || target >= rows.length) return;
 
     const atEnd = target === 0 || target === rows.length - 1;
@@ -558,6 +562,8 @@ function GoalsForm({
   const removeRow = (index: number) => {
     const remaining = rows.filter((_, position) => position !== index);
     const neighbour = remaining[Math.min(index, remaining.length - 1)];
+    // Removing is disabled for the last row, so a neighbour always remains.
+    /* v8 ignore next */
     if (neighbour) {
       pendingRowFocus.current = { key: neighbour.key, target: "name" };
     }
@@ -854,6 +860,8 @@ function GoalsForm({
                     limitPercent={overLimitPosition(shares)}
                     segments={segments.flatMap((segment, index) => {
                       const row = rows[index];
+                      // Segments come from the rows, so a row always exists.
+                      /* v8 ignore next */
                       if (!row) return [];
 
                       return {
@@ -1154,6 +1162,8 @@ function GoalsForm({
                 <TableBody>
                   {slotBudgets.map((budget, index) => {
                     const row = rows[index];
+                    // Budgets come from the rows, so a row always exists.
+                    /* v8 ignore next */
                     if (!row) return null;
                     const label = mealLabel(row, index);
 
@@ -1243,6 +1253,8 @@ function GoalsForm({
       <AlertDialog
         open={guard.pendingHref !== null}
         onOpenChange={(open) => {
+          // The dialog has no trigger, so it only ever reports closing.
+          /* v8 ignore next */
           if (!open) guard.stay();
         }}
       >

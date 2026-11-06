@@ -64,6 +64,8 @@ export function SplitSlider({
               const moved = values.findIndex(
                 (value, index) => value !== boundaries[index],
               );
+              // Base UI only reports a changed value, so a divider always moved.
+              /* v8 ignore next */
               if (moved !== -1) {
                 onChange(moveBoundary(shares, moved, values[moved]));
               }

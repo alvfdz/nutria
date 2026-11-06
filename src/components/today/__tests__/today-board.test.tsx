@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { setMealEatenAction, swapMealAction } from "@/app/(app)/actions";
+import { assignMealAction } from "@/app/(app)/calendar/actions";
 import { TodayBoard } from "@/components/today/today-board";
 import { toast } from "@/components/ui/toast";
 import type { Meal } from "@/lib/meals/types";
@@ -27,6 +28,7 @@ vi.mock("@/components/ui/toast", async (importOriginal) => ({
 
 const tickAction = vi.mocked(setMealEatenAction);
 const swapAction = vi.mocked(swapMealAction);
+const assignAction = vi.mocked(assignMealAction);
 
 const PLAN_ID = "9f1c1f9e-0000-4000-8000-000000000030";
 
@@ -310,5 +312,64 @@ describe("TodayBoard", () => {
     expect(
       await screen.findByRole("button", { name: "Add Salmon" }),
     ).toBeInTheDocument();
+  });
+
+  test("unticking an eaten meal announces it", async () => {
+    const user = userEvent.setup();
+    tickAction.mockResolvedValue({ status: "success" });
+
+    render(
+      <TodayBoard
+        day={dayWith(planned("Rice", 700, { eaten: true }))}
+        meals={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Rice" }));
+
+    expect(tickAction.mock.calls[0][1].get("eaten")).toBe("false");
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Rice unticked."),
+    );
+  });
+
+  test("announces a meal added from the picker", async () => {
+    const user = userEvent.setup();
+    assignAction.mockResolvedValue({
+      status: "success",
+      assignedName: "Salmon",
+    });
+
+    render(
+      <TodayBoard day={dayWith()} meals={[library("salmon", "Salmon", 500)]} />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Add a meal to Lunch" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Add Salmon" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Salmon added to today.",
+      ),
+    );
+  });
+
+  test("shows the macro bars only when goals are set", () => {
+    const macroBar = { name: /^Protein:/ };
+    const { rerender } = render(
+      <TodayBoard day={dayWith(planned("Rice", 700))} meals={[]} />,
+    );
+    expect(screen.getByRole("listitem", macroBar)).toBeInTheDocument();
+
+    rerender(
+      <TodayBoard
+        day={{ ...dayWith(planned("Rice", 700)), budget: null }}
+        meals={[]}
+      />,
+    );
+
+    expect(screen.queryByRole("listitem", macroBar)).not.toBeInTheDocument();
   });
 });

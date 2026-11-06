@@ -1,18 +1,27 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import {
+  assignMealAction,
+  removeMealAction,
+} from "@/app/(app)/calendar/actions";
 import { WeekBoard } from "@/components/calendar/week-board";
 import { dayOfMonth, weekDays, weekdayShort } from "@/lib/calendar/week";
 import type { MacroBudget, SlotBudget } from "@/lib/goals/budget";
 import type { MealTotals } from "@/lib/meals/macros";
 import type { DayColumn } from "@/lib/plan/types";
-import { makePlannedMealView, makeSlotView } from "@test/factories";
+import { makeMeal, makePlannedMealView, makeSlotView } from "@test/factories";
 
 vi.mock("@/app/(app)/calendar/actions", () => ({
   assignMealAction: vi.fn(),
   removeMealAction: vi.fn(),
 }));
+
+beforeEach(() => {
+  vi.mocked(assignMealAction).mockReset();
+  vi.mocked(removeMealAction).mockReset();
+});
 
 /** The day's total target, used for the column header. */
 const budget: MacroBudget = {
@@ -220,5 +229,97 @@ describe("WeekBoard", () => {
 
     rerender(<WeekBoard days={daysWithoutBreakfast} meals={[]} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  /**
+   * Opens Tuesday's Breakfast panel, holding one planned Porridge.
+   *
+   * @returns The user-event instance driving the board.
+   */
+  async function openPlannedBreakfast() {
+    const user = userEvent.setup();
+    const days = makeDays();
+    const meal = makePlannedMealView({ id: "plan-1", name: "Porridge" });
+    days[1] = {
+      ...days[1],
+      slots: days[1].slots.map((slot) =>
+        slot.name === "Breakfast" ? { ...slot, meals: [meal] } : slot,
+      ),
+    };
+    render(<WeekBoard days={days} meals={[makeMeal({ name: "Omelette" })]} />);
+
+    await user.click(screen.getByRole("button", { name: /Breakfast, Tue 13/ }));
+
+    return user;
+  }
+
+  test("announces a removed meal in the live region", async () => {
+    vi.mocked(removeMealAction).mockResolvedValue({
+      status: "success",
+      removedName: "Porridge",
+    });
+    const user = await openPlannedBreakfast();
+
+    await user.click(
+      screen.getByRole("button", { name: "Remove Porridge from Breakfast" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Porridge removed from your plan.",
+      ),
+    );
+    expect(vi.mocked(removeMealAction).mock.calls[0][1].get("planMealId")).toBe(
+      "plan-1",
+    );
+  });
+
+  test("announces a failed remove's message", async () => {
+    vi.mocked(removeMealAction).mockResolvedValue({
+      status: "error",
+      formError: "That planned meal no longer exists. Reload the page.",
+    });
+    const user = await openPlannedBreakfast();
+
+    await user.click(
+      screen.getByRole("button", { name: "Remove Porridge from Breakfast" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "That planned meal no longer exists. Reload the page.",
+      ),
+    );
+  });
+
+  test.each([{ status: "success" as const }, { status: "error" as const }])(
+    "announces nothing for a $status remove without a name or message",
+    async (state) => {
+      vi.mocked(removeMealAction).mockResolvedValue(state);
+      const user = await openPlannedBreakfast();
+
+      await user.click(
+        screen.getByRole("button", { name: "Remove Porridge from Breakfast" }),
+      );
+
+      await waitFor(() => expect(removeMealAction).toHaveBeenCalledOnce());
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    },
+  );
+
+  test("announces a meal added from the panel's picker", async () => {
+    vi.mocked(assignMealAction).mockResolvedValue({
+      status: "success",
+      assignedName: "Omelette",
+    });
+    const user = await openPlannedBreakfast();
+
+    await user.click(screen.getByRole("button", { name: /Add a meal/ }));
+    await user.click(screen.getByRole("button", { name: "Add Omelette" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Omelette added to your plan.",
+      ),
+    );
   });
 });
