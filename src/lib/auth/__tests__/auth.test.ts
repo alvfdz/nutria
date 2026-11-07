@@ -3,6 +3,7 @@ import { APIError } from "better-auth/api";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { allowOnlyFirstUser, getAuth } from "@/lib/auth/auth";
+import { CLIENT_IP_HEADER } from "@/lib/auth/client-ip";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/limits";
 import { getPrisma } from "@/lib/db/prisma";
 
@@ -62,6 +63,15 @@ describe("getAuth", () => {
     expect(options.databaseHooks?.user?.create?.before).toBe(
       allowOnlyFirstUser,
     );
+  });
+
+  test("keys sign-in rate limiting by the entrypoint's client header", () => {
+    getAuth();
+
+    const options = vi.mocked(betterAuth).mock.calls[0][0];
+    expect(options.advanced?.ipAddress).toEqual({
+      ipAddressHeaders: [CLIENT_IP_HEADER],
+    });
   });
 
   test("builds the instance once and reuses it", () => {

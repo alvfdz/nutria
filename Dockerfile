@@ -49,6 +49,11 @@ COPY --from=build --chown=nutria:nutria /app/.next/standalone ./
 COPY --from=build --chown=nutria:nutria /app/.next/static ./.next/static
 COPY --from=build --chown=nutria:nutria /app/public ./public
 COPY --from=tools --chown=nutria:nutria /opt/tools /opt/tools
+# The entrypoint that stamps each request with its real client address before
+# starting `server.js` (see `scripts/serve.ts`), and the one module it loads.
+# Both run from their TypeScript source, like `reset-password`.
+COPY --chown=nutria:nutria scripts/serve.ts ./scripts/
+COPY --chown=nutria:nutria src/lib/auth/client-ip.ts ./src/lib/auth/
 USER nutria
 EXPOSE 3000
-CMD ["sh", "-c", "cd /opt/tools && node_modules/.bin/prisma migrate deploy && cd /app && exec node server.js"]
+CMD ["sh", "-c", "cd /opt/tools && node_modules/.bin/prisma migrate deploy && cd /app && exec node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/serve.ts"]

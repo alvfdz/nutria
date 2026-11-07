@@ -191,8 +191,15 @@ export function normalizeMacros(
   };
 }
 
-/** Domains OpenFoodFacts serves product images from, subdomains included. */
-const IMAGE_HOST_SUFFIXES = ["openfoodfacts.org", "openfoodfacts.net"];
+/**
+ * Domains OpenFoodFacts serves product images from, subdomains included.
+ * The CSP's `img-src` (`src/lib/security/csp.ts`) is built from this list, so
+ * a host added here is also allowed to load.
+ */
+export const IMAGE_HOST_SUFFIXES: readonly string[] = [
+  "openfoodfacts.org",
+  "openfoodfacts.net",
+];
 
 /**
  * Validates a thumbnail URL, upgrading `http:` to `https:` so the browser never

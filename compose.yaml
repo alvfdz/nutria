@@ -18,6 +18,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nutria}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-nutria}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env (openssl rand -base64 32)}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      # Proxies whose X-Forwarded-For hops are trusted. See `.env.example`.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # Decides when "today" starts. See `.env.example`.
       TZ: ${TZ:-UTC}
     ports: ["${APP_PORT:-3000}:3000"]

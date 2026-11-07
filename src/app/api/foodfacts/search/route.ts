@@ -5,6 +5,8 @@ import {
   type FoodfactsSearchResponse,
   mapSearchResponse,
 } from "@/lib/foodfacts/mapping";
+import { RateLimiter } from "@/lib/rate-limit";
+import { TtlCache } from "@/lib/ttl-cache";
 import packageJson from "../../../../../package.json";
 
 /**
@@ -23,11 +25,24 @@ const DEFAULT_LIMIT = 20;
 /** Upper bound on `limit`, so one request cannot ask for the whole database. */
 const MAX_LIMIT = 50;
 
+/** Longest query accepted; also bounds the size of each cache key. */
+const MAX_QUERY_LENGTH = 200;
+
 /** How long a mapped response stays in the in-memory cache. */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-/** Requests one client may issue per minute before being throttled. */
+/**
+ * Most responses cached at once. Each holds at most {@link MAX_LIMIT} mapped
+ * products, so the cache stays in the low megabytes however many distinct
+ * queries arrive.
+ */
+const CACHE_MAX_ENTRIES = 500;
+
+/** Searches one user may run per minute before being throttled. */
 const RATE_LIMIT_PER_MIN = 30;
+
+/** Most users the limiter tracks at once; far above a single-owner instance. */
+const RATE_LIMIT_MAX_KEYS = 1000;
 
 /** The fields requested from OpenFoodFacts; anything else is dropped upstream. */
 const OFF_FIELDS = [
@@ -40,105 +55,129 @@ const OFF_FIELDS = [
 ].join(",");
 
 /** Query results keyed by `query|page|limit`, so repeated searches stay inside the quota. */
-const cache = new Map<
-  string,
-  { data: FoodfactsSearchResponse; expires: number }
->();
+const cache = new TtlCache<FoodfactsSearchResponse>({
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: CACHE_MAX_ENTRIES,
+});
 
 /**
- * Per-client token bucket. Tokens refill continuously so a client that paces
- * itself never waits, while a burst is capped.
+ * Upstream searches allowed per signed-in user. Keyed by the user rather than
+ * the client address: the route already requires a session, and the address
+ * would come from `X-Forwarded-For`, which a client can forge.
  */
-class TokenBucket {
-  /** Tokens currently available. */
-  tokens: number;
-  /** Timestamp, in ms, of the last refill. */
-  lastRefill: number;
+const limiter = new RateLimiter({
+  perMinute: RATE_LIMIT_PER_MIN,
+  maxKeys: RATE_LIMIT_MAX_KEYS,
+});
 
-  /**
-   * @param capacity Tokens held when full.
-   * @param refillPerMs Tokens restored per millisecond.
-   */
-  constructor(
-    private capacity: number,
-    private refillPerMs: number,
-  ) {
-    this.tokens = capacity;
-    this.lastRefill = Date.now();
-  }
+/** What one upstream search came back with. */
+type UpstreamResult =
+  | { kind: "ok"; data: FoodfactsSearchResponse }
+  | { kind: "unavailable"; status: number; retryAfter: string | null }
+  | { kind: "unreachable" };
 
-  /**
-   * Restores the tokens accrued since the last call and reports whether one
-   * was available, consuming one when so.
-   *
-   * @returns `true` when the request is within the limit.
-   */
-  take(): boolean {
-    this.tokens = Math.min(
-      this.capacity,
-      this.tokens + (Date.now() - this.lastRefill) * this.refillPerMs,
-    );
-    this.lastRefill = Date.now();
+/**
+ * Searches in flight, keyed like {@link cache}. Every request for a key that
+ * is already being fetched waits on the same promise. Entries are removed as
+ * soon as the fetch settles, so the map only ever holds live requests.
+ */
+const pending = new Map<string, Promise<UpstreamResult>>();
 
-    if (this.tokens < 1) return false;
+/**
+ * Runs one full-text search against OpenFoodFacts.
+ *
+ * @param q The query, already validated.
+ * @param page Result page, from 1.
+ * @param limit Results per page.
+ * @returns The mapped results, the upstream status when OpenFoodFacts
+ * refused, or `unreachable` when the request itself failed. Never rejects.
+ */
+async function searchUpstream(
+  q: string,
+  page: number,
+  limit: number,
+): Promise<UpstreamResult> {
+  const params = new URLSearchParams({
+    q,
+    page: String(page),
+    page_size: String(limit),
+    fields: OFF_FIELDS,
+  });
 
-    this.tokens -= 1;
-    return true;
-  }
+  try {
+    const response = await fetch(`${OFF_SEARCH_URL}?${params}`, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      // Next.js would otherwise fold this into its own fetch cache; we keep
+      // the fresh result and manage freshness with the cache above.
+      cache: "no-store",
+    });
 
-  /**
-   * Computes how long until a token is available.
-   *
-   * @returns Seconds to advertise in `Retry-After`, at least 1.
-   */
-  retryAfterSeconds(): number {
-    const missing = 1 - this.tokens;
-    return Math.max(1, Math.ceil(missing / this.refillPerMs / 1000));
+    if (!response.ok) {
+      return {
+        kind: "unavailable",
+        status: response.status,
+        retryAfter: response.headers.get("Retry-After"),
+      };
+    }
+
+    return {
+      kind: "ok",
+      data: mapSearchResponse(await response.json(), page, limit),
+    };
+  } catch (error) {
+    console.error("Could not reach OpenFoodFacts", error);
+    return { kind: "unreachable" };
   }
 }
 
-/** Token buckets keyed by client identity. */
-const buckets = new Map<string, TokenBucket>();
-
 /**
- * Returns the bucket for a client, creating it on first use.
+ * Turns an upstream result into the route's response. A fresh `Response` is
+ * built per call, so requests sharing one in-flight search each get their
+ * own.
  *
- * @param key Client identity.
- * @returns That client's token bucket.
+ * @param result What the upstream search came back with.
+ * @returns The mapped results, or a JSON error with the upstream status
+ * (503 is what OpenFoodFacts returns when its own global rate limit is hit,
+ * so the UI can explain it) or `500` when OpenFoodFacts could not be reached.
  */
-function getBucket(key: string): TokenBucket {
-  let bucket = buckets.get(key);
-  if (!bucket) {
-    bucket = new TokenBucket(RATE_LIMIT_PER_MIN, RATE_LIMIT_PER_MIN / 60000);
-    buckets.set(key, bucket);
+function toResponse(result: UpstreamResult): NextResponse {
+  switch (result.kind) {
+    case "ok":
+      return NextResponse.json(result.data);
+    case "unavailable":
+      return NextResponse.json(
+        { error: "OpenFoodFacts is unavailable right now." },
+        {
+          status: result.status,
+          headers: result.retryAfter
+            ? { "Retry-After": result.retryAfter }
+            : undefined,
+        },
+      );
+    case "unreachable":
+      return NextResponse.json(
+        { error: "Could not reach OpenFoodFacts. Please try again." },
+        { status: 500 },
+      );
   }
-  return bucket;
-}
-
-/**
- * Derives a client key for rate limiting from the proxy headers.
- *
- * @param req The incoming request.
- * @returns The client address, or `"unknown"` when the header is absent.
- */
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
 }
 
 /**
  * Handles `GET /api/foodfacts/search`. Requires a signed-in user, validates
- * the query, enforces the per-client rate limit, and proxies to OpenFoodFacts
- * with caching so repeated searches do not spend the shared quota.
+ * the query, enforces the per-user rate limit, and proxies to OpenFoodFacts
+ * with caching, and with identical concurrent searches sharing one upstream
+ * call, so repeated searches do not spend the shared quota.
  *
  * @param req Request carrying `q` (required) and optional `page` and `limit`.
- * @returns The mapped results, or a JSON error with `401`, `400`, `429`, or
+ * @returns The mapped results, or a JSON error with `401`, `400` (missing or
+ * over-long query), `429`, or
  * the upstream status.
  */
 export async function GET(req: NextRequest) {
   // `src/proxy.ts` only checks that a session cookie is present; this is the
   // check that the session is actually valid.
-  if (!(await getCurrentUser())) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json(
       { error: "Sign in to search OpenFoodFacts." },
       { status: 401 },
@@ -166,61 +205,42 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const cacheKey = `${q}|${page}|${limit}`;
-  const cached = cache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) {
-    return NextResponse.json(cached.data);
+  if (q.length > MAX_QUERY_LENGTH) {
+    return NextResponse.json(
+      { error: `Keep the search to ${MAX_QUERY_LENGTH} characters or fewer.` },
+      { status: 400 },
+    );
   }
 
-  const bucket = getBucket(getClientIp(req));
-  if (!bucket.take()) {
+  const cacheKey = `${q}|${page}|${limit}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
+  // An identical search already on its way upstream answers this one too,
+  // without spending another token or another OpenFoodFacts call.
+  const inFlight = pending.get(cacheKey);
+  if (inFlight) return toResponse(await inFlight);
+
+  const throttle = limiter.take(user.id);
+  if (!throttle.allowed) {
     return NextResponse.json(
       { error: "Too many searches. Please wait a moment and try again." },
       {
         status: 429,
-        headers: { "Retry-After": String(bucket.retryAfterSeconds()) },
+        headers: { "Retry-After": String(throttle.retryAfterSeconds) },
       },
     );
   }
 
-  const params = new URLSearchParams({
-    q,
-    page: String(page),
-    page_size: String(limit),
-    fields: OFF_FIELDS,
+  const search = searchUpstream(q, page, limit).then((result) => {
+    if (result.kind === "ok") cache.set(cacheKey, result.data);
+    return result;
   });
+  pending.set(cacheKey, search);
 
   try {
-    const response = await fetch(`${OFF_SEARCH_URL}?${params}`, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-      // Next.js would otherwise fold this into its own fetch cache; we keep
-      // the fresh result and manage freshness with the cache above.
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      // 503 is what OpenFoodFacts returns when its own global rate limit is
-      // hit; pass the status through so the UI can explain it.
-      const retryAfter = response.headers.get("Retry-After");
-      return NextResponse.json(
-        { error: "OpenFoodFacts is unavailable right now." },
-        {
-          status: response.status,
-          headers: retryAfter ? { "Retry-After": retryAfter } : undefined,
-        },
-      );
-    }
-
-    const mapped = mapSearchResponse(await response.json(), page, limit);
-    cache.set(cacheKey, { data: mapped, expires: Date.now() + CACHE_TTL_MS });
-
-    return NextResponse.json(mapped);
-  } catch (error) {
-    console.error("Could not reach OpenFoodFacts", error);
-
-    return NextResponse.json(
-      { error: "Could not reach OpenFoodFacts. Please try again." },
-      { status: 500 },
-    );
+    return toResponse(await search);
+  } finally {
+    pending.delete(cacheKey);
   }
 }

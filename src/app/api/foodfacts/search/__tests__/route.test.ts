@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { testUser } from "@test/factories";
+import { makeUser, testUser } from "@test/factories";
 import { GET } from "../route";
 
 vi.mock("@/lib/auth/session", () => ({
@@ -202,7 +202,94 @@ describe("GET /api/foodfacts/search", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("throttles a burst from one client", async () => {
+  it("rejects a query over 200 characters before calling upstream", async () => {
+    const res = await GET(
+      createRequest(
+        `http://localhost/api/foodfacts/search?q=${"a".repeat(201)}`,
+      ),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts a query of exactly 200 characters", async () => {
+    mockFetch.mockResolvedValueOnce(okResponse({ hits: [] }));
+
+    const res = await GET(
+      createRequest(
+        `http://localhost/api/foodfacts/search?q=${"b".repeat(200)}`,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+  });
+
+  it("says how long a query may be", async () => {
+    const res = await GET(
+      createRequest(
+        `http://localhost/api/foodfacts/search?q=${"c".repeat(201)}`,
+      ),
+    );
+
+    expect(await res.json()).toEqual({
+      error: "Keep the search to 200 characters or fewer.",
+    });
+  });
+
+  it("shares one upstream call between identical concurrent searches", async () => {
+    let respond!: (value: unknown) => void;
+    mockFetch.mockReturnValueOnce(
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+    );
+    const url = "http://localhost/api/foodfacts/search?q=shared";
+
+    const first = GET(createRequest(url));
+    const second = GET(createRequest(url));
+    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    respond(okResponse({ hits: [{ code: "9" }] }));
+    const responses = await Promise.all([first, second]);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const bodies = await Promise.all(responses.map((r) => r.json()));
+    expect(bodies[0]).toEqual(bodies[1]);
+  });
+
+  it("shares an upstream failure too, and caches nothing", async () => {
+    let respond!: (value: unknown) => void;
+    mockFetch.mockReturnValueOnce(
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+    );
+    const url = "http://localhost/api/foodfacts/search?q=shared-failure";
+
+    const first = GET(createRequest(url));
+    const second = GET(createRequest(url));
+    await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    respond({
+      ok: false,
+      status: 503,
+      headers: new Headers(),
+      json: async () => ({}),
+    });
+
+    expect((await first).status).toBe(503);
+    expect((await second).status).toBe(503);
+
+    mockFetch.mockResolvedValueOnce(okResponse({ hits: [] }));
+    expect((await GET(createRequest(url))).status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  // The limiter lives at module scope, so each throttling test spends the
+  // allowance of a user of its own.
+
+  it("throttles a burst from one user and says when to retry", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(makeUser({ id: "burst-user" }));
     mockFetch.mockResolvedValue(okResponse({ hits: [] }));
 
     const responses = await Promise.all(
@@ -215,27 +302,62 @@ describe("GET /api/foodfacts/search", () => {
       ),
     );
 
+    const throttled = responses.filter((response) => response.status === 429);
+    expect(throttled).toHaveLength(10);
+    expect(Number(throttled[0].headers.get("Retry-After"))).toBeGreaterThan(0);
+    expect(mockFetch).toHaveBeenCalledTimes(30);
+  });
+
+  it("throttles each user on their own", async () => {
+    mockFetch.mockResolvedValue(okResponse({ hits: [] }));
+    vi.mocked(getCurrentUser).mockResolvedValue(makeUser({ id: "user-a" }));
+    for (let index = 0; index < 31; index++) {
+      await GET(
+        createRequest(`http://localhost/api/foodfacts/search?q=a-${index}`),
+      );
+    }
+
+    vi.mocked(getCurrentUser).mockResolvedValue(makeUser({ id: "user-b" }));
+    const other = await GET(
+      createRequest("http://localhost/api/foodfacts/search?q=b-0"),
+    );
+
+    expect(other.status).toBe(200);
+  });
+
+  it("ignores a forged X-Forwarded-For when throttling", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(makeUser({ id: "forger" }));
+    mockFetch.mockResolvedValue(okResponse({ hits: [] }));
+
+    const responses = await Promise.all(
+      Array.from({ length: 40 }, (_, index) =>
+        GET(
+          new NextRequest(
+            `http://localhost/api/foodfacts/search?q=forged-${index}`,
+            { headers: { "x-forwarded-for": `203.0.113.${index}` } },
+          ),
+        ),
+      ),
+    );
+
     expect(responses.some((response) => response.status === 429)).toBe(true);
   });
 
-  it("throttles each forwarded client on its own", async () => {
+  it("serves a cached result even once the user is throttled", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(makeUser({ id: "cached" }));
     mockFetch.mockResolvedValue(okResponse({ hits: [] }));
-    const fromClient = (ip: string, index: number) =>
-      GET(
-        new NextRequest(
-          `http://localhost/api/foodfacts/search?q=client-${ip}-${index}`,
-          { headers: { "x-forwarded-for": `${ip}, 10.0.0.1` } },
+    const url = "http://localhost/api/foodfacts/search?q=cached-0";
+    await GET(createRequest(url));
+    for (let index = 1; index <= 30; index++) {
+      await GET(
+        createRequest(
+          `http://localhost/api/foodfacts/search?q=cached-${index}`,
         ),
       );
+    }
 
-    const burst = await Promise.all(
-      Array.from({ length: 40 }, (_, index) =>
-        fromClient("203.0.113.1", index),
-      ),
-    );
-    const other = await fromClient("203.0.113.2", 0);
+    const res = await GET(createRequest(url));
 
-    expect(burst.some((response) => response.status === 429)).toBe(true);
-    expect(other.status).toBe(200);
+    expect(res.status).toBe(200);
   });
 });

@@ -108,8 +108,54 @@ Compose reads `.env` to configure the containers. It needs three values:
 
 Compose refuses to start while the password or the secret is empty. `APP_PORT`
 changes the host port (default 3000); `POSTGRES_USER` and `POSTGRES_DB` are
-optional. `TZ` sets your time zone (e.g. `Europe/Madrid`, default UTC), which
+optional. `TRUSTED_PROXIES` matters only behind a reverse proxy; see
+[below](#behind-a-reverse-proxy). `TZ` sets your time zone (e.g. `Europe/Madrid`, default UTC), which
 decides when "today" starts on the Today page and the calendar.
+
+### Behind a reverse proxy
+
+Sign-in is rate-limited per client address: 3 attempts per 10 seconds. The
+container learns that address from the connection itself
+(`scripts/serve.ts`), never from a header the client sends, so lying about
+it gets an attacker nothing. Served directly, that needs no configuration.
+
+Behind a reverse proxy, every connection comes from the proxy, so all clients
+would share one allowance. To limit each client on its own:
+
+1. Set `TRUSTED_PROXIES` in `.env` to the address or CIDR range the proxy
+   connects to the app from, as the app container sees it. With several
+   proxies in a row (say a CDN, then Caddy), list them all,
+   comma-separated. Nutria starts at the connection and, while it comes from
+   a trusted proxy, believes the address that proxy reports in
+   `X-Forwarded-For`; the first untrusted address is the client.
+2. Have the proxy append the client address to `X-Forwarded-For` (Caddy and
+   Traefik do by default; nginx needs
+   `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
+3. Have the proxy send `Strict-Transport-Security`. Nutria does not, since it
+   may be served over plain HTTP on a local network.
+
+A client that reaches the app port directly is still limited by its own
+address, so leaving the port open next to the proxy does not weaken the limit.
+The container refuses to start if an entry is not an IP address or CIDR range.
+
+Outside the container (`npm start`, `next dev`) the address is not resolved:
+production then puts every client in one shared allowance and logs a warning
+about it on the first sign-in.
+
+Food search is limited per account (30 searches a minute) rather than per
+address, since it requires a session.
+
+### Security headers
+
+Every response carries `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy`, `Permissions-Policy` and `Cross-Origin-Opener-Policy`
+(`src/lib/security/headers.ts`). Pages also get a `Content-Security-Policy`
+with a fresh nonce per request, set in `src/proxy.ts`
+(`src/lib/security/csp.ts`): only scripts carrying the nonce run, nothing may
+frame the app, forms post only to it, and images may come only from Nutria
+and Open Food Facts.
+
+### Containers
 
 The `app` container applies pending Prisma migrations every time it starts,
 then serves Nutria. It reaches the database at `postgres:5432` inside the
@@ -133,8 +179,8 @@ stored in PostgreSQL and passwords hashed with scrypt.
   stable) and `BETTER_AUTH_URL` is the public origin you open Nutria at.
   Development takes both from `.env.development`, self-hosting from `.env`.
 - **Rate limiting.** In production Better Auth allows 3 sign-in attempts per 10
-  seconds per client. Behind a reverse proxy, make sure it forwards the client
-  address in `X-Forwarded-For`; otherwise all clients share one bucket.
+  seconds. Which clients share that allowance depends on `TRUSTED_PROXIES`; see
+  [Behind a reverse proxy](#behind-a-reverse-proxy).
 - **Changing the password.** Signed in, open **Account** in the header. The
   current password is required, and other devices are signed out on success.
 - **Locked out?** Nutria sends no email, so there is no "forgot password"

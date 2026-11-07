@@ -54,7 +54,7 @@ A user can plan an entire day of eating—matching their target calories and mac
   - _Ingredients:_ Custom ingredients and items saved from external search.
   - _Meals:_ CRUD for meal templates built from ingredients.
   - _Calendar:_ Maps meal templates to dates and slots, and records which of today's meals have been eaten.
-  - _External Search Proxy:_ A Route Handler proxies Open Food Facts: it requires a session, rate-limits per client, sends the identifying User-Agent, normalizes the payload, and caches results in memory for a few minutes.
+  - _External Search Proxy:_ A Route Handler proxies Open Food Facts: it requires a session, rate-limits per user, sends the identifying User-Agent, normalizes the payload, and caches results in a size-capped in-memory cache for a few minutes.
 
 ### 3. Data Persistence Layer
 

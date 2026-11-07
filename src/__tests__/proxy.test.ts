@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { config, proxy } from "@/proxy";
 
@@ -53,6 +53,50 @@ describe("proxy", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+  });
+
+  test.each([
+    ["a passed-through page", request("/calendar", { signedIn: true })],
+    ["a public page", request("/login")],
+    ["a redirect", request("/calendar")],
+    ["a 401", request("/api/foodfacts/search")],
+  ])("sets a nonce-based CSP on %s", (_, incoming) => {
+    const policy = proxy(incoming).headers.get("Content-Security-Policy");
+
+    expect(policy).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+    expect(policy).toContain("frame-ancestors 'none'");
+  });
+
+  test("hands rendering the same nonce the response's CSP carries", () => {
+    const response = proxy(request("/calendar", { signedIn: true }));
+
+    const policy = response.headers.get("Content-Security-Policy")!;
+    const nonce = /'nonce-([^']+)'/.exec(policy)![1];
+    // `NextResponse.next({ request: { headers } })` forwards overridden
+    // request headers as `x-middleware-request-*`.
+    expect(response.headers.get("x-middleware-request-x-nonce")).toBe(nonce);
+    expect(
+      response.headers.get("x-middleware-request-content-security-policy"),
+    ).toBe(policy);
+  });
+
+  test("uses a fresh nonce on every request", () => {
+    const policyOf = () =>
+      proxy(request("/login")).headers.get("Content-Security-Policy");
+
+    expect(policyOf()).not.toBe(policyOf());
+  });
+
+  test("allows eval in development only", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const dev = proxy(request("/login")).headers.get("Content-Security-Policy");
+    vi.unstubAllEnvs();
+    const prod = proxy(request("/login")).headers.get(
+      "Content-Security-Policy",
+    );
+
+    expect(dev).toContain("'unsafe-eval'");
+    expect(prod).not.toContain("'unsafe-eval'");
   });
 
   test("skips Better Auth's endpoints, build assets and public files", () => {

@@ -1,6 +1,12 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  buildContentSecurityPolicy,
+  createNonce,
+  NONCE_HEADER,
+} from "@/lib/security/csp";
+
 /** Screens a signed-out visitor may open: signing in and first-run setup. */
 const PUBLIC_PATHS = new Set(["/login", "/setup"]);
 
@@ -15,24 +21,39 @@ const PUBLIC_PATHS = new Set(["/login", "/setup"]);
  * in returns to where the visitor was heading; API requests get a 401
  * instead, since a redirect means nothing to a `fetch`.
  *
+ * It also sets the `Content-Security-Policy`, with a fresh nonce per request.
+ * The nonce goes to rendering in the request's own CSP header, where Next.js
+ * reads it for its scripts, and in `x-nonce`, where the root layout reads it
+ * for the theme script.
+ *
  * @param request The incoming request.
- * @returns A pass-through, a redirect to the login screen, or a 401.
+ * @returns A pass-through, a redirect to the login screen, or a 401, each
+ * carrying the policy.
  */
 export function proxy(request: NextRequest): NextResponse {
   const { pathname, search } = request.nextUrl;
+  const nonce = createNonce();
+  const policy = buildContentSecurityPolicy(nonce, {
+    dev: process.env.NODE_ENV === "development",
+  });
+
+  let response: NextResponse;
 
   if (PUBLIC_PATHS.has(pathname) || getSessionCookie(request)) {
-    return NextResponse.next();
+    const headers = new Headers(request.headers);
+    headers.set(NONCE_HEADER, nonce);
+    headers.set("Content-Security-Policy", policy);
+    response = NextResponse.next({ request: { headers } });
+  } else if (pathname.startsWith("/api/")) {
+    response = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } else {
+    const loginUrl = new URL("/login", request.url);
+    if (pathname !== "/") loginUrl.searchParams.set("next", pathname + search);
+    response = NextResponse.redirect(loginUrl);
   }
 
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const loginUrl = new URL("/login", request.url);
-  if (pathname !== "/") loginUrl.searchParams.set("next", pathname + search);
-
-  return NextResponse.redirect(loginUrl);
+  response.headers.set("Content-Security-Policy", policy);
+  return response;
 }
 
 /**

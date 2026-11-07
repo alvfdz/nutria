@@ -5,6 +5,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
 
 import { getPrisma } from "@/lib/db/prisma";
+import { CLIENT_IP_HEADER } from "./client-ip";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./limits";
 
 /**
@@ -38,6 +39,11 @@ export async function allowOnlyFirstUser(): Promise<void> {
  *
  * `BETTER_AUTH_SECRET` (cookie signing) and `BETTER_AUTH_URL` (public origin)
  * are read from the environment by Better Auth itself.
+ *
+ * The rate limiter keys clients by {@link CLIENT_IP_HEADER}, which the
+ * container's entrypoint sets from the connection itself, never by
+ * `X-Forwarded-For`, which a client can forge. Without the header (`next
+ * dev`, `next start`) Better Auth uses one shared bucket in production.
  */
 function createAuth() {
   return betterAuth({
@@ -47,7 +53,10 @@ function createAuth() {
       minPasswordLength: MIN_PASSWORD_LENGTH,
       maxPasswordLength: MAX_PASSWORD_LENGTH,
     },
-    advanced: { database: { generateId: "uuid" } },
+    advanced: {
+      database: { generateId: "uuid" },
+      ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
+    },
     databaseHooks: {
       user: { create: { before: allowOnlyFirstUser } },
     },
