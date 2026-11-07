@@ -183,7 +183,11 @@ describe("TodayBoard", () => {
     await user.click(screen.getByRole("checkbox", { name: "Rice" }));
 
     await waitFor(() => expect(toast.add).toHaveBeenCalledOnce());
-    expect(screen.getByRole("checkbox", { name: "Rice" })).not.toBeChecked();
+    // The toast fires inside the transition; the optimistic tick is only
+    // dropped once it settles, a render later.
+    await waitFor(() =>
+      expect(screen.getByRole("checkbox", { name: "Rice" })).not.toBeChecked(),
+    );
   });
 
   test("offers no swap on a ticked meal", () => {
