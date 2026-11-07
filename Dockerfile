@@ -47,7 +47,6 @@ RUN printf '%s\n' '#!/bin/sh' \
     > /usr/local/bin/reset-password && chmod 755 /usr/local/bin/reset-password
 COPY --from=build --chown=nutria:nutria /app/.next/standalone ./
 COPY --from=build --chown=nutria:nutria /app/.next/static ./.next/static
-COPY --from=build --chown=nutria:nutria /app/public ./public
 COPY --from=tools --chown=nutria:nutria /opt/tools /opt/tools
 # The entrypoint that stamps each request with its real client address before
 # starting `server.js` (see `scripts/serve.ts`), and the one module it loads.

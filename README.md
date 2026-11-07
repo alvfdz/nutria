@@ -11,7 +11,7 @@ for self-hosting), so they work with either Podman or Docker.
 
 ## Prerequisites
 
-- Node.js 22.18 or newer (developed on 24.x)
+- Node.js 22.18 or newer (developed on 24.x; `.nvmrc` selects it for nvm, fnm and similar tools)
 - Either [Podman](https://podman.io/) or Docker, plus a Compose provider (below)
 
 ## Install a Compose provider
@@ -57,11 +57,13 @@ Development and self-hosting are configured separately:
 
 ```bash
 podman compose -f compose.dev.yaml up -d --wait
-npm run db:migrate -- --name init
+npm run db:deploy
 ```
 
-`--wait` blocks until the healthcheck reports ready, so the migration cannot
-race the database. The data lives in the `nutria-dev-postgres` volume and
+`--wait` blocks until the healthcheck reports ready, so the migrations cannot
+race the database. `db:deploy` applies the committed migrations as they are;
+`npm run db:migrate -- --name <x>` is for when you change the schema (see
+[Database commands](#database-commands)). The data lives in the `nutria-dev-postgres` volume and
 survives restarts; `podman compose -f compose.dev.yaml down -v` throws it away.
 
 No configuration is needed: `next dev`, the Prisma CLI and `scripts/` load the
