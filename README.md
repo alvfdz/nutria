@@ -273,6 +273,20 @@ The math lives in `src/lib/goals/budget.ts` (`computeMacroBudget` and
 summary. Rounded values appear only at display time; the stored data and the
 calculations keep full precision.
 
+## Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens a weekly batch of grouped PRs:
+packages that must move together (Next.js, Prisma, React, Vitest, Tailwind)
+share one, and the remaining minor and patch updates share another. New
+releases wait 3 days (majors 7) before being proposed. Two things it does not
+handle:
+
+- `allowScripts` in `package.json` names `prisma`, `@prisma/engines` and
+  `unrs-resolver` with their exact versions. When one of them changes, update
+  its entry in the same PR, or npm skips its install script.
+- The Node and PostgreSQL images, and the overrides below, are updated by
+  hand.
+
 ## Dependency overrides
 
 | Package     | Forced to | Scoped to                                                  | Why                                         | Drop when                                |

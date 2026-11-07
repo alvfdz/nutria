@@ -1,0 +1,51 @@
+# Dependabot version updates: one weekly batch of grouped npm PRs.
+# Security updates are switched on in the repository settings and are not
+# held back by the cooldown below.
+#
+# Docker images are left out on purpose. `node:24-alpine` and
+# `postgres:18-alpine` are pinned to a major tag, so a rebuild already picks
+# up their patch releases and the only update Dependabot could offer is a new
+# major, which needs hand work: a PostgreSQL major needs the data directory
+# upgraded (the container refuses to start on the old one), and a Node major
+# moves the Dockerfile, `.nvmrc`, `engines` and `@types/node` together.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Madrid
+    # Wait before proposing a fresh release: hijacked package versions are
+    # usually caught and pulled within days.
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    # A dependency joins the first group that matches it, so the packages
+    # that must move together are listed before the catch-all.
+    groups:
+      nextjs:
+        patterns: [next, "@next/*", eslint-config-next]
+      # `allowScripts` in package.json names prisma and @prisma/engines with
+      # their exact versions: update those entries in this PR.
+      prisma:
+        patterns: [prisma, "@prisma/*"]
+      react:
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
+      vitest:
+        patterns: [vitest, "@vitest/*", vite, "@vitejs/*"]
+      tailwind:
+        patterns: [tailwindcss, "@tailwindcss/*"]
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # Tracks the Node major the app runs on; it moves with the Node image.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
