@@ -64,3 +64,8 @@ next-env.d.ts
 /.github/instructions/
 /.github/prompts/
 /.windsurf/
+
+# documentation site (docs/), built by `npm run build` there
+/docs/node_modules
+/docs/dist
+/docs/.astro

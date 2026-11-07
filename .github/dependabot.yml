@@ -49,3 +49,21 @@ updates:
       # Tracks the Node major the app runs on; it moves with the Node image.
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+
+  # The documentation site (docs/), an Astro project of its own.
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Madrid
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    commit-message:
+      prefix: docs
+      include: scope
+    groups:
+      docs:
+        patterns: ["*"]

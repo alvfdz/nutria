@@ -1,0 +1,43 @@
+---
+title: Nutria
+description: A self-hosted macro tracker and meal planner.
+template: splash
+hero:
+  tagline: Plan what you eat, not just log it. A self-hosted macro tracker and meal planner, free and open source.
+  image:
+    light: ../../../brand/nutria.svg
+    dark: ../../assets/nutria-dark.svg
+    alt: Nutria, an otter holding an acorn
+  actions:
+    - text: Deploy it
+      link: /nutria/deployment/self-hosting/
+      icon: right-arrow
+      variant: primary
+    - text: Read the user guide
+      link: /nutria/guide/first-run/
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+![Today page with the day's meals and remaining budget](../../assets/screenshots/today.png)
+
+## Two sections
+
+<CardGrid>
+  <LinkCard
+    title="Deployment"
+    description="Run your own instance with one compose file, behind a reverse proxy if you like."
+    href="/nutria/deployment/self-hosting/"
+  />
+  <LinkCard
+    title="User guide"
+    description="Set a budget, build a library of meals, plan your week and tick off today."
+    href="/nutria/guide/first-run/"
+  />
+</CardGrid>
+
+<div class="nutria-disclaimer">
+  Nutria is a planning tool, not medical advice. If you manage your diet for a
+  health condition, follow your doctor or dietitian.
+</div>

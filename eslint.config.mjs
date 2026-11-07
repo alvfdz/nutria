@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "src/generated/**",
     // Vendored agent skills, not part of the app.
     ".agents/**",
+    // The documentation site is its own Astro project, with its own build.
+    "docs/**",
   ]),
 ]);
 

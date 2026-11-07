@@ -9,3 +9,7 @@ package-lock.json
 next-env.d.ts
 src/generated
 prisma/migrations
+docs/node_modules
+docs/dist
+docs/.astro
+docs/package-lock.json

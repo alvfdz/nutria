@@ -39,7 +39,7 @@ These aren't included in this repository; `next/font` downloads them from Google
 ### Geist and Geist Mono
 
 - **Source:** <https://fonts.google.com/specimen/Geist>, <https://github.com/vercel/geist-font>
-- **Used for:** all the app's text
+- **Used for:** all the app's text, and the documentation site (bundled there from the `@fontsource-variable/geist` and `@fontsource-variable/geist-mono` npm packages)
 - **License:** [SIL Open Font License 1.1](https://openfontlicense.org)
 
 ```text
