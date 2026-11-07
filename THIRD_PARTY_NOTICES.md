@@ -1,6 +1,6 @@
 # Third-party notices
 
-This repository includes code copied from the projects below. They keep their own licenses. Packages installed through npm, and the third-party agent skills restored from `skills-lock.json` (see [AI agent skills](README.md#ai-agent-skills)), carry their own license files and aren't listed here. Fonts and external data sources are listed at the end.
+This repository includes code copied from the projects below. They keep their own licenses. Packages installed through npm, and the third-party agent skills restored from `skills-lock.json` (see [AI agent skills](CONTRIBUTING.md#ai-agent-skills)), carry their own license files and aren't listed here. Fonts and external data sources are listed at the end.
 
 ## shadcn/ui
 

@@ -24,7 +24,7 @@ export const metadata: Metadata = {
  * Account route. Requires a signed-in user, names the account, hosts the
  * change-password form and offers the welcome tutorial again. There is no email-based recovery, so a forgotten
  * password is fixed with the `auth:reset-password` command instead (see the
- * README). The page opts into the design-system palette through `nutria-theme`,
+ * CONTRIBUTING.md). The page opts into the design-system palette through `nutria-theme`,
  * and narrows the shared container to the 1200px content width (plus its 24px
  * gutters); the width is forced because the container's own `lg:`/`xl:` steps
  * would otherwise win.

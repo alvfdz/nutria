@@ -4,7 +4,7 @@
 
 - [`docs/vision.md`](docs/vision.md) before any change: keep it within the product scope and stack.
 - [`docs/design-system.md`](docs/design-system.md) for any screen. Bring the parts you touch up to it, and extend it when the work needs something it doesn't cover.
-- [`README.md`](README.md) to run, deploy or migrate.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) to set up, run, test or migrate; the [documentation site](docs/src/content/docs/) to deploy.
 
 ## Project rules
 
@@ -12,7 +12,7 @@
 - **Authenticate server actions first.** Call `requireUser()` at the top, outside any `try/catch`, which would swallow its redirect.
 - **Keep the domain shape.** `src/lib/<domain>/` splits into `repository.ts`, `schema.ts`, `errors.ts`, `form-state.ts` and `types.ts`. Server actions live in `src/app/(app)/<route>/actions.ts`.
 - **Migrations are append-only.** Edit `prisma/schema.prisma`, then `npm run db:migrate -- --name <change>`. Never edit a committed migration, or `src/generated/`.
-- **Docs move with the code.** A new or changed setting, command or behavior updates the README and `.env.example` in the same change, and the documentation site in `docs/src/content/docs/` when users or self-hosters see it (screenshots included).
+- **Docs move with the code.** A new or changed setting, command or behavior updates `.env.example` in the same change, `CONTRIBUTING.md` when developers see it, and the documentation site in `docs/src/content/docs/` when users or self-hosters see it (screenshots included). The README stays a short overview.
 - **AI tooling stays vendor-neutral.** Rules live here and in `.agents/skills/`; tool-specific configuration stays local.
 
 ## Code standards

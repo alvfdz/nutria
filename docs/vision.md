@@ -64,10 +64,10 @@ A user can plan an entire day of eating—matching their target calories and mac
 
 ### 4. Deployment & Infrastructure (Self-Hostable)
 
-- **Containerization:** Engine-agnostic compose files that run unchanged under `podman compose` (rootless Podman, preferred) or `docker compose`, with `podman-compose` as a fallback.
+- **Containerization:** Engine-agnostic compose files that run unchanged under `docker compose` (the default the docs use) or `podman compose`, with `podman-compose` as a fallback.
   - `compose.yaml`: self-hosting stack (app + PostgreSQL).
   - `compose.dev.yaml`: PostgreSQL only, for `npm run dev` on the host.
-- **Runtime:** OCI-compatible images; no Docker daemon or root privileges required with Podman.
+- **Runtime:** OCI-compatible images, so rootless Podman works without a Docker daemon.
 - **Services:** Single Next.js app (frontend + backend) and a PostgreSQL database.
 
 ### 5. Quality

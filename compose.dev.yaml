@@ -2,7 +2,7 @@
 # runs PostgreSQL alone, with fixed development-only credentials that match
 # `DATABASE_URL` in the committed `.env.development`. It reads no `.env`.
 #
-#   podman compose -f compose.dev.yaml up -d --wait   # or: docker compose ...
+#   docker compose -f compose.dev.yaml up -d --wait   # or: podman compose ...
 #
 # Its own project name keeps the containers and the volume apart from the
 # self-hosting stack in `compose.yaml`.

@@ -1,11 +1,11 @@
 # Self-hosting: Nutria and its PostgreSQL database. Engine-agnostic: it runs
-# unchanged under `podman compose` and `docker compose` (see the README for the
-# one-time plugin setup each engine needs).
+# unchanged under `docker compose` and `podman compose` (Podman needs a
+# Compose provider installed).
 #
 # Configured through `.env` (copy `.env.example`). `POSTGRES_PASSWORD` and
 # `BETTER_AUTH_SECRET` are required; everything else has a default.
 #
-#   podman compose up -d --build --wait
+#   docker compose up -d --build --wait   # or: podman compose ...
 #
 # Development uses `compose.dev.yaml` instead.
 services:
