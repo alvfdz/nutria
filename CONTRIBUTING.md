@@ -3,6 +3,9 @@
 This guide covers working on Nutria's code. To run an instance, see the
 [self-hosting guide](https://alvfdz.github.io/nutria/deployment/self-hosting/).
 
+Nutria is a hobby project: read the [code of conduct](CODE_OF_CONDUCT.md)
+for how to behave and what to expect from the maintainer.
+
 Read these before you change anything:
 
 - [`docs/vision.md`](docs/vision.md): product scope, workflow and architecture.

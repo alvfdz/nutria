@@ -52,7 +52,8 @@ explains each setting, Podman, reverse proxies and updates.
 
 Built with Next.js, TypeScript, Tailwind CSS, shadcn/ui and PostgreSQL via
 Prisma. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers the development setup and
-workflow. [`docs/vision.md`](docs/vision.md) sets the product direction, and
+workflow, and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) what to expect from
+a hobby project. [`docs/vision.md`](docs/vision.md) sets the product direction, and
 [`docs/design-system.md`](docs/design-system.md) sets the look of every screen.
 
 ## License
