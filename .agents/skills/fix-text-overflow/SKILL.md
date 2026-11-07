@@ -1,6 +1,6 @@
 ---
 name: fix-text-overflow
-description: Fixes layout broken by long, unbreakable text - meal, ingredient, food, slot or option names that widen a container, clip without an ellipsis, or add a horizontal scrollbar. Use when a name/label/value is too long for its card, table cell, dialog, popover or select, when adding a new text field, or when reviewing truncation and ellipsis behavior in this codebase (Next.js + Tailwind + Base UI + shadcn).
+description: Fixes layout broken by long, unbreakable text - meal, ingredient, food, slot or option names that widen a container, clip without an ellipsis, or add a horizontal scrollbar. Use when a name/label/value is too long for its card, table cell, dialog, popover or picker (combobox/select), when adding a new text field, or when reviewing truncation and ellipsis behavior in this codebase (Next.js + Tailwind + Base UI + shadcn).
 ---
 
 # Fix Text Overflow
@@ -11,7 +11,9 @@ value like `"a".repeat(60)` must be cut off with an ellipsis, never pushed
 sideways. Short names hide the bug, so it slips through review.
 
 Use this skill whenever you add or touch a field that shows a name, or when a
-long value visibly breaks a layout.
+long value visibly breaks a layout. The rule itself lives in
+`docs/design-system.md` ("Long names truncate on one line…"); this skill is how
+to meet it.
 
 ## What the bug looks like
 
@@ -49,11 +51,12 @@ contribution, which is what actually stops a runaway track.
 2. **Every flex/grid item on the path** from the text up to the nearest
    definite-width ancestor needs `min-w-0`. Missing one grid item leaves a
    track that grows. When unsure, add it to all of them; it is harmless.
-3. **The element that sizes itself from its content** needs `min-w-0` too. A
-   `Select` trigger is the usual case: it is `w-fit` (or `w-full` of a
-   content-sized column) and keeps its min-content width, stretching itself
-   and the popup that mirrors it via `--anchor-width`. Add `min-w-0` to the
-   trigger.
+3. **The element that sizes itself from its content** needs `min-w-0` too.
+   A picker's input or trigger is the usual case: it keeps its min-content
+   width, stretching itself and the popup that mirrors it via
+   `--anchor-width`. The `Combobox` input in the meal builder needs
+   `min-w-0`, and so will a `Select` trigger if one is added (shadcn's is
+   `w-fit`).
 4. **Siblings that must never shrink** (kcal numbers, percentages, badges) get
    `shrink-0`.
 5. **Tables.** Use `table-fixed` and give the non-name columns explicit narrow
@@ -61,7 +64,7 @@ contribution, which is what actually stops a runaway track.
    `div.truncate` in the cell clips. `auto` table layout lets the long cell win.
 6. **Popups.** A popover/tooltip with no width shrinks-to-fit and grows to its
    content's max-content. Give the popup a definite width at the call site (the
-   food panel uses `w-86`) or cap the content. `Select` popups are already
+   food panel uses `w-86`) or cap the content. `Combobox` popups are already
    pinned with `w-(--anchor-width)`.
 
 ## Reference fixes
@@ -101,12 +104,18 @@ Truncating prose (dialog description): wrap instead of clip.
 </DialogDescription>
 ```
 
-Fixing a select trigger (the value already had `truncate`; the trigger was the
-problem):
+Fixing a picker (meal builder ingredient `Combobox`): the input sizes itself
+from the selected label, so it needs `min-w-0` as well as the truncation, and
+each option truncates inside the popup.
 
 ```tsx
-// src/components/ui/select.tsx — the trigger must be able to shrink
-"flex w-fit min-w-0 items-center justify-between ...";
+<ComboboxInput
+  className="w-full min-w-0 [&_input]:truncate"
+  title={selected?.label}
+/>
+<ComboboxItem value={option} title={option.label}>
+  <span className="min-w-0 truncate">{option.label}</span>
+</ComboboxItem>
 ```
 
 ## Diagnose the exact element
@@ -176,7 +185,7 @@ jsdom has no layout, so assert the structure that makes clipping possible:
   `title` equal to the full value;
 - walk the ancestors up to the definite-width container and assert each has
   `min-w-0` (this is the part that silently regresses);
-- for a select, assert the trigger has `min-w-0`.
+- for a picker, assert its input or trigger has `min-w-0`.
 
 ```tsx
 const name = screen.getByText(longName);
@@ -189,14 +198,15 @@ expect(name.parentElement?.parentElement).toHaveClass("min-w-0");
 
 ## Gotchas
 
-- **`cn` is `clsx` + `tailwind-merge`.** A later conflicting utility wins, so
+- **`cn` merges Tailwind classes** (the `cn` package, a drop-in for `clsx` +
+  `tailwind-merge`). A later conflicting utility wins, so
   `className="w-full"` correctly overrides a base `w-fit`. Pass the class you
   mean; do not reach for `!important`.
 - **`truncate` needs a definite width to act on.** If the ancestor is
   content-sized, there is nothing to truncate against.
-- **Base UI `Select`** sets `--anchor-width` on the positioner and the popup
-  uses `w-(--anchor-width)`, so the popup matches the trigger. Fix the trigger
-  and the popup follows.
+- **Base UI pickers** (`Combobox`, and `Select` if added) set
+  `--anchor-width` on the positioner and the popup uses `w-(--anchor-width)`,
+  so the popup matches its input or trigger. Fix that and the popup follows.
 - **Overflow pairing:** setting only `overflow-y-auto` makes the browser compute
   `overflow-x` as `auto` too, which clips without an ellipsis. That masking can
   hide the real overflow - fix the chain instead of relying on it.
@@ -204,11 +214,4 @@ expect(name.parentElement?.parentElement).toHaveClass("min-w-0");
 
 ## Before you finish
 
-```bash
-npm test            # all tests pass
-npm run typecheck   # no type errors
-npm run format      # Prettier
-npm run format:check
-```
-
-Do not commit unless asked.
+Run the checks in `AGENTS.md`.

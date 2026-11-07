@@ -1,30 +1,44 @@
-# Before doing any change
+# Guide for coding agents
 
-Check the `docs/vision.md`. Make sure that any suggested change is aligned with the product vision and tech stack described there.
+## Read first
 
-For any UI work, on any screen, follow `docs/design-system.md`. When you change an existing view, bring the parts you touch up to it. If the work needs something it doesn't cover, extend the document in the same change.
+- [`docs/vision.md`](docs/vision.md) before any change: keep it within the product scope and stack.
+- [`docs/design-system.md`](docs/design-system.md) for any screen. Bring the parts you touch up to it, and extend it when the work needs something it doesn't cover.
+- [`README.md`](README.md) to run, deploy or migrate.
 
-# Code standards
+## Project rules
 
-- Document the code with TSDoc comments. Every exported function, type, and constant gets a TSDoc block explaining its purpose, parameters, return value, and thrown errors.
-- Add unit tests for any new code. New behavior is expected to ship with tests that cover both the happy path and the edge cases.
-- Format the code with Prettier — run `npm run format` (or `npm run format:check` to verify) after making changes.
-- Run the tests with `npm test` after every change, and make sure they pass before considering the work done.
+- **Scope every query to its owner.** Repository functions take the `userId` and filter by it, on reads and writes alike. An unscoped query is a data leak.
+- **Authenticate server actions first.** Call `requireUser()` at the top, outside any `try/catch`, which would swallow its redirect.
+- **Keep the domain shape.** `src/lib/<domain>/` splits into `repository.ts`, `schema.ts`, `errors.ts`, `form-state.ts` and `types.ts`. Server actions live in `src/app/(app)/<route>/actions.ts`.
+- **Migrations are append-only.** Edit `prisma/schema.prisma`, then `npm run db:migrate -- --name <change>`. Never edit a committed migration, or `src/generated/`.
+- **Docs move with the code.** A new or changed setting, command or behavior updates the README and `.env.example` in the same change.
+- **AI tooling stays vendor-neutral.** Rules live here and in `.agents/skills/`; tool-specific configuration stays local.
 
-# Third parties
+## Code standards
 
-Nutria is MIT-licensed. Before adding an npm package, copied code or assets, or an external service or data source, check its license and terms.
+- **TSDoc on every export**: purpose, parameters, return value and thrown errors.
+- **Tests ship with the code**, covering the happy path and the edge cases. They live in `__tests__/` next to the code; fixtures are in `test/factories.ts`.
 
-- **Licenses:** stop and ask before adding anything under a copyleft or non-commercial license (such as GPL, AGPL, SSPL or CC BY-NC), with no license, or with terms you can't confirm.
-- **Copied code and assets:** add the source and license notice to `THIRD_PARTY_NOTICES.md` in the same change. This includes components added with the shadcn CLI from another registry. Packages installed through npm carry their own notices.
-- **External services and data:** follow their attribution and usage terms, and record them in the README's License section and, where users see the data, in the UI. See the source credit in `docs/design-system.md`. List external data sources in `THIRD_PARTY_NOTICES.md`, pointing to the README rather than repeating its terms.
-- **Trademarks:** a code license doesn't cover logos or brand names, so don't add third-party ones without permission.
+## Before you finish
 
-# Behavior
+```bash
+npm run format && npm run lint && npm run typecheck && npm test
+```
 
-- Keep the output clear and straight to the point. Avoid unnecessary wording or overexplanation.
-- Proactively identify tasks that could be done in parallel. Spawn subagents when possible.
-- **Do not commit** anything by yourself.
+## Third parties
+
+Nutria is MIT-licensed. Check the license and terms before adding a package, copied code or assets, or an external service or data source.
+
+- **Stop and ask** before adding anything copyleft or non-commercial (GPL, AGPL, SSPL, CC BY-NC…), unlicensed, or with terms you can't confirm.
+- **Copied code, assets and external data sources** get an entry in `THIRD_PARTY_NOTICES.md` in the same change. External services and data also need the attribution their terms require, in the README's License section and, where users see the data, in the UI.
+- **No third-party logos or brand names** without permission.
+
+## Working style
+
+- Keep output clear and to the point.
+- Split independent tasks so they can run in parallel.
+- **Never commit on your own.** Commit only when asked.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
