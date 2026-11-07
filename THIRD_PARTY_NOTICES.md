@@ -1,11 +1,11 @@
 # Third-party notices
 
-This repository includes code and documents copied from the projects below. They keep their own licenses. Packages installed through npm carry their own license files and aren't listed here. Fonts and external data sources are listed at the end.
+This repository includes code copied from the projects below. They keep their own licenses. Packages installed through npm, and the third-party agent skills restored from `skills-lock.json` (see [AI agent skills](README.md#ai-agent-skills)), carry their own license files and aren't listed here. Fonts and external data sources are listed at the end.
 
 ## shadcn/ui
 
 - **Source:** <https://github.com/shadcn-ui/ui>
-- **Used in:** `src/components/ui` (components, which may have been modified) and `.agents/skills/shadcn`
+- **Used in:** `src/components/ui` (components, which may have been modified)
 - **License:** MIT
 
 ```text
@@ -31,19 +31,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## Vercel React Best Practices
-
-- **Source:** <https://github.com/vercel-labs/agent-skills>
-- **Used in:** `.agents/skills/vercel-react-best-practices`
-- **Author:** Vercel
-- **License:** MIT, as declared in the upstream README and the skill's `SKILL.md`. The upstream repository publishes no license file or copyright line to reproduce here.
-
-## Frontend Design
-
-- **Source:** <https://github.com/anthropics/skills>
-- **Used in:** `.agents/skills/frontend-design`
-- **License:** see [`.agents/skills/frontend-design/LICENSE.txt`](.agents/skills/frontend-design/LICENSE.txt)
 
 ## Fonts
 

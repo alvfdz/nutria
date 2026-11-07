@@ -11,3 +11,13 @@ compose.dev.yaml
 Dockerfile
 .dockerignore
 src/generated
+# Tooling for contributors and their AI assistants; nothing the image needs.
+# The vendor-specific entries mirror `.gitignore`: they only exist locally.
+.agents
+.github
+AGENTS.md
+skills-lock.json
+.claude
+CLAUDE.md
+.cursor
+.windsurf

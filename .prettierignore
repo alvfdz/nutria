@@ -3,7 +3,6 @@ node_modules
 out
 build
 coverage
-public
 package-lock.json
 .agents
 *.tsbuildinfo

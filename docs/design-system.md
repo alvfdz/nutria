@@ -123,7 +123,7 @@ Built from shadcn/ui primitives in `src/components/ui`; add new ones with the sh
 
 - **Editable lists** are divided rows inside a card — no boxed inputs per row. Names are inline-editable (transparent input, `muted` on hover/focus, always `muted` on touch screens).
 - **Row builders** in a dialog, such as a meal's ingredient rows, keep boxed controls: a picker and a quantity need their affordances to be found. A row's errors sit under the whole row, and go away as soon as its field changes. A builder's dialog scrolls its rows and keeps its actions and preview in view.
-- **Pickers** use `Combobox` when the list is the user's own and can grow long, as with ingredients, and `Select` for a short fixed list.
+- **Pickers** use `Combobox` when the list is the user's own and can grow long, as with ingredients, and `Select` for a short fixed list. `Select` is not installed yet; add it with `npx shadcn add select` the first time a screen needs it.
 - **Phone tables** may give a row two lines when its name cell carries more than a name: name and actions first, numbers below under headings laid out the same way. Headings stay sortable, and the table's parts state their roles.
 - **Read-only lists and breakdowns** with several values per row, such as the ingredient and meal libraries or a summary, use a `Table` with right-aligned numeric columns, so the digits line up.
 - **Row actions** are ghost icon buttons with explicit `aria-label`s ("Move Lunch up"), folded into one menu on phones.

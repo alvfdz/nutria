@@ -240,6 +240,18 @@ or `npm run build` — both need the generated client to exist.
 | `npm run lint`      | ESLint                     |
 | `npm run format`    | Prettier, writing in place |
 
+## AI agent skills
+
+`AGENTS.md` gives coding agents the project's rules,
+and `.agents/skills/` holds skills they load for specific tasks. Only skills
+written for this project are committed. The third-party ones (shadcn,
+Vercel's React best practices, Anthropic's frontend design) are pinned in
+`skills-lock.json` and restored with:
+
+```bash
+npx skills experimental_install
+```
+
 ## Testing
 
 The suite mocks the Prisma client, so it needs neither a database nor a running
