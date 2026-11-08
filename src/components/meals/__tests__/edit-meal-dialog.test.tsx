@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { waitForDialogFocus } from "@test/dialog";
 import { makeIngredient, makeMeal } from "@test/factories";
 import { updateMealAction } from "@/app/(app)/meals/actions";
 import { EditMealDialog } from "@/components/meals/edit-meal-dialog";
@@ -106,6 +107,7 @@ describe("EditMealDialog", () => {
     });
 
     renderDialog();
+    await waitForDialogFocus();
     await user.clear(screen.getByLabelText("Grams 1"));
     await user.type(screen.getByLabelText("Grams 1"), "150");
     await user.click(screen.getByRole("button", { name: "Save changes" }));

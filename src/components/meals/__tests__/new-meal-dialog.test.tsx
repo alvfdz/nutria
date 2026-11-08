@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { waitForDialogFocus } from "@test/dialog";
 import { makeIngredient, mealDefaults } from "@test/factories";
 import { createMealAction } from "@/app/(app)/meals/actions";
 import { NewMealDialog } from "@/components/meals/new-meal-dialog";
@@ -40,6 +41,7 @@ const renderDialog = (
 
 /** Fills the name and one builder row per ingredient, in builder order. */
 const fillForm = async (user: ReturnType<typeof userEvent.setup>) => {
+  await waitForDialogFocus();
   await user.type(screen.getByLabelText("Name"), mealDefaults.name);
 
   await user.click(screen.getByRole("combobox", { name: "Ingredient 1" }));

@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { toast } from "@/components/ui/toast";
 
+import { waitForDialogFocus } from "@test/dialog";
 import { makeIngredient } from "@test/factories";
 import { IngredientLibrary } from "@/components/ingredients/ingredient-library";
 import {
@@ -318,6 +319,7 @@ describe("IngredientLibrary", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "New ingredient",
     });
+    await waitForDialogFocus("New ingredient");
     await user.type(within(dialog).getByLabelText("Name"), "Oats");
     await user.type(within(dialog).getByLabelText("Calories (kcal)"), "389");
     await user.type(within(dialog).getByLabelText("Protein (g)"), "16.9");

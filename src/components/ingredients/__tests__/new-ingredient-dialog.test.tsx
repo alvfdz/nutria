@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { waitForDialogFocus } from "@test/dialog";
 import { createIngredientAction } from "@/app/(app)/ingredients/actions";
 import { NewIngredientDialog } from "@/components/ingredients/new-ingredient-dialog";
 import {
@@ -21,6 +22,7 @@ const respondWith = (state: IngredientFormState) => {
 };
 
 const fillForm = async (user: ReturnType<typeof userEvent.setup>) => {
+  await waitForDialogFocus();
   await user.type(screen.getByLabelText("Name"), "Cod");
   await user.type(screen.getByLabelText("Calories (kcal)"), "82");
   await user.type(screen.getByLabelText("Protein (g)"), "17.8");

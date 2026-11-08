@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { waitForDialogFocus } from "@test/dialog";
 import { makeIngredient } from "@test/factories";
 import { updateIngredientAction } from "@/app/(app)/ingredients/actions";
 import { EditIngredientDialog } from "@/components/ingredients/edit-ingredient-dialog";
@@ -71,9 +72,7 @@ describe("EditIngredientDialog", () => {
     });
 
     renderDialog();
-    // The dialog moves focus to its first field a moment after it opens; on
-    // a slow runner that lands mid-typing and the keystrokes go to Name.
-    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveFocus());
+    await waitForDialogFocus();
     await user.clear(screen.getByLabelText("Calories (kcal)"));
     await user.type(screen.getByLabelText("Calories (kcal)"), "90");
     await user.click(screen.getByRole("button", { name: "Save changes" }));

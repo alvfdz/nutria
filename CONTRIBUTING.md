@@ -104,7 +104,10 @@ one account; if a development database holds more, pass the one to reset:
 
 The suite mocks the Prisma client, so it needs neither a database nor a
 container. Tests live in `__tests__/` next to the code they cover; shared
-fixtures are in `test/factories.ts`.
+fixtures are in `test/factories.ts`. After opening a dialog, call
+`waitForDialogFocus()` from `test/dialog.ts` before typing into it: the
+dialog moves focus to its first field a moment later, which on a slow CI
+runner can land mid-typing.
 
 `npm run test:coverage` fails when statements, branches, functions or lines
 drop below 99% (`coverage.thresholds` in `vitest.config.mts`). Raise the floor
