@@ -24,9 +24,6 @@ export default defineConfig({
           href: "https://github.com/alvfdz/nutria",
         },
       ],
-      editLink: {
-        baseUrl: "https://github.com/alvfdz/nutria/edit/main/docs/",
-      },
       customCss: [
         "@fontsource-variable/geist",
         "@fontsource-variable/geist-mono",
