@@ -1,13 +1,13 @@
 # Runs the same checks as "Before you open a pull request" in CONTRIBUTING.md,
-# plus coverage, on every push to and pull request against `main` and
-# `develop`. The suite mocks the Prisma client, so no database is needed.
+# plus coverage, on every push to and pull request against `main`. The suite
+# mocks the Prisma client, so no database is needed.
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -2,9 +2,8 @@
 # (https://alvfdz.github.io/nutria/). Needs Settings → Pages → Source set to
 # "GitHub Actions".
 #
-# Only `main` publishes: docs changes merged into `develop` go live with the
-# release that brings them to `main`. Settings → Environments → github-pages
-# must allow deployments from `main`. Pull requests that touch the docs only
+# Only `main` publishes. Settings → Environments → github-pages must allow
+# deployments from `main`. Pull requests that touch the docs only
 # build them, so a broken page fails the PR instead of the deployment.
 name: Docs
 
@@ -13,7 +12,7 @@ on:
     branches: [main]
     paths: ["docs/**", ".github/workflows/docs.yml"]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths: ["docs/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 

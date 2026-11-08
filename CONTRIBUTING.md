@@ -120,13 +120,14 @@ npm run format && npm run lint && npm run typecheck && npm test
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks, with coverage, on every
-push to and pull request against `main` and `develop`. Each run's summary page
+push to and pull request against `main`. Each run's summary page
 shows the coverage totals, and the full HTML report is attached as the
 `coverage` artifact for 14 days. A PR that touches `docs/` also builds the
 documentation site, which publishes from `main` only.
 
-`main` and `develop` only change through pull requests. A PR merges once CI
-passes and a code owner (listed in `.github/CODEOWNERS`) approves it.
+Work is trunk-based: branch from `main` and open a pull request back into it.
+`main` only changes through pull requests. A PR merges once CI passes and a
+code owner (listed in `.github/CODEOWNERS`) approves it.
 
 A new or changed setting, command or behavior updates this guide,
 `.env.example` and, when users or self-hosters see it, the documentation
@@ -165,8 +166,7 @@ Before adding a package, copied code or an external service, check its
 license: see [Third parties](AGENTS.md#third-parties).
 
 Dependabot (`.github/dependabot.yml`) opens a weekly batch of grouped PRs
-against `develop` (security updates go to `main`):
-packages that must move together (Next.js, Prisma, React, Vitest, Tailwind)
+against `main`: packages that must move together (Next.js, Prisma, React, Vitest, Tailwind)
 share one, and the remaining minor and patch updates share another. New
 releases wait 3 days (majors 7) before being proposed. Two things it doesn't
 handle:
@@ -177,8 +177,7 @@ handle:
 - The Node and PostgreSQL images, and the overrides below, are updated by
   hand.
 
-The actions in `.github/workflows/` get their own weekly PR, also against
-`develop`.
+The actions in `.github/workflows/` get their own weekly PR.
 
 ### Overrides
 
