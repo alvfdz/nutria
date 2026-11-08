@@ -80,7 +80,7 @@ To build the production image on its own: `docker build -t nutria .`
 | `npm test`                               | Runs the Vitest suite                                     |
 | `npm run test:watch`                     | Runs Vitest in watch mode                                 |
 | `npm run test:coverage`                  | Runs the suite with coverage                              |
-| `npm run typecheck`                      | `tsc --noEmit`                                            |
+| `npm run typecheck`                      | Generates the route types, then runs `tsc --noEmit`       |
 | `npm run lint`                           | ESLint                                                    |
 | `npm run format`                         | Prettier, writing in place                                |
 | `npm run db:generate`                    | Regenerates the Prisma client into `src/generated`        |
