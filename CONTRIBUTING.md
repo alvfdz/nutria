@@ -73,22 +73,22 @@ To build the production image on its own: `docker build -t nutria .`
 
 ## Commands
 
-| Command                                  | What it does                                              |
-| ---------------------------------------- | --------------------------------------------------------- |
-| `npm run dev`                            | Starts the dev server                                     |
-| `npm run build`                          | Production build                                          |
-| `npm test`                               | Runs the Vitest suite                                     |
-| `npm run test:watch`                     | Runs Vitest in watch mode                                 |
-| `npm run test:coverage`                  | Runs the suite with coverage                              |
-| `npm run typecheck`                      | Generates the route types, then runs `tsc --noEmit`       |
-| `npm run lint`                           | ESLint                                                    |
-| `npm run format`                         | Prettier, writing in place                                |
-| `npm run db:generate`                    | Regenerates the Prisma client into `src/generated`        |
-| `npm run db:migrate -- --name <x>`       | Creates and applies a migration after a schema change     |
-| `npm run db:deploy`                      | Applies pending migrations without prompting              |
-| `npm run db:reset`                       | Drops the schema, replays every migration, re-seeds       |
-| `npm run db:studio`                      | Opens Prisma Studio at localhost:5555                     |
-| `npm run auth:reset-password -- [email]` | Resets the password of the given account, or the only one |
+| Command                            | What it does                                          |
+| ---------------------------------- | ----------------------------------------------------- |
+| `npm run dev`                      | Starts the dev server                                 |
+| `npm run build`                    | Production build                                      |
+| `npm test`                         | Runs the Vitest suite                                 |
+| `npm run test:watch`               | Runs Vitest in watch mode                             |
+| `npm run test:coverage`            | Runs the suite with coverage                          |
+| `npm run typecheck`                | Generates the route types, then runs `tsc --noEmit`   |
+| `npm run lint`                     | ESLint                                                |
+| `npm run format`                   | Prettier, writing in place                            |
+| `npm run db:generate`              | Regenerates the Prisma client into `src/generated`    |
+| `npm run db:migrate -- --name <x>` | Creates and applies a migration after a schema change |
+| `npm run db:deploy`                | Applies pending migrations without prompting          |
+| `npm run db:reset`                 | Drops the schema, replays every migration, re-seeds   |
+| `npm run db:studio`                | Opens Prisma Studio at localhost:5555                 |
+| `npm run auth:reset-password`      | Resets the owner account's password                   |
 
 `prisma generate` runs on `npm install`. On a checkout where it hasn't run
 yet, run `npm run db:generate` before `typecheck` or `build`: both need the
@@ -96,7 +96,9 @@ generated client.
 
 `auth:reset-password` targets the database in `.env.development` unless
 `DATABASE_URL` is set. It prompts for the password without echoing it, or
-reads `NUTRIA_NEW_PASSWORD`, and signs the account out everywhere.
+reads `NUTRIA_NEW_PASSWORD`, and signs the account out everywhere. Nutria has
+one account; if a development database holds more, pass the one to reset:
+`npm run auth:reset-password -- <email>`.
 
 ## Testing
 
