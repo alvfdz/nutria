@@ -110,6 +110,10 @@ fixtures are in `test/factories.ts`.
 npm run format && npm run lint && npm run typecheck && npm test
 ```
 
+CI (`.github/workflows/ci.yml`) runs the same checks, with coverage, on every
+push to and pull request against `main` and `develop`. The coverage report is
+attached to each run as the `coverage` artifact.
+
 A new or changed setting, command or behavior updates this guide,
 `.env.example` and, when users or self-hosters see it, the documentation
 site in the same change.
