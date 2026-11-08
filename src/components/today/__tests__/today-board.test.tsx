@@ -170,7 +170,10 @@ describe("TodayBoard", () => {
         title: "The meal could not be updated. Please try again.",
       });
     });
-    expect(screen.getByRole("checkbox", { name: "Rice" })).not.toBeChecked();
+    // As below: the rollback lands a render after the toast.
+    await waitFor(() =>
+      expect(screen.getByRole("checkbox", { name: "Rice" })).not.toBeChecked(),
+    );
     expect(hero()).toHaveTextContent("2200kcal left");
   });
 

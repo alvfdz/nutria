@@ -71,6 +71,9 @@ describe("EditIngredientDialog", () => {
     });
 
     renderDialog();
+    // The dialog moves focus to its first field a moment after it opens; on
+    // a slow runner that lands mid-typing and the keystrokes go to Name.
+    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveFocus());
     await user.clear(screen.getByLabelText("Calories (kcal)"));
     await user.type(screen.getByLabelText("Calories (kcal)"), "90");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
