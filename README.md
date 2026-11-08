@@ -5,12 +5,12 @@
   </picture>
 </p>
 
-# Nutria
+<h1 align="center">Nutria</h1>
 
-[![License: MIT](https://img.shields.io/github/license/alvfdz/nutria)](LICENSE)
-[![Docs](https://github.com/alvfdz/nutria/actions/workflows/docs.yml/badge.svg)](https://alvfdz.github.io/nutria/)
-[![Node.js ≥ 22.18](https://img.shields.io/badge/node-%E2%89%A522.18-blue)](.nvmrc)
-[![Self-hosted](https://img.shields.io/badge/self--hosted-docker%20compose-blue)](https://alvfdz.github.io/nutria/deployment/self-hosting/)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/alvfdz/nutria" alt="License: MIT"></a>
+  <a href="https://alvfdz.github.io/nutria/"><img src="https://github.com/alvfdz/nutria/actions/workflows/docs.yml/badge.svg" alt="Docs"></a>
+</p>
 
 Plan what you eat, not just log it. Nutria is a self-hosted macro tracker and
 meal planner, free and open source.
@@ -46,7 +46,7 @@ docker compose up -d --build --wait
 
 Then open [http://localhost:3000](http://localhost:3000). The
 [self-hosting guide](https://alvfdz.github.io/nutria/deployment/self-hosting/)
-explains each setting, Podman, reverse proxies and updates.
+explains each setting, reverse proxies and updates.
 
 ## Contributing
 
