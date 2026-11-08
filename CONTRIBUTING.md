@@ -146,7 +146,8 @@ npx skills experimental_install
 Before adding a package, copied code or an external service, check its
 license: see [Third parties](AGENTS.md#third-parties).
 
-Dependabot (`.github/dependabot.yml`) opens a weekly batch of grouped PRs:
+Dependabot (`.github/dependabot.yml`) opens a weekly batch of grouped PRs
+against `develop` (security updates go to `main`):
 packages that must move together (Next.js, Prisma, React, Vitest, Tailwind)
 share one, and the remaining minor and patch updates share another. New
 releases wait 3 days (majors 7) before being proposed. Two things it doesn't

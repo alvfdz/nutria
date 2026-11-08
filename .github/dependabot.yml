@@ -8,11 +8,16 @@
 # major, which needs hand work: a PostgreSQL major needs the data directory
 # upgraded (the container refuses to start on the old one), and a Node major
 # moves the Dockerfile, `.nvmrc`, `engines` and `@types/node` together.
+#
+# Version updates target `develop`, where work lands before a release reaches
+# `main`; until that branch exists, version updates fail. Security updates
+# ignore `target-branch` and always open against the default branch (`main`).
 version: 2
 
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -53,6 +58,7 @@ updates:
   # The documentation site (docs/), an Astro project of its own.
   - package-ecosystem: npm
     directory: /docs
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday

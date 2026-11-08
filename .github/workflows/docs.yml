@@ -1,6 +1,10 @@
 # Builds the documentation site in docs/ and publishes it to GitHub Pages
 # (https://alvfdz.github.io/nutria/). Needs Settings → Pages → Source set to
 # "GitHub Actions".
+#
+# Only `main` publishes: docs changes merged into `develop` go live with the
+# release that brings them to `main`. Settings → Environments → github-pages
+# must allow deployments from `main`.
 name: Docs
 
 on:
