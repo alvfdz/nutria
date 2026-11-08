@@ -125,6 +125,9 @@ shows the coverage totals, and the full HTML report is attached as the
 `coverage` artifact for 14 days. A PR that touches `docs/` also builds the
 documentation site, which publishes from `main` only.
 
+`main` and `develop` only change through pull requests. A PR merges once CI
+passes and a code owner (listed in `.github/CODEOWNERS`) approves it.
+
 A new or changed setting, command or behavior updates this guide,
 `.env.example` and, when users or self-hosters see it, the documentation
 site in the same change.
