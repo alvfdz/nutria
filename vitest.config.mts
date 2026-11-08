@@ -25,6 +25,9 @@ export default defineConfig({
     include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
+      // The defaults plus `json-summary`, whose totals CI writes to the job
+      // summary.
+      reporter: ["text", "html", "clover", "json", "json-summary"],
       include: ["src/**"],
       // The vendored shadcn primitives are excluded so the number reflects
       // the code we actually own.
@@ -35,6 +38,15 @@ export default defineConfig({
         // Written by the Prisma generator, not by us.
         "src/generated/**",
       ],
+      // The floor `npm run test:coverage`, and so CI, fails below. It sits
+      // just under the current numbers: raise it as coverage grows, and
+      // don't lower it to get a change through.
+      thresholds: {
+        statements: 99,
+        branches: 99,
+        functions: 99,
+        lines: 99,
+      },
     },
   },
 });

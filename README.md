@@ -8,6 +8,8 @@
 <h1 align="center">Nutria</h1>
 
 <p align="center">
+  <a href="https://github.com/alvfdz/nutria/releases/latest"><img src="https://img.shields.io/github/v/release/alvfdz/nutria" alt="Latest release"></a>
+  <a href="https://github.com/alvfdz/nutria/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/alvfdz/nutria/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/alvfdz/nutria" alt="License: MIT"></a>
   <a href="https://alvfdz.github.io/nutria/"><img src="https://github.com/alvfdz/nutria/actions/workflows/docs.yml/badge.svg" alt="Docs"></a>
 </p>

@@ -4,28 +4,29 @@
 #
 # Only `main` publishes: docs changes merged into `develop` go live with the
 # release that brings them to `main`. Settings → Environments → github-pages
-# must allow deployments from `main`.
+# must allow deployments from `main`. Pull requests that touch the docs only
+# build them, so a broken page fails the PR instead of the deployment.
 name: Docs
 
 on:
   push:
     branches: [main]
     paths: ["docs/**", ".github/workflows/docs.yml"]
+  pull_request:
+    branches: [main, develop]
+    paths: ["docs/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# One deployment at a time; a newer push replaces a queued one.
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A newer push to the same PR cancels its build still in progress.
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
       - uses: withastro/action@v6
@@ -34,7 +35,15 @@ jobs:
 
   deploy:
     needs: build
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # One deployment at a time; a newer push replaces a queued one.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

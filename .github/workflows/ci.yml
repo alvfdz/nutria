@@ -34,6 +34,34 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:coverage
+      # Writes the totals from `coverage/coverage-summary.json` to the run's
+      # summary page, which lasts as long as the run, unlike the artifact.
+      - name: Coverage summary
+        if: ${{ !cancelled() && hashFiles('coverage/coverage-summary.json') != '' }}
+        run: |
+          node --input-type=module <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import { readFileSync } from "node:fs";
+
+          const { total } = JSON.parse(
+            readFileSync("coverage/coverage-summary.json", "utf8"),
+          );
+          const rows = ["statements", "branches", "functions", "lines"].map(
+            (key) => {
+              const { pct, covered, total: count } = total[key];
+              const name = key[0].toUpperCase() + key.slice(1);
+              return `| ${name} | ${pct}% | ${covered} / ${count} |`;
+            },
+          );
+          console.log(
+            [
+              "## Coverage",
+              "",
+              "| Metric | Coverage | Covered |",
+              "| --- | ---: | ---: |",
+              ...rows,
+            ].join("\n"),
+          );
+          EOF
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:

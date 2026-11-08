@@ -104,6 +104,10 @@ The suite mocks the Prisma client, so it needs neither a database nor a
 container. Tests live in `__tests__/` next to the code they cover; shared
 fixtures are in `test/factories.ts`.
 
+`npm run test:coverage` fails when statements, branches, functions or lines
+drop below 99% (`coverage.thresholds` in `vitest.config.mts`). Raise the floor
+as coverage grows; don't lower it to get a change through.
+
 ## Before you open a pull request
 
 ```bash
@@ -111,8 +115,10 @@ npm run format && npm run lint && npm run typecheck && npm test
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks, with coverage, on every
-push to and pull request against `main` and `develop`. The coverage report is
-attached to each run as the `coverage` artifact.
+push to and pull request against `main` and `develop`. Each run's summary page
+shows the coverage totals, and the full HTML report is attached as the
+`coverage` artifact for 14 days. A PR that touches `docs/` also builds the
+documentation site, which publishes from `main` only.
 
 A new or changed setting, command or behavior updates this guide,
 `.env.example` and, when users or self-hosters see it, the documentation
@@ -162,6 +168,9 @@ handle:
   its entry in the same PR, or npm skips its install script.
 - The Node and PostgreSQL images, and the overrides below, are updated by
   hand.
+
+The actions in `.github/workflows/` get their own weekly PR, also against
+`develop`.
 
 ### Overrides
 
