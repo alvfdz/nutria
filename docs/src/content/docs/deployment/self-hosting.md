@@ -19,11 +19,18 @@ Podman works too, with a Compose provider. Replace `docker compose` with `podman
 
 ## 1. Get the code
 
+Clone the repository and check out the latest release. Replace `vX.Y.Z` with the newest version on the [releases page](https://github.com/alvfdz/nutria/releases).
+
 ```bash
 git clone https://github.com/alvfdz/nutria.git
 cd nutria
+git checkout vX.Y.Z
 cp .env.example .env
 ```
+
+:::caution[Run a release, not `main`]
+`main` is the development branch and can hold unfinished work. Its database changes apply as soon as the app starts and can't be undone, so an instance that has run `main` may not be able to go back to a release.
+:::
 
 ## 2. Configure `.env`
 

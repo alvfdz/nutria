@@ -42,6 +42,7 @@ With Docker and Docker Compose:
 ```bash
 git clone https://github.com/alvfdz/nutria.git
 cd nutria
+git checkout vX.Y.Z    # the latest release: github.com/alvfdz/nutria/releases
 cp .env.example .env   # set POSTGRES_PASSWORD, BETTER_AUTH_SECRET and BETTER_AUTH_URL
 docker compose up -d --build --wait
 ```
