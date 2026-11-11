@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { allowOnlyFirstUser, getAuth } from "@/lib/auth/auth";
 import { CLIENT_IP_HEADER } from "@/lib/auth/client-ip";
+import { SIGN_UP_CLOSED } from "@/lib/auth/errors";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/limits";
 import { getPrisma } from "@/lib/db/prisma";
 
@@ -39,6 +40,7 @@ describe("allowOnlyFirstUser", () => {
 
     expect(error).toBeInstanceOf(APIError);
     expect(error.status).toBe("FORBIDDEN");
+    expect(error.body.code).toBe(SIGN_UP_CLOSED);
   });
 });
 

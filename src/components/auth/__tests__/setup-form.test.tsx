@@ -84,7 +84,7 @@ describe("SetupForm", () => {
     await submit();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Could not create the account. Please try again.",
+      "Could not reach the server. Check your connection and try again.",
     );
     expect(
       screen.getByRole("button", { name: "Create account" }),
@@ -92,7 +92,10 @@ describe("SetupForm", () => {
   });
 
   test("tells the visitor to sign in when an owner already exists", async () => {
-    signUp.mockResolvedValue({ data: null, error: { status: 403 } } as never);
+    signUp.mockResolvedValue({
+      data: null,
+      error: { status: 403, code: "SIGN_UP_CLOSED" },
+    } as never);
     render(<SetupForm />);
 
     await submit();
@@ -104,5 +107,23 @@ describe("SetupForm", () => {
     expect(
       screen.getByRole("button", { name: "Create account" }),
     ).toBeEnabled();
+  });
+
+  test("reports an untrusted origin without blaming the owner", async () => {
+    signUp.mockResolvedValue({
+      data: null,
+      error: { status: 403, code: "INVALID_ORIGIN", message: "Invalid origin" },
+    } as never);
+    render(<SetupForm />);
+
+    await submit();
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "The server refused this request. If you host this Nutria instance, check its logs.",
+    );
+    expect(alert).not.toHaveTextContent("BETTER_AUTH_URL");
+    expect(alert).not.toHaveTextContent("already has an owner");
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });
