@@ -95,7 +95,7 @@ describe("ChangePasswordForm", () => {
     await submit();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Could not change the password. Please try again.",
+      "Could not reach the server. Check your connection and try again.",
     );
     expect(
       screen.getByRole("button", { name: "Change password" }),

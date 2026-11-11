@@ -79,7 +79,7 @@ describe("LoginForm", () => {
     await submit("owner@example.com", "correct horse");
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Could not sign in. Please try again.",
+      "Could not reach the server. Check your connection and try again.",
     );
     expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
     expect(router.replace).not.toHaveBeenCalled();

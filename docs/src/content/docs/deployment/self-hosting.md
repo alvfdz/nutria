@@ -78,3 +78,14 @@ Open `BETTER_AUTH_URL` (by default [http://localhost:3000](http://localhost:3000
 - The **app** container applies any pending database migrations every time it starts, then serves Nutria.
 - The **database** publishes no port: only the app can reach it, inside the compose network. Its data lives in a named volume and survives restarts and rebuilds.
 - Every response carries standard security headers and a strict Content Security Policy.
+
+## Troubleshooting
+
+**"The server refused this request"** on the setup or login screen means Better Auth didn't trust where the request came from. Check the app's logs with `docker compose logs app`:
+
+- `ERROR [Better Auth]: Invalid origin: https://nutria.example.com` (or `Invalid callbackURL: …`): the address in your browser doesn't match `BETTER_AUTH_URL`. Set it to exactly the address the line names (scheme, host and port) and restart with `docker compose up -d --wait`.
+- `ERROR [Better Auth]: Blocked cross-site navigation login attempt`: a page on another website tried to sign in to your Nutria, and Better Auth's cross-site request forgery protection blocked it. Nutria's own screens never trigger this, so there's nothing to change.
+
+**"The server refused this request because the browser didn't say where it came from"** means the request reached Nutria without an `Origin` header, which leaves nothing in the logs. If Nutria is behind a [reverse proxy](/nutria/deployment/reverse-proxy/), make sure it forwards the `Origin` header unchanged.
+
+**"The server ran into a problem"** means the request reached Nutria but failed there, e.g. the database refused the new account. Check the app's logs with `docker compose logs app`.

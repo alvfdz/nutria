@@ -6,6 +6,7 @@ import { APIError } from "better-auth/api";
 
 import { getPrisma } from "@/lib/db/prisma";
 import { CLIENT_IP_HEADER } from "./client-ip";
+import { SIGN_UP_CLOSED } from "./errors";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./limits";
 
 /**
@@ -15,13 +16,15 @@ import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "./limits";
  * itself, so no route to `/api/auth/sign-up/email` (the setup screen or a
  * hand-crafted request) can add a second account.
  *
- * @throws {APIError} `FORBIDDEN` when an account already exists.
+ * @throws {APIError} `FORBIDDEN` with code {@link SIGN_UP_CLOSED} when an
+ *   account already exists.
  */
 export async function allowOnlyFirstUser(): Promise<void> {
   const existing = await getPrisma().user.count();
 
   if (existing > 0) {
     throw new APIError("FORBIDDEN", {
+      code: SIGN_UP_CLOSED,
       message: "Sign-up is closed: this Nutria instance already has an owner.",
     });
   }
