@@ -1,0 +1,70 @@
+# Builds the desktop app's Flatpak with the same script contributors run
+# locally (`npm run desktop:flatpak`) and attaches it to the GitHub release
+# that triggered the run, where the documentation tells people to download
+# it from.
+#
+# Run it by hand ("Run workflow") to try the build on any branch: the bundle
+# is then only kept as an artifact of the run.
+name: Desktop release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    permissions:
+      # Uploading a file to the release.
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      # The bundle is named and versioned from package.json, so a release
+      # whose tag disagrees with it would publish a mislabeled file.
+      - name: Check the tag matches package.json
+        if: ${{ github.event_name == 'release' }}
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::package.json is at $version but the release tag is $TAG"
+            exit 1
+          fi
+      - name: Install Flatpak and flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          # The runner's AppArmor policy keeps unprivileged programs from
+          # creating user namespaces, which the build sandbox is made of.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      # Builds the app, packages it, and installs the runtime, SDK and base
+      # app the manifest names from Flathub.
+      - run: npm run desktop:flatpak
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nutria-flatpak
+          path: desktop/release/*.flatpak
+          if-no-files-found: error
+          retention-days: 14
+      - name: Attach the bundle to the release
+        if: ${{ github.event_name == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" desktop/release/*.flatpak --clobber

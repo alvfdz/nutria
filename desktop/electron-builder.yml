@@ -1,0 +1,29 @@
+# Packages the build in `dist/` (see `scripts/build.mjs`) into an unpacked
+# Electron app, `release/linux-unpacked`. The Flatpak is made from that
+# folder by `scripts/flatpak.mjs`; installers for other systems would be
+# further targets here.
+appId: io.github.alvfdz.Nutria
+productName: Nutria
+executableName: nutria
+copyright: Nutria contributors. MIT License.
+
+directories:
+  output: release
+
+# The two bundled processes. The production dependencies (PGlite) are added
+# from `node_modules` automatically.
+files:
+  - dist/main.cjs
+  - dist/server.mjs
+  - package.json
+
+# No archive: PGlite reads its WebAssembly files from disk. Nutria's server
+# and migrations are not listed here: `scripts/package.mjs` copies them next
+# to the app itself, because electron-builder leaves `node_modules` and
+# dot-folders out of `extraResources`, and the server needs both.
+asar: false
+# Nothing here is a native module.
+npmRebuild: false
+
+linux:
+  target: dir

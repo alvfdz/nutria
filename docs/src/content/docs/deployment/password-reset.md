@@ -7,6 +7,8 @@ sidebar:
 
 Nutria sends no email, so there is no "forgot password" link. Anyone with shell access to the server can reset the password instead.
 
+This applies to a self-hosted instance. The [desktop app](/nutria/desktop/linux/) has no password reset yet.
+
 From the folder that holds `compose.yaml`:
 
 ```bash

@@ -1,0 +1,37 @@
+{
+  "name": "nutria-desktop",
+  "productName": "Nutria",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Nutria as a desktop app: the same server, in a window, with an embedded database.",
+  "homepage": "https://alvfdz.github.io/nutria/",
+  "author": "Nutria contributors",
+  "main": "dist/main.cjs",
+  "desktopName": "io.github.alvfdz.Nutria.desktop",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "npm run build && electron .",
+    "package": "npm run build && node scripts/package.mjs",
+    "flatpak": "npm run package && node scripts/flatpak.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@electric-sql/pglite-socket": "0.2.19"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "electron": "45.3.0",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "pg": "8.23.1",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}

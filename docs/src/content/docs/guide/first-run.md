@@ -11,7 +11,7 @@ The first time you open Nutria, it asks you to create the account that owns the 
 
 ![The setup screen](../../../assets/screenshots/setup.png)
 
-Nutria has a single account per instance. Once yours exists, sign-up closes for good.
+Nutria has a single account per instance. Once yours exists, sign-up closes for good. In the [desktop app](/nutria/desktop/linux/), the instance is the app on your computer.
 
 ## The welcome tutorial
 
