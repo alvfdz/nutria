@@ -90,6 +90,7 @@ To build the production image on its own: `docker build -t nutria .`
 | `npm run db:studio`                | Opens Prisma Studio at localhost:5555                 |
 | `npm run auth:reset-password`      | Resets the owner account's password                   |
 | `npm run desktop:start`            | Builds the desktop app and opens it                   |
+| `npm run desktop:package`          | Packages the desktop app for the system it runs on    |
 | `npm run desktop:flatpak`          | Builds the desktop app's Flatpak bundle               |
 
 `prisma generate` runs on `npm install`. On a checkout where it hasn't run
@@ -122,10 +123,12 @@ npm run format && npm run lint && npm run typecheck && npm test
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks, with coverage, on every
-push to and pull request against `main`. Each run's summary page
+push to `main` and on every pull request, including one that targets another
+PR's branch. Each run's summary page
 shows the coverage totals, and the full HTML report is attached as the
 `coverage` artifact for 14 days. A second job runs the
-[desktop app](#desktop-app)'s own typecheck and tests. A PR that touches
+[desktop app](#desktop-app)'s own typecheck and tests, on Linux and on
+Windows. A PR that touches
 `docs/` also builds the documentation site, which publishes from releases
 only.
 
@@ -149,8 +152,10 @@ instead of changing it:
 - `src/server.ts` does what the container's start command does: it brings
   the database up to date, then starts the standalone Next.js server.
 - `src/database.ts` runs the database, PostgreSQL as WebAssembly
-  ([PGlite](https://pglite.dev)), and serves it over a Unix socket, so the
-  app connects with the same `pg` driver it uses against a real server.
+  ([PGlite](https://pglite.dev)), and serves it over a Unix socket (a named
+  pipe on Windows), so the app connects with the same `pg` driver it uses
+  against a real server. It never listens on a TCP port: the database asks
+  for no password.
 - `src/migrate.ts` applies `prisma/migrations` without the Prisma CLI,
   recording them in Prisma's own table.
 - `src/settings.ts` keeps the generated `BETTER_AUTH_SECRET` and the port in
@@ -188,27 +193,59 @@ flatpak run io.github.alvfdz.Nutria
 ```
 
 The first build downloads the runtime, the SDK and the Electron base app the
-manifest names (about 1 GB). The steps, each a script in `desktop/scripts/`:
+manifest names (about 1 GB). The installed app keeps its data in
+`~/.var/app/io.github.alvfdz.Nutria`.
 
-| Script            | What it does                                                                  |
-| ----------------- | ----------------------------------------------------------------------------- |
-| `npm run build`   | `next build`, then bundles the two processes and stages the server in `dist/` |
-| `npm run package` | `build`, then electron-builder makes `release/linux-unpacked`                 |
-| `npm run flatpak` | `package`, then wraps it with `flatpak/io.github.alvfdz.Nutria.yml`           |
+### Building the Windows installer
 
-The installed app keeps its data in `~/.var/app/io.github.alvfdz.Nutria`.
+On Windows, from the repository root:
 
-Next.js copies the checkout's `.env` files into its standalone output. The
-build leaves them out, and both `build` and `package` fail if one gets
-through: a self-hosting `.env` in your checkout must never ship.
+```bash
+npm run desktop:package
+```
+
+It makes `desktop/release/nutria-<version>-x64-setup.exe`, unsigned. The
+installed app keeps its data in `%APPDATA%\Nutria`.
+
+The installer can only be built on Windows: Nutria's server holds binaries
+compiled for the system `next build` ran on. If you have no Windows machine,
+open a pull request: one that touches `desktop/` builds the installer in CI
+and keeps it as the `nutria-windows` artifact of the run.
+
+The icon, `desktop/icons/icon.png`, is `src/app/icon.svg` rendered at
+512 × 512. Render it again when the icon changes.
+
+### How a build is put together
+
+Each step is a script in `desktop/scripts/`:
+
+| Script            | What it does                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `npm run build`   | `next build`, then bundles the two processes and stages the server in `dist/`                           |
+| `npm run package` | `build`, then electron-builder packages it: `release/linux-unpacked` on Linux, the installer on Windows |
+| `npm run flatpak` | Linux only: `package`, then wraps the app with `flatpak/io.github.alvfdz.Nutria.yml`                    |
+
+Two things must never ship, and the build refuses to go on when it finds
+either in the packaged app (`scripts/after-pack.mjs`):
+
+- **`.env` files.** Next.js copies the checkout's into its standalone output;
+  a self-hosting `.env` holds real secrets.
+- **Links that lead outside the app.** Next.js links some packages inside its
+  output. The build copies what they point to instead, since a link can end
+  up pointing into your checkout and a Windows installer can't hold one.
+
+`.gitattributes` keeps the migrations on Unix line endings on every system.
+A migration is identified by a checksum of its file, so the same migration
+checked out with Windows line endings would count as a different one.
 
 ### Releases
 
 Publishing a GitHub release runs `.github/workflows/desktop-release.yml`,
-which builds the bundle with the same script and attaches it to the release.
-The app takes its version from the root `package.json`, and the workflow
-fails when the release tag doesn't match it. To try the build on a branch,
-run the workflow by hand: the bundle is then an artifact of the run.
+which builds the Flatpak and the Windows installer with the same scripts and
+attaches them to the release. The app takes its version from the root
+`package.json`, and the workflow fails when the release tag doesn't match
+it. To try the builds on a branch, run the workflow by hand: the files are
+then artifacts of the run.
 
 Bump the runtime in the manifest (`runtime-version` and `base-version`) by
 hand when Flathub announces the current one's end of life.

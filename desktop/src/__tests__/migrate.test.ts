@@ -53,7 +53,7 @@ describe("readMigrations", () => {
   });
 
   afterEach(async () => {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 10 });
   });
 
   it("reads the folders in name order and skips other files", async () => {
@@ -98,6 +98,14 @@ describe("migrate, with the repository's migrations", () => {
     expect(rows.map((row) => row.table_name)).toEqual(
       expect.arrayContaining(["users", "ingredients", "meals", "plan_meals"]),
     );
+  });
+
+  it("reads them with the same line endings on every system", async () => {
+    // A checksum is taken of the file's bytes: `.gitattributes` keeps Git
+    // from checking the migrations out with Windows line endings.
+    for (const { name, sql } of await readMigrations(MIGRATIONS_DIR)) {
+      expect(sql, name).not.toContain("\r");
+    }
   });
 
   it("records each migration the way the Prisma CLI does", async () => {

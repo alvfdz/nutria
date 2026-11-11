@@ -1,22 +1,31 @@
-# Builds the desktop app's Flatpak with the same script contributors run
-# locally (`npm run desktop:flatpak`) and attaches it to the GitHub release
-# that triggered the run, where the documentation tells people to download
-# it from.
+# Builds the desktop app with the same scripts contributors run locally and
+# attaches the results to the GitHub release that triggered the run, where
+# the documentation tells people to download them from:
 #
-# Run it by hand ("Run workflow") to try the build on any branch: the bundle
-# is then only kept as an artifact of the run.
+# - the Flatpak, for Linux (`npm run desktop:flatpak`);
+# - the installer, for Windows (`npm run desktop:package`).
+#
+# Run it by hand ("Run workflow") to try the builds on any branch: the files
+# are then only kept as artifacts of the run.
+#
+# A pull request that touches the desktop app builds the Windows installer
+# too. The Flatpak can be built on a contributor's machine; the installer
+# can only be built on Windows, so this is where a change is tried there.
 name: Desktop release
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+  pull_request:
+    paths: ["desktop/**", ".github/workflows/desktop-release.yml"]
 
 permissions:
   contents: read
 
 jobs:
   flatpak:
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       # Uploading a file to the release.
@@ -68,3 +77,54 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$TAG" desktop/release/*.flatpak --clobber
+
+  # Unsigned: Windows warns on the first launch that it doesn't know the
+  # publisher. The documentation tells people how to go on.
+  windows:
+    runs-on: windows-latest
+    permissions:
+      # Uploading a file to the release.
+      contents: write
+    # A newer push to the same PR cancels its build still in progress.
+    concurrency:
+      group: desktop-windows-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: Check the tag matches package.json
+        if: ${{ github.event_name == 'release' }}
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::package.json is at $version but the release tag is $TAG"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      # Builds the app and packages it into the installer.
+      - run: npm run desktop:package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nutria-windows
+          path: desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 14
+      - name: Attach the installer to the release
+        if: ${{ github.event_name == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" desktop/release/*.exe --clobber

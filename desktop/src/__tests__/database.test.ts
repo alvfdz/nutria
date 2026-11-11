@@ -6,12 +6,20 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { startDatabase, type EmbeddedDatabase } from "../database.ts";
+import {
+  namedPipeEndpoint,
+  startDatabase,
+  unixSocketEndpoint,
+  type EmbeddedDatabase,
+} from "../database.ts";
 import { MigrationError } from "../migrate.ts";
 
 const MIGRATIONS_DIR = fileURLToPath(
   new URL("../../../prisma/migrations", import.meta.url),
 );
+
+/** Windows has no Unix sockets in Node.js; the database uses a pipe there. */
+const onWindows = process.platform === "win32";
 
 let root: string;
 let database: EmbeddedDatabase | undefined;
@@ -50,7 +58,40 @@ afterEach(async () => {
   pool = undefined;
   await database?.stop();
   database = undefined;
-  await rm(root, { recursive: true, force: true });
+  // Windows releases a closed file's lock a moment late.
+  await rm(root, { recursive: true, force: true, maxRetries: 10 });
+});
+
+describe("unixSocketEndpoint", () => {
+  it.skipIf(onWindows)(
+    "makes a folder only its owner can enter, and removes it",
+    async () => {
+      const endpoint = await unixSocketEndpoint(path.join(root, "run"));
+
+      expect(endpoint.listenPath).toBe(
+        path.join(endpoint.host, ".s.PGSQL.5432"),
+      );
+      expect(path.dirname(endpoint.host)).toBe(path.join(root, "run"));
+      expect((await stat(endpoint.host)).mode & 0o777).toBe(0o700);
+
+      await endpoint.remove();
+
+      expect(await readdir(path.join(root, "run"))).toEqual([]);
+    },
+  );
+});
+
+describe("namedPipeEndpoint", () => {
+  it("listens on a pipe and gives the driver its name with forward slashes", async () => {
+    const endpoint = namedPipeEndpoint("nutria-test");
+
+    expect(endpoint.listenPath).toBe(
+      String.raw`\\.\pipe\nutria-test\.s.PGSQL.5432`,
+    );
+    // The driver appends `/.s.PGSQL.5432` to a host starting with `/`.
+    expect(endpoint.host).toBe("//./pipe/nutria-test");
+    await expect(endpoint.remove()).resolves.toBeUndefined();
+  });
 });
 
 describe("startDatabase", () => {
@@ -63,7 +104,7 @@ describe("startDatabase", () => {
     );
   });
 
-  it("serves the app's driver over a socket only its owner can reach", async () => {
+  it("serves the app's driver over a socket, never a TCP port", async () => {
     const { url } = await start();
 
     const { rows } = await connect(url).query(
@@ -71,11 +112,24 @@ describe("startDatabase", () => {
     );
     expect(rows).toEqual([{ n: 0 }]);
 
-    const [socketDir] = await readdir(path.join(root, "run"));
-    const { mode } = await stat(path.join(root, "run", socketDir));
-    expect(mode & 0o777).toBe(0o700);
-    expect(url).not.toMatch(/:\d+\//);
+    const { hostname, port, searchParams } = new URL(url);
+    expect(port).toBe("");
+    expect(hostname).toBe("localhost");
+    expect(searchParams.get("host")).toMatch(
+      onWindows ? /^\/\/\.\/pipe\/nutria-/ : /^\//,
+    );
   });
+
+  it.skipIf(onWindows)(
+    "keeps its socket in a folder only its owner can enter",
+    async () => {
+      await start();
+
+      const [socketDir] = await readdir(path.join(root, "run"));
+      const { mode } = await stat(path.join(root, "run", socketDir));
+      expect(mode & 0o777).toBe(0o700);
+    },
+  );
 
   it("answers a pool's concurrent connections", async () => {
     const { url } = await start();
@@ -125,7 +179,7 @@ describe("startDatabase", () => {
     expect(rows).toEqual([{ email: "owner@example.com" }]);
   });
 
-  it("removes its socket folder when stopped", async () => {
+  it.skipIf(onWindows)("removes its socket folder when stopped", async () => {
     const running = await start();
 
     await running.stop();

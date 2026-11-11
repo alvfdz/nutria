@@ -60,16 +60,22 @@ These aren't included in this repository; Nutria fetches their data at runtime.
 
 ## Desktop app
 
-These aren't included in this repository. The desktop app's bundle (the Flatpak attached to each release) redistributes them in built form, next to Nutria and its npm dependencies.
+These aren't included in this repository. The desktop app's bundles (the Flatpak and the Windows installer attached to each release) redistribute them in built form, next to Nutria and its npm dependencies.
 
 ### Electron and Chromium
 
 - **Source:** <https://github.com/electron/electron>
 - **Used for:** the app's window and the runtime its server runs on
-- **License:** MIT (Electron); Chromium and the components it bundles keep their own licenses. The bundle carries both texts, as `LICENSE.electron.txt` and `LICENSES.chromium.html`.
+- **License:** MIT (Electron); Chromium and the components it bundles keep their own licenses, FFmpeg among them, which Electron ships as a separate library under the GNU LGPL. The bundle carries the texts, as `LICENSE.electron.txt` and `LICENSES.chromium.html`.
 
 ### PGlite
 
 - **Source:** <https://github.com/electric-sql/pglite>
 - **Used for:** the desktop app's embedded PostgreSQL database
 - **License:** [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); the PostgreSQL it is built from is under the [PostgreSQL License](https://www.postgresql.org/about/licence/)
+
+### NSIS
+
+- **Source:** <https://nsis.sourceforge.io>
+- **Used for:** the Windows installer, which is an NSIS program built by electron-builder. Only the installer contains it, not the installed app.
+- **License:** [zlib/libpng](https://nsis.sourceforge.io/License). The installer unpacks the app with the 7-Zip plugin, from [7-Zip](https://www.7-zip.org), under the GNU LGPL.
