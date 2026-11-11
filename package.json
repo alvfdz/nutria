@@ -23,6 +23,7 @@
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "desktop:start": "npm --prefix desktop start",
+    "desktop:package": "npm --prefix desktop run package",
     "desktop:flatpak": "npm --prefix desktop run flatpak",
     "auth:reset-password": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/reset-password.ts",
     "postinstall": "prisma generate"

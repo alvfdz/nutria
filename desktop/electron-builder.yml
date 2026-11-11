@@ -1,7 +1,6 @@
-# Packages the build in `dist/` (see `scripts/build.mjs`) into an unpacked
-# Electron app, `release/linux-unpacked`. The Flatpak is made from that
-# folder by `scripts/flatpak.mjs`; installers for other systems would be
-# further targets here.
+# Packages the build in `dist/` (see `scripts/build.mjs`) for the system
+# `scripts/package.mjs` runs on: an unpacked app on Linux, which
+# `scripts/flatpak.mjs` wraps in a Flatpak, and an installer on Windows.
 appId: io.github.alvfdz.Nutria
 productName: Nutria
 executableName: nutria
@@ -17,13 +16,26 @@ files:
   - dist/server.mjs
   - package.json
 
-# No archive: PGlite reads its WebAssembly files from disk. Nutria's server
-# and migrations are not listed here: `scripts/package.mjs` copies them next
-# to the app itself, because electron-builder leaves `node_modules` and
-# dot-folders out of `extraResources`, and the server needs both.
+# No archive: PGlite reads its WebAssembly files from disk.
 asar: false
 # Nothing here is a native module.
 npmRebuild: false
 
+# Adds Nutria's server and migrations next to the app, and checks that
+# nothing machine-specific is shipped.
+afterPack: ./scripts/after-pack.mjs
+
 linux:
   target: dir
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  # electron-builder turns it into the `.ico` Windows wants.
+  icon: icons/icon.png
+
+# A one-click installer for the current user: no questions and no
+# administrator rights. Uninstalling leaves the data folder in place.
+nsis:
+  artifactName: nutria-${version}-${arch}-setup.${ext}

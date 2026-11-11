@@ -38,9 +38,12 @@ async function findEnvFiles(dir) {
 }
 
 if (!process.argv.includes("--skip-next")) {
-  const { status } = spawnSync("npm", ["run", "build"], {
+  // Through a shell, where `npm` is found on every system (it is a `.cmd`
+  // file on Windows, which can't be started directly).
+  const { status } = spawnSync("npm run build", {
     cwd: root,
     stdio: "inherit",
+    shell: true,
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
   });
   if (status !== 0) process.exit(status ?? 1);
@@ -71,12 +74,14 @@ await build({
 });
 
 // The checkout's `.env` files hold local secrets: they must never ship.
-// `verbatimSymlinks` keeps the standalone server's links relative (Next.js
-// links its hashed package names to `node_modules`); Node would otherwise
-// rewrite them to absolute paths that only exist on the build machine.
+//
+// `dereference` copies what a link points to instead of the link. Next.js
+// links the hashed package names its server asks for (`.next/node_modules`)
+// to `node_modules`, and links don't travel: copied as they are they can end
+// up pointing into this checkout, and a Windows installer can't hold them.
 await cp(standalone, path.join(dist, "server"), {
   recursive: true,
-  verbatimSymlinks: true,
+  dereference: true,
   filter: (source) => !isEnvFile(source),
 });
 await cp(

@@ -20,7 +20,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
+  await rm(dir, { recursive: true, force: true, maxRetries: 10 });
 });
 
 /** Probes with every port free, handing out `next` when asked for one. */
@@ -51,12 +51,16 @@ describe("loadSettings", () => {
     expect((await stat(path.join(nested, SETTINGS_FILE))).isFile()).toBe(true);
   });
 
-  it("keeps the file readable by its owner only", async () => {
-    await loadSettings(dir, probes());
+  // Windows has no file modes: the data folder is in the user's own profile.
+  it.skipIf(process.platform === "win32")(
+    "keeps the file readable by its owner only",
+    async () => {
+      await loadSettings(dir, probes());
 
-    const { mode } = await stat(path.join(dir, SETTINGS_FILE));
-    expect(mode & 0o777).toBe(0o600);
-  });
+      const { mode } = await stat(path.join(dir, SETTINGS_FILE));
+      expect(mode & 0o777).toBe(0o600);
+    },
+  );
 
   it("returns the same secret and port on later launches", async () => {
     const first = await loadSettings(dir, probes(4100));

@@ -33,7 +33,7 @@ A user can plan an entire day of eating—matching their target calories and mac
 
 - **Single-Tenant:** One owner account per instance. Sign-up closes once the owner exists; data is still scoped per user so multi-user remains possible later.
 - **Open Source & Self-Hostable:** Anyone can run their own instance with a single compose file.
-- **Desktop App as a Complement:** For people who can't self-host, the same app ships as a desktop program (a Linux Flatpak first). It is a second way to run Nutria, with less support. Self-hosting stays the primary one, and the app never depends on the desktop shell.
+- **Desktop App as a Complement:** For people who can't self-host, the same app ships as a desktop program (a Linux Flatpak and a Windows installer; macOS later). It is a second way to run Nutria, with less support. Self-hosting stays the primary one, and the app never depends on the desktop shell.
 - **Text Search Over External Data:** Common foods come from Open Food Facts via text search, so users rarely type macros by hand.
 
 ---
@@ -71,7 +71,7 @@ A user can plan an entire day of eating—matching their target calories and mac
   - `compose.dev.yaml`: PostgreSQL only, for `npm run dev` on the host.
 - **Runtime:** OCI-compatible images, so rootless Podman works without a Docker daemon.
 - **Services:** Single Next.js app (frontend + backend) and a PostgreSQL database.
-- **Desktop App (Complementary):** `desktop/` is a separate package that wraps the same standalone server in Electron: a background process runs the embedded database and the server on `127.0.0.1`, and a window shows it. Authentication stays on. It is packaged as a Flatpak, built by one script and attached to each GitHub release. No auto-update, signing or app-store listing.
+- **Desktop App (Complementary):** `desktop/` is a separate package that wraps the same standalone server in Electron: a background process runs the embedded database and the server on `127.0.0.1`, and a window shows it. Authentication stays on. It is packaged as a Flatpak for Linux and an unsigned installer for Windows, each built by one script and attached to each GitHub release. No auto-update, signing or app-store listing.
 
 ### 5. Quality
 
