@@ -71,6 +71,25 @@ updates:
       docs:
         patterns: ["*"]
 
+  # The desktop app (desktop/), a package of its own. Its `pg`, `typescript`
+  # and `vitest` are only used by its checks, and follow the root's versions.
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Madrid
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      desktop:
+        patterns: ["*"]
+
   # The actions the workflows in .github/workflows use.
   - package-ecosystem: github-actions
     directory: /

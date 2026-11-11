@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     ".agents/**",
     // The documentation site is its own Astro project, with its own build.
     "docs/**",
+    // The desktop app is its own package, with its own build and checks.
+    "desktop/**",
   ]),
 ]);
 

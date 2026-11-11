@@ -33,6 +33,7 @@ meal planner, free and open source.
 
 **[Documentation](https://alvfdz.github.io/nutria/)**:
 [deploy it](https://alvfdz.github.io/nutria/deployment/self-hosting/) ·
+[desktop app](https://alvfdz.github.io/nutria/desktop/linux/) ·
 [user guide](https://alvfdz.github.io/nutria/guide/first-run/)
 
 ## Quick start
@@ -51,10 +52,15 @@ Then open [http://localhost:3000](http://localhost:3000). The
 [self-hosting guide](https://alvfdz.github.io/nutria/deployment/self-hosting/)
 explains each setting, reverse proxies and updates.
 
+No server? Nutria also comes as a
+[desktop app for Linux](https://alvfdz.github.io/nutria/desktop/linux/), with
+nothing to configure. Self-hosting remains the main, best-supported way to
+run it.
+
 ## Contributing
 
 Built with Next.js, TypeScript, Tailwind CSS, shadcn/ui and PostgreSQL via
-Prisma. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers the development setup and
+Prisma; the desktop app wraps the same server in Electron. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers the development setup and
 workflow, and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) what to expect from
 a hobby project. [`docs/vision.md`](docs/vision.md) sets the product direction, and
 [`docs/design-system.md`](docs/design-system.md) sets the look of every screen.

@@ -1,0 +1,57 @@
+# Wraps the packaged app (`release/linux-unpacked`, from `npm run package`)
+# in a Flatpak. Built by `scripts/flatpak.mjs`, which also writes the
+# AppStream file this manifest installs.
+#
+# Nothing is compiled here, so the build needs no network: the Electron base
+# app supplies the libraries Chromium needs and `zypak`, which lets
+# Chromium's sandbox work inside Flatpak's.
+id: io.github.alvfdz.Nutria
+runtime: org.freedesktop.Platform
+runtime-version: "26.08"
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: "26.08"
+command: nutria
+# The branch a bundle installs as; "master" otherwise.
+default-branch: stable
+separate-locales: false
+
+finish-args:
+  # A window, on Wayland or X11, with GPU rendering.
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Food search (Open Food Facts) and its product pictures.
+  - --share=network
+  # No access to the user's files: the app keeps its data in its own folder,
+  # ~/.var/app/io.github.alvfdz.Nutria.
+
+modules:
+  - name: nutria
+    buildsystem: simple
+    # The files are release binaries already: copy them as they are.
+    build-options:
+      strip: false
+      no-debuginfo: true
+    build-commands:
+      - mkdir -p /app/nutria
+      - cp -a app/. /app/nutria/
+      - install -Dm755 nutria.sh /app/bin/nutria
+      - install -Dm644 io.github.alvfdz.Nutria.desktop -t /app/share/applications
+      - install -Dm644 io.github.alvfdz.Nutria.metainfo.xml -t /app/share/metainfo
+      - install -Dm644 icon.svg /app/share/icons/hicolor/scalable/apps/io.github.alvfdz.Nutria.svg
+    sources:
+      - type: dir
+        path: ../release/linux-unpacked
+        dest: app
+      - type: file
+        path: nutria.sh
+      - type: file
+        path: io.github.alvfdz.Nutria.desktop
+      # Generated from `io.github.alvfdz.Nutria.metainfo.xml.in`.
+      - type: file
+        path: ../release/io.github.alvfdz.Nutria.metainfo.xml
+      # The app's own icon, the one the browser tab shows when self-hosted.
+      - type: file
+        path: ../../src/app/icon.svg

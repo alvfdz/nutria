@@ -13,3 +13,7 @@ docs/node_modules
 docs/dist
 docs/.astro
 docs/package-lock.json
+desktop/node_modules
+desktop/dist
+desktop/release
+desktop/package-lock.json

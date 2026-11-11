@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  What software centers show for Nutria. `scripts/flatpak.mjs` fills in
+  @VERSION@ and @DATE@ from the version being built.
+-->
+<component type="desktop-application">
+  <id>io.github.alvfdz.Nutria</id>
+  <name>Nutria</name>
+  <summary>Plan what you eat, not just log it</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.alvfdz">
+    <name>Nutria contributors</name>
+  </developer>
+  <description>
+    <p>
+      Nutria is a macro tracker and meal planner, free and open source. Plan
+      your meals ahead and see what is left of your budget before you eat.
+    </p>
+    <ul>
+      <li>Set a daily calorie target and a protein, carbs and fat split, divided across your meals</li>
+      <li>Build a library of ingredients, by hand or imported from Open Food Facts, and combine them into reusable meals</li>
+      <li>Put meals on a weekly calendar and see each slot's budget</li>
+      <li>Tick off what you ate today and swap what changed</li>
+    </ul>
+    <p>
+      Everything is stored on this computer. Food search results come from
+      Open Food Facts and need an internet connection.
+    </p>
+    <p>
+      Nutria is a planning tool, not medical advice. If you manage your diet
+      for a health condition, follow your doctor or dietitian.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.alvfdz.Nutria.desktop</launchable>
+  <url type="homepage">https://alvfdz.github.io/nutria/</url>
+  <url type="help">https://alvfdz.github.io/nutria/desktop/linux/</url>
+  <url type="bugtracker">https://github.com/alvfdz/nutria/issues</url>
+  <url type="vcs-browser">https://github.com/alvfdz/nutria</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The day's meals and what is left of the budget</caption>
+      <image>https://raw.githubusercontent.com/alvfdz/nutria/main/docs/src/assets/screenshots/today.png</image>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#a7f3d0</color>
+    <color type="primary" scheme_preference="dark">#065f46</color>
+  </branding>
+  <content_rating type="oars-1.1" />
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <releases>
+    <release version="@VERSION@" date="@DATE@">
+      <url type="details">https://github.com/alvfdz/nutria/releases/tag/v@VERSION@</url>
+    </release>
+  </releases>
+</component>
