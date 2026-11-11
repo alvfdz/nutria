@@ -69,3 +69,9 @@ next-env.d.ts
 /docs/node_modules
 /docs/dist
 /docs/.astro
+
+# desktop app (desktop/): `dist` is built by `npm run build` there, `release`
+# by `npm run package` and `npm run flatpak`
+/desktop/node_modules
+/desktop/dist
+/desktop/release

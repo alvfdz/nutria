@@ -7,6 +7,10 @@ sidebar:
 
 Nutria runs as two containers, the app and PostgreSQL, from the `compose.yaml` in the repository.
 
+:::tip[No server?]
+If you only want Nutria on your own computer, the [desktop app](/nutria/desktop/linux/) needs no Docker and no configuration.
+:::
+
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-started/get-docker/) with Docker Compose.

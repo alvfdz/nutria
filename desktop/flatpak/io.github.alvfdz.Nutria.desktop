@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Nutria
+GenericName=Meal planner
+Comment=Plan what you eat, not just log it
+Exec=nutria
+Icon=io.github.alvfdz.Nutria
+Terminal=false
+Categories=Utility;
+Keywords=nutrition;diet;macros;calories;meal;planner;food;
+StartupWMClass=Nutria
