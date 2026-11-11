@@ -126,7 +126,8 @@ push to and pull request against `main`. Each run's summary page
 shows the coverage totals, and the full HTML report is attached as the
 `coverage` artifact for 14 days. A second job runs the
 [desktop app](#desktop-app)'s own typecheck and tests. A PR that touches
-`docs/` also builds the documentation site, which publishes from `main` only.
+`docs/` also builds the documentation site, which publishes from releases
+only.
 
 Work is trunk-based: branch from `main` and open a pull request back into it.
 `main` only changes through pull requests. A PR merges once CI passes and a
@@ -215,8 +216,14 @@ hand when Flathub announces the current one's end of life.
 ## Documentation site
 
 The site in `docs/` is built with Astro Starlight and published to GitHub
-Pages on every push to `main` that touches `docs/`
-(`.github/workflows/docs.yml`). To preview it:
+Pages from the latest release, built from its tag
+(`.github/workflows/docs.yml`), so it always matches the version self-hosters
+run. It deploys when that release is published, or promoted from a
+pre-release; other releases, such as a patch on an older line, don't replace
+it. Docs changes merged to `main` are built there but go live with the next
+release, so an urgent fix goes out as a patch release. To redeploy the latest
+release's docs (after a failed deployment, say), run the workflow by hand on
+its tag. To preview it:
 
 ```bash
 cd docs

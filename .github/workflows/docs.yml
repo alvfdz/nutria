@@ -2,12 +2,25 @@
 # (https://alvfdz.github.io/nutria/). Needs Settings → Pages → Source set to
 # "GitHub Actions".
 #
-# Only `main` publishes. Settings → Environments → github-pages must allow
-# deployments from `main`. Pull requests that touch the docs only
-# build them, so a broken page fails the PR instead of the deployment.
+# The site documents the latest release, the version self-hosters are told to
+# run, so it deploys only from the tag of the repository's latest release:
+# when that release is published (or promoted from a pre-release), or by hand
+# ("Run workflow") on its tag to redeploy it. Any other release or tag, such
+# as a patch on an older line, builds with a warning and doesn't deploy.
+# Settings → Environments → github-pages must allow deployments from tags
+# matching `v*`. Docs changes on `main` go live with the next release.
+#
+# Releases created with the default GITHUB_TOKEN (by another workflow, say)
+# don't trigger this workflow; run it by hand on their tag, or create them
+# with a different token.
+#
+# Pushes to `main` and pull requests that touch the docs only build them, so
+# a broken page fails there instead of at release time.
 name: Docs
 
 on:
+  release:
+    types: [released]
   push:
     branches: [main]
     paths: ["docs/**", ".github/workflows/docs.yml"]
@@ -26,7 +39,26 @@ jobs:
     concurrency:
       group: docs-build-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    outputs:
+      deploy: ${{ steps.release.outputs.deploy }}
     steps:
+      - id: release
+        name: Check this is the latest release
+        if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "::notice::$GITHUB_REF_NAME is not a release tag, so the docs are only built."
+            exit 0
+          fi
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)
+          if [ "$GITHUB_REF_NAME" = "$latest" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::$GITHUB_REF_NAME is not the latest release (${latest:-none}), so its docs are built but not deployed."
+          fi
+      # Checks out the release's tag on a release, the chosen ref by hand.
       - uses: actions/checkout@v7
       - uses: withastro/action@v6
         with:
@@ -34,12 +66,12 @@ jobs:
 
   deploy:
     needs: build
-    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    if: ${{ needs.build.outputs.deploy == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
       id-token: write
-    # One deployment at a time; a newer push replaces a queued one.
+    # One deployment at a time; a newer one replaces a queued one.
     concurrency:
       group: pages
       cancel-in-progress: false

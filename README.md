@@ -11,7 +11,7 @@
   <a href="https://github.com/alvfdz/nutria/releases/latest"><img src="https://img.shields.io/github/v/release/alvfdz/nutria" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/alvfdz/nutria" alt="License: MIT"></a>
   <a href="https://github.com/alvfdz/nutria/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/alvfdz/nutria/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="https://alvfdz.github.io/nutria/"><img src="https://github.com/alvfdz/nutria/actions/workflows/docs.yml/badge.svg" alt="Docs"></a>
+  <a href="https://alvfdz.github.io/nutria/"><img src="https://github.com/alvfdz/nutria/actions/workflows/docs.yml/badge.svg?event=release" alt="Docs"></a>
 </p>
 
 Plan what you eat, not just log it. Nutria is a self-hosted macro tracker and
