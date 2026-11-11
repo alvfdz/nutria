@@ -1,5 +1,6 @@
 # Runs the same checks as "Before you open a pull request" in CONTRIBUTING.md,
-# plus coverage, on every push to and pull request against `main`. The suite
+# plus coverage, on every push to `main` and on every pull request, whatever
+# branch it targets, so a PR stacked on another PR is checked too. The suite
 # mocks the Prisma client, so no database is needed. The desktop app
 # (desktop/) is its own package and gets its own job.
 name: CI
@@ -8,7 +9,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -70,11 +70,18 @@ jobs:
           path: coverage/
           retention-days: 14
 
-  # The desktop app's own checks. Its tests run the repository's migrations
-  # on the embedded database (PGlite), so they need no service either. The
-  # app itself is only built for a release: see `desktop-release.yml`.
+  # The desktop app's own checks, on each system it is packaged for: the
+  # database is reached over a Unix socket on Linux and a named pipe on
+  # Windows. Its tests run the repository's migrations on the embedded
+  # database (PGlite), so they need no service either. The app itself is
+  # built by `desktop-release.yml`.
   desktop:
-    runs-on: ubuntu-latest
+    strategy:
+      # One system failing says nothing about the other: let both finish.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: desktop

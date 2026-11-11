@@ -1,0 +1,5 @@
+# Prisma and the desktop app's migration runner (desktop/src/migrate.ts)
+# identify an applied migration by a checksum of its file, byte for byte.
+# Git would otherwise check these out with Windows line endings on Windows,
+# and the same migration would get two checksums.
+prisma/migrations/**/migration.sql text eol=lf
