@@ -272,10 +272,11 @@ checked out with Windows line endings would count as a different one.
 
 Publishing a GitHub release runs `.github/workflows/desktop-release.yml`,
 which builds the Flatpak, the Windows installer and the macOS disk images
-with the same scripts and attaches them to the release. The app takes its version from the root
-`package.json`, and the workflow fails when the release tag doesn't match
-it. A pull request that touches `desktop/` builds them too and keeps them as
-the `nutria-flatpak` and `nutria-windows` artifacts of the run, so you can
+with the same scripts and attaches them to the release. The app takes its
+version from the root `package.json`, and the workflow fails when the
+release tag doesn't match it. A pull request that touches `desktop/` builds
+them too and keeps them as the `nutria-flatpak`, `nutria-windows`,
+`nutria-macos-arm64` and `nutria-macos-x64` artifacts of the run, so you can
 try a change on a system you don't have. To try the builds on any other
 branch, run the workflow by hand.
 
