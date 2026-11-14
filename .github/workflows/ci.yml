@@ -71,16 +71,16 @@ jobs:
           retention-days: 14
 
   # The desktop app's own checks, on each system it is packaged for: the
-  # database is reached over a Unix socket on Linux and a named pipe on
-  # Windows. Its tests run the repository's migrations on the embedded
+  # database is reached over a Unix socket on Linux and macOS and a named
+  # pipe on Windows. Its tests run the repository's migrations on the embedded
   # database (PGlite), so they need no service either. The app itself is
   # built by `desktop-release.yml`.
   desktop:
     strategy:
-      # One system failing says nothing about the other: let both finish.
+      # One system failing says nothing about the others: let them all finish.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:

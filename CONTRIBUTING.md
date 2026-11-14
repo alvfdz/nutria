@@ -126,8 +126,8 @@ CI (`.github/workflows/ci.yml`) runs the same checks, with coverage, on every
 push to and pull request against `main`. Each run's summary page
 shows the coverage totals, and the full HTML report is attached as the
 `coverage` artifact for 14 days. A second job runs the
-[desktop app](#desktop-app)'s own typecheck and tests, on Linux and on
-Windows. A PR that touches
+[desktop app](#desktop-app)'s own typecheck and tests, on Linux, Windows
+and macOS. A PR that touches
 `docs/` also builds the documentation site, which publishes from releases
 only.
 
@@ -169,7 +169,7 @@ npm run typecheck && npm test
 
 `npm start` runs `next build` first; `node scripts/build.mjs --skip-next`
 reuses the last one. The data of an app started this way lives in
-`~/.config/Nutria`; pass `-- --user-data-dir=<folder>` to `npm start` to use
+`~/.config/Nutria` (`~/Library/Application Support/Nutria` on macOS); pass `-- --user-data-dir=<folder>` to `npm start` to use
 another folder. The tests run the real migrations on PGlite, so a migration
 PostgreSQL accepts but PGlite doesn't fails there.
 
@@ -211,18 +211,49 @@ compiled for the system `next build` ran on. If you have no Windows machine,
 open a pull request: one that touches `desktop/` builds the installer in CI
 and keeps it as the `nutria-windows` artifact of the run.
 
+### Building the macOS disk image
+
+On a Mac, from the repository root:
+
+```bash
+npm run desktop:package
+```
+
+It makes `desktop/release/nutria-<version>-<arch>.dmg`, where `<arch>` is
+the processor of the Mac it was built on: `arm64` (Apple) or `x64` (Intel).
+The installed app keeps its data in `~/Library/Application Support/Nutria`.
+
+The app is signed ad hoc: with a signature that has no certificate behind
+it (`identity: "-"` in `electron-builder.yml`). A Mac with an Apple
+processor calls an app with no valid signature "damaged" and offers no way
+to open it, so the script checks the signature with `codesign` and fails
+without one. The signature costs nothing and needs no secret, but macOS
+still warns on the first launch that it can't check the app; the
+[documentation site](docs/src/content/docs/desktop/macos.md) tells people
+how to go on. Removing the warning takes an Apple Developer ID certificate
+and notarization, which the project doesn't have.
+
+Like the installer, the disk image can only be built on the system it is
+for, and for the processor it is built on. If you have no Mac, open a pull
+request: one that touches `desktop/` builds both disk images in CI and
+keeps them as the `nutria-macos-arm64` and `nutria-macos-x64` artifacts of
+the run.
+
 The icon, `desktop/icons/icon.png`, is `src/app/icon.svg` rendered at
-512 × 512. Render it again when the icon changes.
+512 × 512. macOS has its own, `desktop/icons/icon-mac.png`: the same acorn
+on a dark tile with the margin and rounded shape every icon has there, since
+macOS adds neither itself. It is `desktop/icons/icon-mac.svg` rendered at
+1024 × 1024. Render both again when the icon changes.
 
 ### How a build is put together
 
 Each step is a script in `desktop/scripts/`:
 
-| Script            | What it does                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| `npm run build`   | `next build`, then bundles the two processes and stages the server in `dist/`                           |
-| `npm run package` | `build`, then electron-builder packages it: `release/linux-unpacked` on Linux, the installer on Windows |
-| `npm run flatpak` | Linux only: `package`, then wraps the app with `flatpak/io.github.alvfdz.Nutria.yml`                    |
+| Script            | What it does                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run build`   | `next build`, then bundles the two processes and stages the server in `dist/`                                                    |
+| `npm run package` | `build`, then electron-builder packages it: `release/linux-unpacked` on Linux, the installer on Windows, the disk image on macOS |
+| `npm run flatpak` | Linux only: `package`, then wraps the app with `flatpak/io.github.alvfdz.Nutria.yml`                                             |
 
 Two things must never ship, and the build refuses to go on when it finds
 either in the packaged app (`scripts/after-pack.mjs`):
@@ -240,11 +271,12 @@ checked out with Windows line endings would count as a different one.
 ### Releases
 
 Publishing a GitHub release runs `.github/workflows/desktop-release.yml`,
-which builds the Flatpak and the Windows installer with the same scripts and
-attaches them to the release. The app takes its version from the root
-`package.json`, and the workflow fails when the release tag doesn't match
-it. A pull request that touches `desktop/` builds them too and keeps them as
-the `nutria-flatpak` and `nutria-windows` artifacts of the run, so you can
+which builds the Flatpak, the Windows installer and the macOS disk images
+with the same scripts and attaches them to the release. The app takes its
+version from the root `package.json`, and the workflow fails when the
+release tag doesn't match it. A pull request that touches `desktop/` builds
+them too and keeps them as the `nutria-flatpak`, `nutria-windows`,
+`nutria-macos-arm64` and `nutria-macos-x64` artifacts of the run, so you can
 try a change on a system you don't have. To try the builds on any other
 branch, run the workflow by hand.
 

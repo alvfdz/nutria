@@ -60,7 +60,7 @@ These aren't included in this repository; Nutria fetches their data at runtime.
 
 ## Desktop app
 
-These aren't included in this repository. The desktop app's bundles (the Flatpak and the Windows installer attached to each release) redistribute them in built form, next to Nutria and its npm dependencies.
+These aren't included in this repository. The desktop app's bundles (the Flatpak, the Windows installer and the macOS disk images attached to each release) redistribute them in built form, next to Nutria and its npm dependencies.
 
 ### Electron and Chromium
 
