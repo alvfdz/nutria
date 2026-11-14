@@ -177,6 +177,10 @@ jobs:
       - run: npm ci
       - run: npm ci
         working-directory: desktop
+      # Spotlight starts indexing a disk image as soon as it is mounted, and
+      # the build then can't eject it ("Resource busy").
+      - name: Turn off Spotlight indexing
+        run: sudo mdutil -a -i off
       # Builds the app, packages it into the disk image and checks the app's
       # signature.
       - run: npm run desktop:package
