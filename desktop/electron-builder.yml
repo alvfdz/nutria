@@ -10,11 +10,12 @@ copyright: Nutria contributors. MIT License.
 directories:
   output: release
 
-# The two bundled processes. The production dependencies (PGlite) are added
-# from `node_modules` automatically.
+# The two bundled processes and the new-password page. The production
+# dependencies (PGlite) are added from `node_modules` automatically.
 files:
   - dist/main.cjs
   - dist/server.mjs
+  - dist/password-window.html
   - package.json
 
 # No archive: PGlite reads its WebAssembly files from disk.

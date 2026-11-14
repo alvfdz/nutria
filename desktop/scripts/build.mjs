@@ -1,7 +1,8 @@
 /**
  * Builds everything the desktop app runs, into `desktop/dist`:
  *
- * - `main.cjs` and `server.mjs`, the two processes, bundled from `src/`;
+ * - `main.cjs` and `server.mjs`, the two processes, bundled from `src/`, and
+ *   `password-window.html`, the page `main.cjs` shows a new password in;
  * - `server/`, Nutria's standalone Next.js server with its static assets,
  *   laid out the way the container image lays it out;
  * - `migrations/`, a copy of `prisma/migrations`.
@@ -71,7 +72,18 @@ await build({
   entryPoints: [path.join(desktop, "src", "server.ts")],
   outfile: path.join(dist, "server.mjs"),
   format: "esm",
+  // Bundled CommonJS packages such as `pg` call `require` for Node.js's own
+  // modules, which an ES module doesn't have: give the bundle one.
+  banner: {
+    js: 'import { createRequire as __createRequire } from "node:module";\nconst require = __createRequire(import.meta.url);',
+  },
 });
+
+// The page the window process shows a new password in.
+await cp(
+  path.join(desktop, "src", "password-window.html"),
+  path.join(dist, "password-window.html"),
+);
 
 // The checkout's `.env` files hold local secrets: they must never ship.
 //

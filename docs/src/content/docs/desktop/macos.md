@@ -52,8 +52,8 @@ Nutria then asks you to create an account: see [First run](/nutria/guide/first-r
 
 The account stays on your computer, like everything else you enter. Nutria still asks for its password because other programs on the same computer can reach the app.
 
-:::caution[Keep your password safe]
-The desktop app can't reset a forgotten password yet. Use a password manager, or write it down somewhere safe.
+:::tip[Forgot your password?]
+In the **Nutria** menu at the top of the screen, choose **Reset password…**. See [Password reset](/nutria/deployment/password-reset/#desktop-app).
 :::
 
 Searching for foods needs an internet connection: the results come from [Open Food Facts](https://world.openfoodfacts.org). Everything else works offline.
@@ -91,5 +91,5 @@ Deleting that folder deletes every meal, ingredient and plan for good.
 The desktop app is the same Nutria, with less support than a self-hosted instance:
 
 - It runs on one computer, and only while the app is open.
-- It has no automatic updates and no password reset.
+- It has no automatic updates.
 - It is newer and less tested than the self-hosted setup.

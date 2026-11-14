@@ -5,15 +5,23 @@ import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { safeNextPath } from "@/lib/auth/redirect";
 import { getCurrentUser, hasAnyUser } from "@/lib/auth/session";
-import { CARD_CLASS, CARD_TITLE_CLASS } from "@/lib/design-system";
+import {
+  CARD_CLASS,
+  CARD_TITLE_CLASS,
+  INLINE_LINK_CLASS,
+} from "@/lib/design-system";
 
 export const metadata: Metadata = { title: "Sign in" };
+
+/** How to reset a forgotten password, for a server and for the desktop app. */
+const PASSWORD_RESET_DOCS =
+  "https://alvfdz.github.io/nutria/deployment/password-reset/";
 
 /**
  * Login screen. A fresh install with no account yet goes to `/setup`
  * instead, and an already signed-in visitor goes straight to `next`. Nutria
- * sends no email, so the screen points a locked-out owner at the server command
- * that resets the password.
+ * sends no email, so the screen points a locked-out owner at the guide to
+ * resetting the password, which covers both a server and the desktop app.
  */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next: rawNext } = await searchParams;
@@ -32,9 +40,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <CardContent className="grid gap-4">
         <LoginForm next={next} />
         <p className="text-muted-foreground type-caption text-balance">
-          Locked out? Run{" "}
-          <code className="font-mono whitespace-nowrap">reset-password</code> on
-          your server.
+          Forgot your password?{" "}
+          <a
+            href={PASSWORD_RESET_DOCS}
+            target="_blank"
+            rel="noreferrer"
+            className={INLINE_LINK_CLASS}
+          >
+            See how to reset it
+          </a>
+          .
         </p>
       </CardContent>
     </Card>

@@ -31,6 +31,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   CARD_TITLE_CLASS,
   ICON_STROKE,
+  INLINE_LINK_CLASS,
   OVERLAY_THEME_CLASS,
   THIN_SPACE,
 } from "@/lib/design-system";
@@ -469,10 +470,6 @@ function ImportButton({
   );
 }
 
-/** Inline link inside the dialog's data source credit. */
-const SOURCE_LINK_CLASS =
-  "text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 outline-none focus-visible:ring-3";
-
 /**
  * Dialog to search OpenFoodFacts on demand and import a chosen product as an
  * ingredient. The results scroll inside the dialog, and only the selected
@@ -766,7 +763,7 @@ export function FoodfactsImportDialog({
             href="https://world.openfoodfacts.org"
             target="_blank"
             rel="noreferrer"
-            className={SOURCE_LINK_CLASS}
+            className={INLINE_LINK_CLASS}
           >
             Open Food Facts
           </a>{" "}
@@ -775,7 +772,7 @@ export function FoodfactsImportDialog({
             href="https://world.openfoodfacts.org/terms-of-use"
             target="_blank"
             rel="noreferrer"
-            className={SOURCE_LINK_CLASS}
+            className={INLINE_LINK_CLASS}
           >
             ODbL and CC BY-SA licenses
           </a>

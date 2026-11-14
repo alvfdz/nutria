@@ -3,12 +3,18 @@ export type ServerMessage =
   /** The app answers on its port; the window can load it. */
   | { type: "ready" }
   /** Startup failed. `code` is a `MigrationErrorCode` when it has one. */
-  | { type: "error"; message: string; code?: string };
+  | { type: "error"; message: string; code?: string }
+  /** The owner's password was replaced with `password`. */
+  | { type: "password-reset"; email: string; password: string }
+  /** The password reset failed, for the reason in `message`. */
+  | { type: "password-reset-failed"; message: string };
 
 /** What the window process tells the server process. */
 export type WindowMessage =
   /** Close the database cleanly and exit. */
-  { type: "shutdown" };
+  | { type: "shutdown" }
+  /** Give the owner account a new, generated password. */
+  | { type: "reset-password" };
 
 /** Environment variables the window process starts the server process with. */
 export const ENV = {

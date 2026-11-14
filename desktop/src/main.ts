@@ -21,6 +21,9 @@ import {
 import { ENV, type ServerMessage, type WindowMessage } from "./messages.ts";
 import { loadSettings, LOOPBACK } from "./settings.ts";
 
+/** Width of the new-password window's page, in pixels. */
+const PASSWORD_WINDOW_WIDTH = 460;
+
 /** How long the server process gets to close the database on quit. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -43,6 +46,8 @@ if (process.platform !== "darwin") {
 
 let server: UtilityProcess | undefined;
 let window: BrowserWindow | undefined;
+let origin: string | undefined;
+let passwordWindow: BrowserWindow | undefined;
 let quitting = false;
 
 /**
@@ -84,8 +89,23 @@ function startServer(port: number, secret: string): Promise<void> {
     server = child;
 
     child.on("message", (message: ServerMessage) => {
-      if (message.type === "ready") resolve();
-      else reject(new Error(explain(message)));
+      switch (message.type) {
+        case "ready":
+          resolve();
+          break;
+        case "error":
+          reject(new Error(explain(message)));
+          break;
+        case "password-reset":
+          showNewPassword(message.email, message.password);
+          break;
+        case "password-reset-failed":
+          dialog.showErrorBox(
+            "Nutria couldn't reset the password",
+            message.message,
+          );
+          break;
+      }
     });
     child.once("exit", (code) => {
       server = undefined;
@@ -146,18 +166,127 @@ function createWindow(origin: string): void {
 }
 
 /**
- * The window's menu, hidden until Alt is pressed. It exists for its keyboard
- * shortcuts: copy and paste, reload, zoom and full screen. On macOS it is
- * the menu bar at the top of the screen, and starts with the menu every app
- * has there (About, Hide, Quit).
+ * Asks the owner to confirm, then has the server process give their account
+ * a new password. Running the app as the user who owns its data is the proof
+ * of ownership, so nothing else is asked.
+ *
+ * @returns Once the request is sent, or the owner cancelled.
+ */
+async function confirmPasswordReset(): Promise<void> {
+  if (!server) return;
+
+  const options = {
+    type: "warning",
+    buttons: ["Reset password", "Cancel"],
+    defaultId: 1,
+    cancelId: 1,
+    title: "Reset password",
+    message: "Reset your Nutria password?",
+    detail:
+      "Nutria will give your account a new password and sign you out. Your data stays as it is.",
+  } satisfies Electron.MessageBoxOptions;
+  const { response } = window
+    ? await dialog.showMessageBox(window, options)
+    : await dialog.showMessageBox(options);
+  if (response !== 0) return;
+
+  server?.postMessage({ type: "reset-password" } satisfies WindowMessage);
+}
+
+/**
+ * Shows the new password once, in a small window of the app's own, then
+ * returns the main window to the sign-in screen: the reset ended every
+ * session. A system dialog can't copy it on Wayland, where only a window the
+ * user just clicked in may set the clipboard.
+ *
+ * @param email The account's email.
+ * @param password Its new password.
+ */
+function showNewPassword(email: string, password: string): void {
+  passwordWindow?.close();
+
+  const child = new BrowserWindow({
+    parent: window,
+    modal: Boolean(window),
+    // The page's size, not the frame's; the height is fitted to it below.
+    useContentSize: true,
+    width: PASSWORD_WINDOW_WIDTH,
+    height: 280,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    title: "Your new password",
+    show: false,
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  passwordWindow = child;
+
+  // The page has no links: it never navigates or opens windows.
+  child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  child.webContents.on("will-navigate", (event) => event.preventDefault());
+
+  // Fit the height to the page, whose text wraps with the system's fonts.
+  child.once("ready-to-show", async () => {
+    try {
+      const height: number = await child.webContents.executeJavaScript(
+        "document.documentElement.scrollHeight",
+      );
+      child.setContentSize(PASSWORD_WINDOW_WIDTH, Math.ceil(height));
+    } finally {
+      child.show();
+    }
+  });
+  child.on("closed", () => {
+    passwordWindow = undefined;
+    if (window && origin) void window.loadURL(`${origin}/login`);
+  });
+
+  void child.loadFile(path.join(__dirname, "password-window.html"), {
+    query: { email, password },
+  });
+}
+
+/**
+ * The window's menu, hidden until Alt is pressed. It holds the password reset
+ * and the keyboard shortcuts: copy and paste, reload, zoom and full screen.
+ * On macOS it is the menu bar at the top of the screen, and starts with the
+ * menu every app has there (About, Hide, Quit).
  *
  * @returns The menu.
  */
 function buildMenu(): Menu {
+  const reset: Electron.MenuItemConstructorOptions = {
+    label: "Reset password…",
+    click: () => void confirmPasswordReset(),
+  };
+
   return Menu.buildFromTemplate([
     process.platform === "darwin"
-      ? { role: "appMenu" }
-      : { label: "Nutria", submenu: [{ role: "quit" }] },
+      ? {
+          label: app.name,
+          submenu: [
+            { role: "about" },
+            { type: "separator" },
+            reset,
+            { type: "separator" },
+            { role: "services" },
+            { type: "separator" },
+            { role: "hide" },
+            { role: "hideOthers" },
+            { role: "unhide" },
+            { type: "separator" },
+            { role: "quit" },
+          ],
+        }
+      : {
+          label: "Nutria",
+          submenu: [reset, { type: "separator" }, { role: "quit" }],
+        },
     { role: "editMenu" },
     {
       label: "View",
@@ -177,15 +306,21 @@ function buildMenu(): Menu {
 /** Loads the settings, starts the server and opens the window. */
 async function start(): Promise<void> {
   Menu.setApplicationMenu(buildMenu());
-  // The app asks for no camera, location or notification access.
+  // The app asks for no camera, location or notification access. Only the
+  // new-password window may write to the clipboard, for its Copy button.
   session.defaultSession.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => callback(false),
+    (webContents, permission, callback) =>
+      callback(
+        permission === "clipboard-sanitized-write" &&
+          webContents === passwordWindow?.webContents,
+      ),
   );
 
   try {
     const { port, secret } = await loadSettings(app.getPath("userData"));
     await startServer(port, secret);
-    createWindow(`http://${LOOPBACK}:${port}`);
+    origin = `http://${LOOPBACK}:${port}`;
+    createWindow(origin);
   } catch (error) {
     if (quitting) return;
     dialog.showErrorBox("Nutria couldn't start", (error as Error).message);
