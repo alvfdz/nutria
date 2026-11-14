@@ -123,8 +123,7 @@ npm run format && npm run lint && npm run typecheck && npm test
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks, with coverage, on every
-push to `main` and on every pull request, including one that targets another
-PR's branch. Each run's summary page
+push to and pull request against `main`. Each run's summary page
 shows the coverage totals, and the full HTML report is attached as the
 `coverage` artifact for 14 days. A second job runs the
 [desktop app](#desktop-app)'s own typecheck and tests, on Linux and on
