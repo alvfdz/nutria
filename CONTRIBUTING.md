@@ -207,8 +207,10 @@ through: a self-hosting `.env` in your checkout must never ship.
 Publishing a GitHub release runs `.github/workflows/desktop-release.yml`,
 which builds the bundle with the same script and attaches it to the release.
 The app takes its version from the root `package.json`, and the workflow
-fails when the release tag doesn't match it. To try the build on a branch,
-run the workflow by hand: the bundle is then an artifact of the run.
+fails when the release tag doesn't match it. A pull request that touches
+`desktop/` builds the bundle too and keeps it as the `nutria-flatpak`
+artifact of the run, so you can try a change without a Linux machine. To
+try the build on any other branch, run the workflow by hand.
 
 Bump the runtime in the manifest (`runtime-version` and `base-version`) by
 hand when Flathub announces the current one's end of life.

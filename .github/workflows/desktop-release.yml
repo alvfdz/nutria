@@ -5,12 +5,17 @@
 #
 # Run it by hand ("Run workflow") to try the build on any branch: the bundle
 # is then only kept as an artifact of the run.
+#
+# A pull request that touches the desktop app builds the bundle too, kept
+# the same way: not every contributor has a Linux machine to build it on.
 name: Desktop release
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+  pull_request:
+    paths: ["desktop/**", ".github/workflows/desktop-release.yml"]
 
 permissions:
   contents: read
@@ -21,6 +26,10 @@ jobs:
     permissions:
       # Uploading a file to the release.
       contents: write
+    # A newer push to the same PR cancels its build still in progress.
+    concurrency:
+      group: desktop-flatpak-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
