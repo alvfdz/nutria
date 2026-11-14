@@ -1,72 +1,51 @@
 /**
- * Packages `desktop/dist` into `desktop/release/linux-unpacked` with
- * electron-builder, versioned from the root `package.json` so the app and
- * the release it belongs to agree. Run `npm run build` first.
+ * Packages `desktop/dist` with electron-builder for the system it runs on,
+ * versioned from the root `package.json` so the app and the release it
+ * belongs to agree. Run `npm run build` first.
+ *
+ * - Linux: the unpacked app, `release/linux-unpacked`, which
+ *   `scripts/flatpak.mjs` wraps in a Flatpak.
+ * - Windows: an installer, `release/nutria-<version>-x64-setup.exe`.
+ *
+ * An app can only be packaged on the system it is for: Nutria's server holds
+ * binaries compiled for the system `next build` ran on.
  */
 import { spawnSync } from "node:child_process";
-import { cp, readFile, readdir, readlink, rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+/** electron-builder's flag for each system the app is packaged for. */
+const PLATFORM_FLAGS = { linux: "--linux", win32: "--win" };
+
 const desktop = fileURLToPath(new URL("..", import.meta.url));
+const release = path.join(desktop, "release");
 const { version } = JSON.parse(
   await readFile(path.join(desktop, "..", "package.json"), "utf8"),
 );
-const unpacked = path.join(desktop, "release", "linux-unpacked");
 
-await rm(unpacked, { recursive: true, force: true });
+const flag = PLATFORM_FLAGS[process.platform];
+if (!flag) {
+  console.error(`The desktop app isn't packaged for ${process.platform} yet.`);
+  process.exit(1);
+}
 
+// Only what this script makes: the Flatpak's files in `release` stay.
+for (const leftover of ["linux-unpacked", "win-unpacked"]) {
+  await rm(path.join(release, leftover), { recursive: true, force: true });
+}
+
+// Run through Node rather than `node_modules/.bin`, whose launcher is a
+// shell script on one system and a `.cmd` file on the other.
+const cli = createRequire(import.meta.url).resolve("electron-builder/cli.js");
 const { status } = spawnSync(
-  path.join(desktop, "node_modules", ".bin", "electron-builder"),
-  [
-    "--linux",
-    "dir",
-    "--publish",
-    "never",
-    `-c.extraMetadata.version=${version}`,
-  ],
+  process.execPath,
+  [cli, flag, "--publish", "never", `-c.extraMetadata.version=${version}`],
   { cwd: desktop, stdio: "inherit" },
 );
 if (status !== 0) process.exit(status ?? 1);
 
-// Nutria's standalone server and its migrations go in as plain folders, where
-// `main.ts` looks for them once packaged.
-for (const folder of ["server", "migrations"]) {
-  await cp(
-    path.join(desktop, "dist", folder),
-    path.join(unpacked, "resources", folder),
-    { recursive: true, verbatimSymlinks: true },
-  );
-}
-
-// Last line of defense: `build.mjs` already keeps `.env` files out, and
-// links relative. An absolute link would point into this checkout, and work
-// here while breaking on every other machine.
-const entries = await readdir(unpacked, {
-  withFileTypes: true,
-  recursive: true,
-});
-const problems = [];
-for (const entry of entries) {
-  const file = path.join(entry.parentPath, entry.name);
-  if (entry.name.startsWith(".env")) {
-    problems.push(`${file}: an .env file`);
-  } else if (entry.isSymbolicLink()) {
-    const target = await readlink(file);
-    const resolved = path.resolve(entry.parentPath, target);
-    if (
-      path.isAbsolute(target) ||
-      path.relative(unpacked, resolved).startsWith("..")
-    ) {
-      problems.push(`${file}: links outside the app, to ${target}`);
-    }
-  }
-}
-if (problems.length > 0) {
-  console.error(`Refusing to package:\n${problems.join("\n")}`);
-  process.exit(1);
-}
-
 console.log(
-  `Packaged Nutria ${version} into ${path.relative(process.cwd(), unpacked)}`,
+  `Packaged Nutria ${version} into ${path.relative(process.cwd(), release)}`,
 );
