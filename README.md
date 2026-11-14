@@ -53,8 +53,9 @@ Then open [http://localhost:3000](http://localhost:3000). The
 explains each setting, reverse proxies and updates.
 
 No server? Nutria also comes as a desktop app for
-[Linux](https://alvfdz.github.io/nutria/desktop/linux/) and
-[Windows](https://alvfdz.github.io/nutria/desktop/windows/), with nothing to
+[Linux](https://alvfdz.github.io/nutria/desktop/linux/),
+[Windows](https://alvfdz.github.io/nutria/desktop/windows/) and
+[macOS](https://alvfdz.github.io/nutria/desktop/macos/), with nothing to
 configure. Self-hosting remains the main, best-supported way to
 run it.
 
