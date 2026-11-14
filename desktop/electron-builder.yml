@@ -1,6 +1,7 @@
 # Packages the build in `dist/` (see `scripts/build.mjs`) for the system
 # `scripts/package.mjs` runs on: an unpacked app on Linux, which
-# `scripts/flatpak.mjs` wraps in a Flatpak, and an installer on Windows.
+# `scripts/flatpak.mjs` wraps in a Flatpak, an installer on Windows and a
+# disk image on macOS.
 appId: io.github.alvfdz.Nutria
 productName: Nutria
 executableName: nutria
@@ -39,3 +40,30 @@ win:
 # administrator rights. Uninstalling leaves the data folder in place.
 nsis:
   artifactName: nutria-${version}-${arch}-setup.${ext}
+
+# For the processor it is built on: Nutria's server holds binaries compiled
+# for it, so one app can't serve both Apple and Intel processors.
+mac:
+  target: dmg
+  # On macOS this also names the app people see, `Nutria.app`.
+  executableName: Nutria
+  # The acorn on a tile, with the margin and rounded shape macOS icons have:
+  # macOS doesn't add them itself. electron-builder turns it into the `.icns`
+  # macOS wants.
+  icon: icons/icon-mac.png
+  category: public.app-category.healthcare-fitness
+  # An ad-hoc signature: one with no certificate behind it. A Mac with an
+  # Apple processor runs no unsigned code at all, and calls an app without a
+  # valid signature "damaged". macOS still warns that it can't check the app,
+  # and the documentation tells people how to go on. `scripts/package.mjs`
+  # checks the signature is there.
+  identity: "-"
+  # Only notarization needs it, and with an ad-hoc signature it would keep
+  # the app from loading Electron's own libraries.
+  hardenedRuntime: false
+  notarize: false
+
+dmg:
+  artifactName: nutria-${version}-${arch}.${ext}
+  # No update metadata: the app doesn't update itself.
+  writeUpdateInfo: false

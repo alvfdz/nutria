@@ -34,8 +34,12 @@ const resourcesDir = app.isPackaged ? process.resourcesPath : __dirname;
 // Left alone, Chromium tags its Wayland surface with a color profile and the
 // compositor re-encodes it for the display, which lifts the dark theme's
 // near-black background (#09090b came out as #111113).
-app.commandLine.appendSwitch("force-color-profile", "srgb");
-app.commandLine.appendSwitch("disable-features", "WaylandWpColorManagerV1");
+// macOS manages color itself: there the switch would send sRGB colors
+// unconverted to a wide-gamut display, which shows them oversaturated.
+if (process.platform !== "darwin") {
+  app.commandLine.appendSwitch("force-color-profile", "srgb");
+  app.commandLine.appendSwitch("disable-features", "WaylandWpColorManagerV1");
+}
 
 let server: UtilityProcess | undefined;
 let window: BrowserWindow | undefined;
@@ -143,13 +147,17 @@ function createWindow(origin: string): void {
 
 /**
  * The window's menu, hidden until Alt is pressed. It exists for its keyboard
- * shortcuts: copy and paste, reload, zoom and full screen.
+ * shortcuts: copy and paste, reload, zoom and full screen. On macOS it is
+ * the menu bar at the top of the screen, and starts with the menu every app
+ * has there (About, Hide, Quit).
  *
  * @returns The menu.
  */
 function buildMenu(): Menu {
   return Menu.buildFromTemplate([
-    { label: "Nutria", submenu: [{ role: "quit" }] },
+    process.platform === "darwin"
+      ? { role: "appMenu" }
+      : { label: "Nutria", submenu: [{ role: "quit" }] },
     { role: "editMenu" },
     {
       label: "View",
