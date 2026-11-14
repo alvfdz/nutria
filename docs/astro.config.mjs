@@ -10,7 +10,7 @@ export default defineConfig({
     starlight({
       title: "Nutria",
       description:
-        "Self-hosted macro tracker and meal planner. Deployment and user guide.",
+        "Self-hosted macro tracker and meal planner. Deployment, desktop app and user guide.",
       logo: {
         light: "./brand/acorn.svg",
         dark: "./src/assets/acorn-dark.svg",
@@ -38,6 +38,10 @@ export default defineConfig({
             "deployment/updating",
             "deployment/password-reset",
           ],
+        },
+        {
+          label: "Desktop app",
+          items: ["desktop/linux"],
         },
         {
           label: "User guide",

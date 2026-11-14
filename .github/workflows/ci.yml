@@ -1,6 +1,7 @@
 # Runs the same checks as "Before you open a pull request" in CONTRIBUTING.md,
 # plus coverage, on every push to and pull request against `main`. The suite
-# mocks the Prisma client, so no database is needed.
+# mocks the Prisma client, so no database is needed. The desktop app
+# (desktop/) is its own package and gets its own job.
 name: CI
 
 on:
@@ -68,3 +69,22 @@ jobs:
           name: coverage
           path: coverage/
           retention-days: 14
+
+  # The desktop app's own checks. Its tests run the repository's migrations
+  # on the embedded database (PGlite), so they need no service either. The
+  # app itself is only built for a release: see `desktop-release.yml`.
+  desktop:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
