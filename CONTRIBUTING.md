@@ -240,7 +240,10 @@ keeps them as the `nutria-macos-arm64` and `nutria-macos-x64` artifacts of
 the run.
 
 The icon, `desktop/icons/icon.png`, is `src/app/icon.svg` rendered at
-512 × 512. Render it again when the icon changes.
+512 × 512. macOS has its own, `desktop/icons/icon-mac.png`: the same acorn
+on a dark tile with the margin and rounded shape every icon has there, since
+macOS adds neither itself. It is `desktop/icons/icon-mac.svg` rendered at
+1024 × 1024. Render both again when the icon changes.
 
 ### How a build is put together
 

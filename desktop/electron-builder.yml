@@ -47,8 +47,10 @@ mac:
   target: dmg
   # On macOS this also names the app people see, `Nutria.app`.
   executableName: Nutria
-  # electron-builder turns it into the `.icns` macOS wants.
-  icon: icons/icon.png
+  # The acorn on a tile, with the margin and rounded shape macOS icons have:
+  # macOS doesn't add them itself. electron-builder turns it into the `.icns`
+  # macOS wants.
+  icon: icons/icon-mac.png
   category: public.app-category.healthcare-fitness
   # An ad-hoc signature: one with no certificate behind it. A Mac with an
   # Apple processor runs no unsigned code at all, and calls an app without a
