@@ -41,7 +41,7 @@ export default defineConfig({
         },
         {
           label: "Desktop app",
-          items: ["desktop/linux", "desktop/windows"],
+          items: ["desktop/linux", "desktop/windows", "desktop/macos"],
         },
         {
           label: "User guide",

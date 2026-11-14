@@ -10,7 +10,7 @@ The desktop app is Nutria in a window on your own computer. There is no server t
 It is for people who would rather not run a server. [Self-hosting](/nutria/deployment/self-hosting/) remains the main way to run Nutria, and the one to choose if you want to reach it from your phone or from more than one device.
 
 :::note[Other systems]
-This page is about the Flatpak, for 64-bit Intel and AMD computers. There is also a [Windows app](/nutria/desktop/windows/). A macOS version is planned.
+This page is about the Flatpak, for 64-bit Intel and AMD computers. There are also apps for [Windows](/nutria/desktop/windows/) and [macOS](/nutria/desktop/macos/).
 :::
 
 ## Install
