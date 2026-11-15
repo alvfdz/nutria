@@ -159,6 +159,12 @@ instead of changing it:
   recording them in Prisma's own table.
 - `src/settings.ts` keeps the generated `BETTER_AUTH_SECRET` and the port in
   the app's data folder.
+- `src/password.ts` backs the **Reset password…** menu item: it sets a
+  generated password with the same code as `auth:reset-password`, and
+  `src/password-window.html` shows it once.
+
+It reuses code from the root's `src/`, so install the root's packages first
+(`npm install` at the repository root), then the desktop's:
 
 ```bash
 cd desktop
