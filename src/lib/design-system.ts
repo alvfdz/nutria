@@ -24,3 +24,10 @@ export const CARD_TITLE_CLASS = "text-base/6 font-semibold";
  * sets `tabular-nums` again for the same reason.
  */
 export const OVERLAY_THEME_CLASS = "nutria-theme tabular-nums";
+
+/**
+ * A link inside a line of text, such as a source credit or a hint: `foreground`
+ * and underlined, so it stands out from the muted text around it.
+ */
+export const INLINE_LINK_CLASS =
+  "text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 outline-none focus-visible:ring-3";

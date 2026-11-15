@@ -84,9 +84,14 @@ describe("LoginPage", () => {
     expect(redirect).toHaveBeenCalledWith("/meals");
   });
 
-  test("points a locked-out owner at the reset command", async () => {
+  test("points a locked-out owner at the password reset guide", async () => {
     render(await page());
 
-    expect(screen.getByText("reset-password")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "See how to reset it" }),
+    ).toHaveAttribute(
+      "href",
+      "https://alvfdz.github.io/nutria/deployment/password-reset/",
+    );
   });
 });

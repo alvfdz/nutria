@@ -18,6 +18,7 @@ import {
 import { startDatabase, type EmbeddedDatabase } from "./database.ts";
 import { ENV, type ServerMessage, type WindowMessage } from "./messages.ts";
 import { MigrationError } from "./migrate.ts";
+import { resetOwnerPassword } from "./password.ts";
 import { LOOPBACK } from "./settings.ts";
 
 /** How long the server may take to answer its first request. */
@@ -69,8 +70,27 @@ async function waitUntilServing(origin: string): Promise<void> {
 
 let database: EmbeddedDatabase | undefined;
 
+/**
+ * Gives the owner a new password and tells the window process the outcome.
+ *
+ * @returns Once the outcome is sent.
+ */
+async function resetPassword(): Promise<void> {
+  try {
+    if (!database) throw new Error("The database is not running.");
+    const { email, password } = await resetOwnerPassword(database.url);
+    send({ type: "password-reset", email, password });
+  } catch (error) {
+    console.error(error);
+    send({ type: "password-reset-failed", message: (error as Error).message });
+  }
+}
+
 process.parentPort.on("message", ({ data }: { data: WindowMessage }) => {
-  if (data.type !== "shutdown") return;
+  if (data.type === "reset-password") {
+    void resetPassword();
+    return;
+  }
 
   void (async () => {
     try {

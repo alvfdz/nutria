@@ -91,7 +91,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      # The desktop app reuses code from `src/`, whose packages (such as
+      # Better Auth) resolve from the root's `node_modules`.
+      - run: npm ci
+        working-directory: .
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
