@@ -1,7 +1,7 @@
 {
   "name": "nutria-desktop",
   "productName": "Nutria",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "license": "MIT",
   "description": "Nutria as a desktop app: the same server, in a window, with an embedded database.",

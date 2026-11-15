@@ -276,15 +276,30 @@ checked out with Windows line endings would count as a different one.
 
 ### Releases
 
-Publishing a GitHub release runs `.github/workflows/desktop-release.yml`,
-which builds the Flatpak, the Windows installer and the macOS disk images
-with the same scripts and attaches them to the release. The app takes its
-version from the root `package.json`, and the workflow fails when the
-release tag doesn't match it. A pull request that touches `desktop/` builds
-them too and keeps them as the `nutria-flatpak`, `nutria-windows`,
-`nutria-macos-arm64` and `nutria-macos-x64` artifacts of the run, so you can
-try a change on a system you don't have. To try the builds on any other
-branch, run the workflow by hand.
+Releases are immutable: once a release is published, no file can be added to
+it or changed. So a release starts as a draft, and
+`.github/workflows/desktop-release.yml` publishes it once the Flatpak, the
+Windows installer and the macOS disk images are built, with the same scripts,
+and attached to it. After bumping the version and merging the bump:
+
+```bash
+gh release create vX.Y.Z --draft --target main --title vX.Y.Z --notes-file notes.md
+gh workflow run desktop-release.yml -f tag=vX.Y.Z
+```
+
+The workflow builds every file from the commit the draft targets, publishes
+the release, which creates its tag, and then deploys the documentation site
+from that tag. It stops before building when the release isn't a draft, or
+when its tag doesn't match the version in the root `package.json`, which the
+app takes its version from. If a build fails, the draft stays unpublished:
+fix the cause and run the workflow again. Don't publish the draft by hand, or
+the release goes out without its files for good.
+
+A pull request that touches `desktop/` builds the files too and keeps them as
+the `nutria-flatpak`, `nutria-windows`, `nutria-macos-arm64` and
+`nutria-macos-x64` artifacts of the run, so you can try a change on a system
+you don't have. To try the builds on any other branch, run the workflow by
+hand with no tag.
 
 Bump the runtime in the manifest (`runtime-version` and `base-version`) by
 hand when Flathub announces the current one's end of life.
@@ -294,8 +309,8 @@ hand when Flathub announces the current one's end of life.
 The site in `docs/` is built with Astro Starlight and published to GitHub
 Pages from the latest release, built from its tag
 (`.github/workflows/docs.yml`), so it always matches the version self-hosters
-run. It deploys when that release is published, or promoted from a
-pre-release; other releases, such as a patch on an older line, don't replace
+run. It deploys when the desktop release workflow publishes that release, or when
+it is promoted from a pre-release; other releases, such as a patch on an older line, don't replace
 it. Docs changes merged to `main` are built there but go live with the next
 release, so an urgent fix goes out as a patch release. To redeploy the latest
 release's docs (after a failed deployment, say), run the workflow by hand on
