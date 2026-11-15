@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { makeUser, testUser } from "@test/factories";
+import packageJson from "../../../../../../package.json";
 import { GET } from "../route";
 
 vi.mock("@/lib/auth/session", () => ({
@@ -124,7 +125,7 @@ describe("GET /api/foodfacts/search", () => {
     expect(String(url)).toContain("https://search.openfoodfacts.org/search");
     expect(String(url)).toContain("q=chicken");
     expect(init.headers["User-Agent"]).toBe(
-      "Nutria/0.1.0 (+https://github.com/alvfdz/nutria)",
+      `Nutria/${packageJson.version} (+https://github.com/alvfdz/nutria)`,
     );
   });
 
