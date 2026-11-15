@@ -28,7 +28,7 @@ Open the Apple menu and choose **About This Mac**. It shows either **Chip**, fol
 :::
 
 :::note
-The macOS app ships with the releases after v0.1.0. A release with no `.dmg` file under Assets doesn't have one.
+The macOS app ships with v0.2.0 and later releases. A release with no `.dmg` file under Assets doesn't have one.
 :::
 
 ## First launch
