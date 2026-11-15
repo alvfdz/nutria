@@ -1,14 +1,26 @@
 # Builds the desktop app with the same scripts contributors run locally and
-# attaches the results to the GitHub release that triggered the run, where
-# the documentation tells people to download them from:
+# attaches the results to a GitHub release, where the documentation tells
+# people to download them from:
 #
 # - the Flatpak, for Linux (`npm run desktop:flatpak`);
 # - the installer, for Windows (`npm run desktop:package`);
 # - the disk images, for macOS (`npm run desktop:package`), one for Apple
 #   processors and one for Intel ones.
 #
-# Run it by hand ("Run workflow") to try the builds on any branch: the files
-# are then only kept as artifacts of the run.
+# Releases are immutable: once published, no file can be added to them. So a
+# release starts as a draft, and this workflow publishes it once every file
+# is attached:
+#
+#   gh release create vX.Y.Z --draft --target main --title vX.Y.Z --notes-file notes.md
+#   gh workflow run desktop-release.yml -f tag=vX.Y.Z
+#
+# The draft's target is resolved to a commit once, at the start, and every
+# build and the release's tag use that commit, even if `main` moves on.
+# Releases published by this workflow don't trigger others, so it starts the
+# docs deployment on the new tag itself.
+#
+# Run it by hand with no tag to try the builds on any branch: the files are
+# then only kept as artifacts of the run.
 #
 # A pull request that touches the desktop app builds them too, kept the same
 # way: each can only be built on the system it is for, and not every
@@ -16,20 +28,76 @@
 name: Desktop release
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the draft release to build, attach to and publish (vX.Y.Z). Leave empty to only build.
+        required: false
+        type: string
   pull_request:
     paths: ["desktop/**", ".github/workflows/desktop-release.yml"]
 
 permissions:
   contents: read
 
+# Two runs publishing the same release would race each other.
+concurrency:
+  group: desktop-release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  flatpak:
+  # Finds the draft release and the commit to build it from.
+  prepare:
     runs-on: ubuntu-latest
     permissions:
-      # Uploading a file to the release.
+      # Draft releases are only visible with write access.
+      contents: write
+    outputs:
+      tag: ${{ inputs.tag }}
+      sha: ${{ steps.draft.outputs.sha }}
+    steps:
+      - id: draft
+        name: Find the draft release
+        if: ${{ inputs.tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          found=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq '.[] | select(.tag_name == $ENV.TAG) | "\(.draft) \(.target_commitish)"')
+          if [ -z "$found" ]; then
+            echo "::error::No release has the tag $TAG. Create it as a draft first: gh release create $TAG --draft --target main"
+            exit 1
+          fi
+          read -r draft target <<< "$found"
+          if [ "$draft" != true ]; then
+            echo "::error::$TAG is already published, and a published release can't take new files. Release a new version instead."
+            exit 1
+          fi
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$target" --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        if: ${{ inputs.tag != '' }}
+        with:
+          ref: ${{ steps.draft.outputs.sha }}
+      # The files are named and versioned from package.json, so a release
+      # whose tag disagrees with it would publish mislabeled files.
+      - name: Check the tag matches package.json
+        if: ${{ inputs.tag != '' }}
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::package.json is at $version but the release tag is $TAG"
+            exit 1
+          fi
+
+  flatpak:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      # Uploading a file to the draft release.
       contents: write
     # A newer push to the same PR cancels its build still in progress.
     concurrency:
@@ -37,6 +105,9 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Empty, the commit that triggered the run.
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -44,18 +115,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             desktop/package-lock.json
-      # The bundle is named and versioned from package.json, so a release
-      # whose tag disagrees with it would publish a mislabeled file.
-      - name: Check the tag matches package.json
-        if: ${{ github.event_name == 'release' }}
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version="v$(node -p "require('./package.json').version")"
-          if [ "$version" != "$TAG" ]; then
-            echo "::error::package.json is at $version but the release tag is $TAG"
-            exit 1
-          fi
       - name: Install Flatpak and flatpak-builder
         run: |
           sudo apt-get update
@@ -76,19 +135,20 @@ jobs:
           path: desktop/release/*.flatpak
           if-no-files-found: error
           retention-days: 14
-      - name: Attach the bundle to the release
-        if: ${{ github.event_name == 'release' }}
+      - name: Attach the bundle to the draft release
+        if: ${{ needs.prepare.outputs.tag != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload "$TAG" desktop/release/*.flatpak --clobber
 
   # Unsigned: Windows warns on the first launch that it doesn't know the
   # publisher. The documentation tells people how to go on.
   windows:
+    needs: prepare
     runs-on: windows-latest
     permissions:
-      # Uploading a file to the release.
+      # Uploading a file to the draft release.
       contents: write
     # A newer push to the same PR cancels its build still in progress.
     concurrency:
@@ -99,6 +159,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Empty, the commit that triggered the run.
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -106,16 +169,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             desktop/package-lock.json
-      - name: Check the tag matches package.json
-        if: ${{ github.event_name == 'release' }}
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version="v$(node -p "require('./package.json').version")"
-          if [ "$version" != "$TAG" ]; then
-            echo "::error::package.json is at $version but the release tag is $TAG"
-            exit 1
-          fi
       - run: npm ci
       - run: npm ci
         working-directory: desktop
@@ -127,16 +180,17 @@ jobs:
           path: desktop/release/*.exe
           if-no-files-found: error
           retention-days: 14
-      - name: Attach the installer to the release
-        if: ${{ github.event_name == 'release' }}
+      - name: Attach the installer to the draft release
+        if: ${{ needs.prepare.outputs.tag != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload "$TAG" desktop/release/*.exe --clobber
 
   # Signed ad hoc, with no certificate: macOS warns on the first launch that
   # it can't check the app. The documentation tells people how to go on.
   macos:
+    needs: prepare
     strategy:
       # One processor failing says nothing about the other: let both finish.
       fail-fast: false
@@ -149,7 +203,7 @@ jobs:
             runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
     permissions:
-      # Uploading a file to the release.
+      # Uploading a file to the draft release.
       contents: write
     # A newer push to the same PR cancels its build still in progress.
     concurrency:
@@ -157,6 +211,9 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Empty, the commit that triggered the run.
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -164,16 +221,6 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             desktop/package-lock.json
-      - name: Check the tag matches package.json
-        if: ${{ github.event_name == 'release' }}
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version="v$(node -p "require('./package.json').version")"
-          if [ "$version" != "$TAG" ]; then
-            echo "::error::package.json is at $version but the release tag is $TAG"
-            exit 1
-          fi
       - run: npm ci
       - run: npm ci
         working-directory: desktop
@@ -193,9 +240,33 @@ jobs:
           path: desktop/release/*.dmg
           if-no-files-found: error
           retention-days: 14
-      - name: Attach the disk image to the release
-        if: ${{ github.event_name == 'release' }}
+      - name: Attach the disk image to the draft release
+        if: ${{ needs.prepare.outputs.tag != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload "$TAG" desktop/release/*.dmg --clobber
+
+  # Runs only once every file is attached: after this, the release is
+  # immutable. A failed build leaves the draft unpublished, to run again.
+  publish:
+    needs: [prepare, flatpak, windows, macos]
+    if: ${{ needs.prepare.outputs.tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      # Publishing the release, which creates its tag.
+      contents: write
+      # Starting the docs deployment.
+      actions: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --draft=false
+      - name: Deploy the docs from the new tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"

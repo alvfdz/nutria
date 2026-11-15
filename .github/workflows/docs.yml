@@ -10,9 +10,10 @@
 # Settings → Environments → github-pages must allow deployments from tags
 # matching `v*`. Docs changes on `main` go live with the next release.
 #
-# Releases created with the default GITHUB_TOKEN (by another workflow, say)
-# don't trigger this workflow; run it by hand on their tag, or create them
-# with a different token.
+# Releases published with the default GITHUB_TOKEN (by another workflow, say)
+# don't trigger this workflow; run it by hand on their tag, or publish them
+# with a different token. The desktop release workflow, which publishes every
+# release, starts it on the new tag itself.
 #
 # Pushes to `main` and pull requests that touch the docs only build them, so
 # a broken page fails there instead of at release time.

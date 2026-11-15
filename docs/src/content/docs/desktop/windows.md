@@ -26,7 +26,7 @@ The installer isn't signed: a signature that Windows recognizes has to be bought
 :::
 
 :::note
-The Windows app ships with v0.2.0 and later releases. A release with no `-setup.exe` file under Assets doesn't have one.
+The Windows app ships with v0.2.1 and later releases. A release with no `-setup.exe` file under Assets doesn't have one.
 :::
 
 ## First launch
